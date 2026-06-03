@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>配置図 — D004_大日測量設計</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Meiryo','Hiragino Sans',sans-serif;}
+body{background:#f4f4f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+.hdr{background:#185FA5;color:#fff;padding:8px 14px;display:flex;align-items:center;flex-shrink:0;}
+.hdr h1{font-size:14px;font-weight:500;}
+.sum{background:#fff;border-bottom:1px solid #ddd;padding:4px 14px;display:flex;gap:16px;flex-shrink:0;}
+.si{display:flex;flex-direction:column;align-items:center;}
+.sn{font-size:18px;font-weight:600;color:#185FA5;line-height:1;}
+.sl{font-size:10px;color:#888;margin-top:1px;}
+.filters{background:#fff;border-bottom:1px solid #ddd;padding:5px 14px;display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;}
+.filters label{font-size:11px;color:#666;}
+.filters select{font-size:11px;padding:2px 6px;border:1px solid #ddd;border-radius:6px;}
+.filters input{font-size:11px;padding:2px 8px;border:1px solid #ddd;border-radius:6px;width:120px;}
+.fcnt{font-size:11px;color:#888;margin-left:auto;}
+.main{display:flex;flex:1;overflow:hidden;}
+.list{width:230px;flex-shrink:0;overflow-y:auto;background:#f8f8f8;border-right:2px solid #ddd;}
+.list-item{display:flex;gap:8px;padding:8px;border-bottom:1px solid #eee;cursor:pointer;transition:background 0.1s;align-items:flex-start;}
+.list-item:hover{background:#EBF3FF;}
+.list-item.active{background:#D6E8FA;border-left:3px solid #185FA5;}
+.list-item.hidden{display:none;}
+.li-thumb{width:72px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0;background:#ddd;}
+.li-nophoto{width:72px;height:54px;border-radius:4px;flex-shrink:0;background:#e8e8e8;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.li-info{flex:1;min-width:0;}
+.li-no{font-size:12px;font-weight:600;color:#222;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.li-badge{font-size:9px;color:#fff;padding:1px 5px;border-radius:6px;}
+.li-sub{font-size:10px;color:#666;margin-top:2px;line-height:1.5;}
+.li-lh{font-weight:600;color:#C0392B;}
+.mapside{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.maptabs{background:#fff;border-bottom:1px solid #ddd;padding:4px 10px;display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.tab{padding:3px 12px;border-radius:12px;font-size:11px;cursor:pointer;border:1px solid #ddd;background:#f8f8f5;}
+.tab.active{background:#185FA5;color:#fff;border-color:#185FA5;}
+#map{flex:1;width:100%;border:none;z-index:1;}
+.detail{background:#fff;border-top:2px solid #185FA5;padding:6px 14px;flex-shrink:0;display:none;max-height:140px;overflow-y:auto;}
+.detail.show{display:flex;gap:12px;align-items:flex-start;}
+.det-img{width:80px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;}
+.det-info{flex:1;font-size:11px;}
+.det-title{font-size:13px;font-weight:600;margin-bottom:4px;}
+.det-row{display:flex;gap:8px;margin-bottom:2px;}
+.det-lb{color:#888;min-width:50px;}
+.det-vr{font-weight:600;color:#C0392B;}
+.det-links{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
+.det-links a{font-size:10px;color:#185FA5;text-decoration:none;background:#EBF3FF;padding:2px 6px;border-radius:8px;}
+.det-links a:hover{background:#185FA5;color:#fff;}
+.det-close{margin-left:auto;cursor:pointer;color:#aaa;font-size:16px;align-self:flex-start;}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>🗺 配置図 — D004_大日測量設計</h1>
+  <span style="margin-left:auto;font-size:11px;opacity:.8;">写真をクリック→地図がジャンプ</span>
+</div>
+<div class="sum">
+  <div class="si"><span class="sn">7</span><span class="sl">総箇所</span></div>
+  <div class="si"><span class="sn">13</span><span class="sl">写真枚数</span></div>
+  <div class="si"><span class="sn" id="s-visible">7</span><span class="sl">表示中</span></div>
+</div>
+<div class="filters">
+  <label>工種</label>
+  <select id="f-kouken" onchange="applyFilter()">
+    <option value="">すべて</option>
+    <option>護岸工</option><option>舗装工</option><option>道路土工</option>
+    <option>法面工</option><option>橋梁工</option><option>排水工</option>
+    <option>砂防工</option><option>（未確定）</option>
+  </select>
+  <label>検索</label>
+  <input id="f-search" type="text" placeholder="No番号・工種・メモ" oninput="applyFilter()">
+  <span class="fcnt" id="f-cnt">7/7 件</span>
+</div>
+<div class="main">
+  <div class="list" id="list"></div>
+  <div class="mapside">
+    <div class="maptabs">
+      <span class="tab active" onclick="setMap('std',this)">標準地図</span>
+      <span class="tab" onclick="setMap('photo',this)">空中写真</span>
+      <span class="tab" onclick="setMap('pale',this)">淡色地図</span>
+    </div>
+    <div id="map" style="flex:1;width:100%;"></div>
+    <div class="detail" id="detail">
+      <img class="det-img" id="det-img" src="" alt="">
+      <div class="det-info">
+        <div class="det-title" id="det-title"></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div class="det-row"><span class="det-lb">業者名</span><span id="det-gyosha"></span></div>
+            <div class="det-row"><span class="det-lb">撮影日</span><span id="det-date"></span></div>
+          </div>
+          <div>
+            <div class="det-row"><span class="det-lb">L 延長</span><span class="det-vr" id="det-L"></span></div>
+            <div class="det-row"><span class="det-lb">H 高さ</span><span class="det-vr" id="det-H"></span></div>
+            <div class="det-row"><span class="det-lb">写真枚数</span><span id="det-photos"></span></div>
+          </div>
+          <div>
+            <div class="det-row"><span class="det-lb">GPS</span><span id="det-gps" style="font-size:10px"></span></div>
+            <div class="det-row"><span class="det-lb">メモ</span><span id="det-memo" style="font-size:10px"></span></div>
+          </div>
+        </div>
+        <div class="det-links" id="det-links"></div>
+      </div>
+      <span class="det-close" onclick="closeDetail()">✕</span>
+    </div>
+  </div>
+</div>
+<script>
+var DATA = [
+{no:"No010",lat:33.32920555,lon:130.92836670000003,kouken:"排水工",color:"#1D9E75",L:"12.6",H:"8.4",gyosha:"D004_大日測量設計",hatchu:"",photos:3,date:"",status:"写真収集済",memo:"記入票OCR: NO=010, 工種=排水工, L=12.6m, H=8.4m, S=15.1m, コメント=排水工によ",notion_url:"https://app.notion.com/p/No010-37427629d28f8115a1e1dc2084aabcd6",thumb:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCABaAEgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwBv9nX3/Plcf9+m/wAKP7Ov/wDnyuP+/Tf4V6nKJC52lgd5zlWII9sU/wCT+7L+TV7H9pS/lX3nR9bf8p5WmnXgcF7G5K55Aibn9KtraKFAbSLwnB52Nz6V6V8n92X8mo+T+7L+TVLzCT+z+LE8U30PNBZgO/8AxKLwqWBT5GyB6Uq2ijrpF43T+Bh9a9ExL52ct5eem1s4qb5P7sv5NS+vvt+LD60+x5XLp920rNFp9yiE/KpiY4H5Uz+zr/8A58rj/v03+Fer/J/dl/JqPk/uy/k1V/aUv5V94/rb7HlH9nX3/Plcf9+m/wAKK9XGN67RIDuHXd0opPM5L7K+8axTfQdPFJIhWOUxMf4gAcfnTlVgoB5IHJ9akdZHjURSeWQeTs3ZqSMFIwshLsBy23Ga8g5iDB9KMH0qzlf7h/KjK/3D+VAGYlpdL968Z/qoHfPb8qtYPpSeTcnGLkjn/nkDn/P9atZX+6fyoG1bqVsH0owfSrOV/uH8qMr/AHD+VAisAc9KKncjacKR+FFJgV7n7N5KfamVVydpLlefwqeAqYgYdrJ2IbNV57pbdMyAkc4wu6mW+ox3DMkW4FeuYyo/UUwL+X/uj86Mv/dH51B5z+tI07KpYngDJpgQBbEMJPMAwx5MpAznP9av5f0H51k/2taBwvltnPGIfb6VeW4ZlDA8EZFJFSdyxl/7o/OjL/3R+dQec/rR5z+tMklkLbDkDH1oqIys3B6UVLAR8Ku7a7Z7KM0KAxxtce5FKUZ1XEjJg/w45pGhdlwLiRfcAVm5Mqw7yhR5QprQuduLiQYHbHP6Uht5CpH2qUZ78f4UuZ9wsP8AKFHlCn9qWjmY7Ij8oUeUKkoo5mFkRmMAZopzfdoq4u6JYyjJ9aKKYgyfWjJ9aKKADJ9aMn1oooAMn1oyfWiigAooooAKKKKYBUbzxRnDuAakooAb5iE43DmkEsbEAOCT0p9FABRRRQAUUUUAf//Z"},
+{no:"No011",lat:33.32920555,lon:130.92836670000003,kouken:"法面工",color:"#D85A30",L:"38.3",H:"4.1",gyosha:"D004_大日測量設計",hatchu:"",photos:3,date:"",status:"写真収集済",memo:"記入票OCR: NO=011, 工種=法面工, L=38.3m, H=4.1m, S=38.5m, コメント=法面工によ",notion_url:"https://app.notion.com/p/No011-37427629d28f81afa52ff177c5ceb702",thumb:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCABaAEgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwBv9nX3/Plcf9+m/wAKP7Ov/wDnyuP+/Tf4V6nKJC52lgd5zlWII9sU/wCT+7L+TV7H9pS/lX3nR9bf8p5WmnXgcF7G5K55Aibn9KtraKFAbSLwnB52Nz6V6V8n92X8mo+T+7L+TVLzCT+z+LE8U30PNBZgO/8AxKLwqWBT5GyB6Uq2ijrpF43T+Bh9a9FAk84k7vLz0w2cVL8n92X8mpfX32/Fh9afY8rl0+7aVmi0+5RCflUxMcD8qZ/Z1/8A8+Vx/wB+m/wr1f5P7sv5NR8n92X8mqv7Sl/KvvH9bfY8o/s6+/58rj/v03+FFerjG9dokB3Dru6UUnmcl9lfeNYpvoOnikkQrHKYmP8AEADj86cqsFAPJA5PrUjrI8aiKTyyDydm7NSRgpGFkJdgOW24zXkHMQYPpRg+lWcr/cP5UZX+4fyoAylsrtZt7XzMn9wrgdc+vpxVzB9KQQXQGPtbE7ic+UOnpVrK/wB0/lQNpLqVsH0owfSrOV/uH8qMr/cP5UCKwBz0oqdyNpwpH4UUmBXufs3kp9qZVXJ2kuV5/Cp4CpiBh2snYhs1Xnult0zICRzjC7qZb6jHcMyRbgV65jKj9RTAv5f+6Pzoy/8AdH51B5z+tHnP60wKwewLbxMow5/5akDdnJH61oZf0H51mi/tzdG2CYkVsf6vjOPWrfnP60kVJ3J8v/dH50Zf+6PzqDzn9aPOf1pkkshbYcgY+tFRGVm4PSipYCPhV3bXbPZRmhQGONrj3IpWjaRAFlaPB6rjn86RoXZcC4kX3AFZuTKsO8oUeUKa0Lnbi4kGB2xz+lIbeQqR9qlGe/H+FLmfcLD/AChR5Qp/alo5mOyI/KFHlCpKKOZhZEZjAGaKc33aKuLuiWMoyfWiimIMn1oyfWiigAyfWjJ9aKKADJ9aMn1oooAKKKKACiiimAVG88UZw7gGpKKAG+YhONw5pFlRiArAk0+igAooooAKKKKAP//Z"},
+{no:"No012",lat:33.32920555,lon:130.92836670000003,kouken:"排水工",color:"#BA7517",L:"40.1",H:"2.9",gyosha:"D004_大日測量設計",hatchu:"",photos:2,date:"",status:"写真収集済",memo:"記入票OCR: NO=012, 工種=排水工, L=40.1m, H=2.9m, S=40.2m, コメント=排水工によ",notion_url:"https://app.notion.com/p/No012-37427629d28f819c80e4d95889b4b2fe",thumb:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCABaAEgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwBv9nX3/Plcf9+m/wAKP7Ov/wDnyuP+/Tf4V6nKJC52lgd5zlWII9sU/wCT+7L+TV7H9pS/lX3nR9bf8p5WmnXgcF7G5K55Aibn9KtraKFAbSLwnB52Nz6V6V8n92X8mo+T+7L+TVLzCT+z+LE8U30PNBZgO/8AxKLwqWBT5GyB6Uq2ijrpF43T+Bh9a9FxJ52ct5eemGzipfk/uy/k1L6++34sPrT7Hlcun3bSs0Wn3KIT8qmJjgflTP7Ov/8AnyuP+/Tf4V6v8n92X8mo+T+7L+TVX9pS/lX3j+tvseUf2dff8+Vx/wB+m/wor1cY3rtEgO4dd3Sik8zkvsr7xrFN9B08UkiFY5TEx/iABx+dOVWCgHkgcn1qR1keNRFJ5ZB5OzdmpIwUjCyEuwHLbcZryDmIMH0owfSrOV/uH8qMr/cP5UAZiWl0v3rxn+qgd89vyq1g+lIsNyFx9qJOSc+UOnpVrK/3T+VA2rdStg+lGD6VZyv9w/lRlf7h/KgRWAOelFTuRtOFI/CikwK9z9m8lPtTKq5O0lyvP4VPAVMQMO1k7ENmq890tumZASOcYXdTLfUY7hmSLcCvXMZUfqKYF/L/AN0fnRl/QfnUHnP60ec/rTArA2DMJhKv3iA3mkDOc4rQy/oPzrM/tC3+2fZvKPmBtufK4zjPWrnnP60kVJ3J8v8A3R+dGX/uj86g85/Wjzn9aZJLIW2HIGPrRURlZuD0oqWAj4Vd212z2UZoUBjja49yKUozquJGTB/hxzSNC7LgXEi+4ArNyZVh3lCjyhTWhc7cXEgwO2Of0pDbyFSPtUoz34/wpcz7hYf5Qo8oU/tS0czHZEflCjyhUlFHMwsiMxgDNFOb7tFXF3RLGUZPrRRTEGT60ZPrRRQAZPrRk+tFFABk+tGT60UUAFFFFABRRRTAKjeeKM4dwDUlFADfMQnG4c0iyxsQFcEnpT6KACiiigAooooA/9k="},
+{no:"No004",lat:33.3289222,lon:130.9282056,kouken:"護岸工",color:"#534AB7",L:"63.9",H:"42.1",gyosha:"D004_大日測量設計",hatchu:"",photos:0,date:"2026:06:02 15:24:02",status:"写真収集済",memo:"記入票OCR: NO=004, 工種=護岸工, L=63.9m, H=42.1m, S=1m, 調査者=田中, コメント",notion_url:"https://app.notion.com/p/No004-37427629d28f81abb3e6d8a40c022db7",thumb:"data:image/jpeg;base64,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"},
+{no:"No1",lat:33.32920555,lon:130.92836670000003,kouken:"排水工",color:"#185FA5",L:"",H:"",gyosha:"D004_大日測量設計",hatchu:"",photos:1,date:"",status:"写真収集済",memo:"コンクリート製の排水桝が損傷し、表面に著しい劣化や欠損が見られる。桝の周辺の舗装面も一部破損しており、排水機能に支障をき",notion_url:"https://app.notion.com/p/No1-37427629d28f81feb4e6e800f505cbee",thumb:"data:image/jpeg;base64,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"},
+{no:"No004",lat:33.3294111,lon:130.9285278,kouken:"河川工",color:"#993556",L:"23.4",H:"6.9",gyosha:"D004_大日測量設計",hatchu:"",photos:2,date:"2026:06:02 15:26:39",status:"写真収集済",memo:"記入票OCR: NO=004, 工種=河川工, L=23.4m, H=6.9m, 調査者=田中",notion_url:"https://app.notion.com/p/No004-37427629d28f8115b6c5d736850dcd7e",thumb:"data:image/jpeg;base64,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"},
+{no:"No004",lat:33.3294889,lon:130.9284056,kouken:"田中",color:"#378ADD",L:"23",H:"15",gyosha:"D004_大日測量設計",hatchu:"",photos:2,date:"2026:06:02 15:27:42",status:"写真収集済",memo:"記入票OCR: NO=004, 工種=田中, L=23m, H=15m, S=147m, 調査者=（空欄）, コメント=",notion_url:"https://app.notion.com/p/No004-37427629d28f8138877cdcba4c8b1d8d",thumb:"data:image/jpeg;base64,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"}
+];
+var clat=33.32920555;var clon=130.92836670000003;
+
+// ── Leaflet 地図初期化（GSIタイル直接読込） ──────────────
+var map = L.map('map').setView([clat, clon], 16);
+
+var tileStd = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',
+  {attribution:'国土地理院', maxZoom:18});
+var tilePhoto = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',
+  {attribution:'国土地理院', maxZoom:18});
+var tilePale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
+  {attribution:'国土地理院', maxZoom:18});
+
+tileStd.addTo(map);  // 初期は標準地図
+
+function setMap(type, el){
+  map.removeLayer(tileStd); map.removeLayer(tilePhoto); map.removeLayer(tilePale);
+  if(type==='photo') tilePhoto.addTo(map);
+  else if(type==='pale') tilePale.addTo(map);
+  else tileStd.addTo(map);
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+}
+
+// ── ピン（番号付き円マーカー）を地図に配置 ──────────────
+var markers = [];
+DATA.forEach(function(d, i){
+  if(!d.lat || !d.lon) return;
+  var icon = L.divIcon({
+    className: 'pin-marker',
+    html: '<div style="background:'+d.color+';width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;box-shadow:0 2px 5px rgba(0,0,0,0.4)">'+(i+1)+'</div>',
+    iconSize: [26,26], iconAnchor: [13,13]
+  });
+  var m = L.marker([d.lat, d.lon], {icon:icon}).addTo(map);
+  m.bindTooltip(d.no+' '+d.kouken, {direction:'top'});
+  m.on('click', function(){ selectItem(i); });
+  markers.push(m);
+});
+
+// 全ピンが収まるように表示範囲を調整
+if(markers.length>0){
+  var grp = L.featureGroup(markers);
+  map.fitBounds(grp.getBounds().pad(0.3));
+}
+
+function buildList(){
+  var html='';
+  DATA.forEach(function(d,i){
+    var lh='';
+    if(d.L) lh+='L='+d.L+'m ';
+    if(d.H) lh+='H='+d.H+'m';
+    var thumbHtml=d.thumb
+      ?'<img class="li-thumb" src="'+d.thumb+'" alt="'+d.no+'">'
+      :'<div class="li-nophoto">📷</div>';
+    html+='<div class="list-item" id="li-'+i+'" onclick="selectItem('+i+')">'
+      +thumbHtml
+      +'<div class="li-info">'
+        +'<div class="li-no">'
+          +'<span style="background:'+d.color+';width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">'+(i+1)+'</span>'
+          +' '+d.no
+          +'<span class="li-badge" style="background:'+d.color+'">'+d.kouken+'</span>'
+        +'</div>'
+        +'<div class="li-sub">'
+          +(lh?'<span class="li-lh">'+lh.trim()+'</span><br>':'')
+          +d.gyosha+'<br>写真'+d.photos+'枚'
+        +'</div>'
+      +'</div></div>';
+  });
+  document.getElementById('list').innerHTML=html;
+}
+function selectItem(i){
+  var d=DATA[i];
+  if(d.lat && d.lon){
+    map.flyTo([d.lat, d.lon], 18, {duration:0.6});
+    if(markers[i]) markers[i].openTooltip();
+  }
+  document.querySelectorAll('.list-item').forEach(function(el){el.classList.remove('active');});
+  document.getElementById('li-'+i).classList.add('active');
+  var gmap='https://www.google.com/maps?q='+d.lat+','+d.lon;
+  var gsi='https://maps.gsi.go.jp/#18/'+d.lat+'/'+d.lon+'/';
+  if(d.thumb) document.getElementById('det-img').src=d.thumb;
+  else document.getElementById('det-img').style.display='none';
+  document.getElementById('det-title').textContent=d.no+' — '+d.kouken;
+  document.getElementById('det-title').style.color=d.color;
+  document.getElementById('det-gyosha').textContent=d.gyosha;
+  document.getElementById('det-date').textContent=d.date;
+  document.getElementById('det-L').textContent=d.L?d.L+' m':'―';
+  document.getElementById('det-H').textContent=d.H?d.H+' m':'―';
+  document.getElementById('det-photos').textContent=d.photos+' 枚';
+  document.getElementById('det-gps').textContent=d.lat+', '+d.lon;
+  document.getElementById('det-memo').textContent=d.memo;
+  document.getElementById('det-links').innerHTML=
+    '<a href="'+gmap+'" target="_blank">📍GoogleMap</a>'
+    +'<a href="'+gsi+'" target="_blank">🗾国土地理院</a>'
+    +(d.notion_url?'<a href="'+d.notion_url+'" target="_blank">📋Notion</a>':'');
+  document.getElementById('detail').classList.add('show');
+}
+function closeDetail(){document.getElementById('detail').classList.remove('show');document.querySelectorAll('.list-item').forEach(function(el){el.classList.remove('active');});}
+function applyFilter(){
+  var fk=document.getElementById('f-kouken').value;
+  var fq=document.getElementById('f-search').value.toLowerCase();
+  var cnt=0;
+  DATA.forEach(function(d,i){
+    var el=document.getElementById('li-'+i);
+    var show=true;
+    if(fk&&d.kouken!==fk) show=false;
+    if(fq&&!(d.no.toLowerCase().includes(fq)||d.kouken.toLowerCase().includes(fq)||d.memo.toLowerCase().includes(fq))) show=false;
+    el.classList.toggle('hidden',!show);
+    if(show) cnt++;
+  });
+  document.getElementById('f-cnt').textContent=cnt+'/'+DATA.length+' 件';
+  document.getElementById('s-visible').textContent=cnt;
+}
+buildList();
+setTimeout(function(){ map.invalidateSize(); }, 300);
+</script>
+</body>
+</html>
