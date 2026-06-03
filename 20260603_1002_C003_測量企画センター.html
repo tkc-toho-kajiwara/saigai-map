@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>配置図 — C003_測量企画センター</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Meiryo','Hiragino Sans',sans-serif;}
+body{background:#f4f4f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+.hdr{background:#185FA5;color:#fff;padding:8px 14px;display:flex;align-items:center;flex-shrink:0;}
+.hdr h1{font-size:14px;font-weight:500;}
+.sum{background:#fff;border-bottom:1px solid #ddd;padding:4px 14px;display:flex;gap:16px;flex-shrink:0;}
+.si{display:flex;flex-direction:column;align-items:center;}
+.sn{font-size:18px;font-weight:600;color:#185FA5;line-height:1;}
+.sl{font-size:10px;color:#888;margin-top:1px;}
+.filters{background:#fff;border-bottom:1px solid #ddd;padding:5px 14px;display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;}
+.filters label{font-size:11px;color:#666;}
+.filters select{font-size:11px;padding:2px 6px;border:1px solid #ddd;border-radius:6px;}
+.filters input{font-size:11px;padding:2px 8px;border:1px solid #ddd;border-radius:6px;width:120px;}
+.fcnt{font-size:11px;color:#888;margin-left:auto;}
+.main{display:flex;flex:1;overflow:hidden;}
+.list{width:230px;flex-shrink:0;overflow-y:auto;background:#f8f8f8;border-right:2px solid #ddd;}
+.list-item{display:flex;gap:8px;padding:8px;border-bottom:1px solid #eee;cursor:pointer;transition:background 0.1s;align-items:flex-start;}
+.list-item:hover{background:#EBF3FF;}
+.list-item.active{background:#D6E8FA;border-left:3px solid #185FA5;}
+.list-item.hidden{display:none;}
+.li-thumb{width:72px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0;background:#ddd;}
+.li-nophoto{width:72px;height:54px;border-radius:4px;flex-shrink:0;background:#e8e8e8;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.li-info{flex:1;min-width:0;}
+.li-no{font-size:12px;font-weight:600;color:#222;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.li-badge{font-size:9px;color:#fff;padding:1px 5px;border-radius:6px;}
+.li-sub{font-size:10px;color:#666;margin-top:2px;line-height:1.5;}
+.li-lh{font-weight:600;color:#C0392B;}
+.mapside{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.maptabs{background:#fff;border-bottom:1px solid #ddd;padding:4px 10px;display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.tab{padding:3px 12px;border-radius:12px;font-size:11px;cursor:pointer;border:1px solid #ddd;background:#f8f8f5;}
+.tab.active{background:#185FA5;color:#fff;border-color:#185FA5;}
+#map{flex:1;width:100%;border:none;z-index:1;}
+.detail{background:#fff;border-top:2px solid #185FA5;padding:6px 14px;flex-shrink:0;display:none;max-height:140px;overflow-y:auto;}
+.detail.show{display:flex;gap:12px;align-items:flex-start;}
+.det-img{width:80px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;}
+.det-info{flex:1;font-size:11px;}
+.det-title{font-size:13px;font-weight:600;margin-bottom:4px;}
+.det-row{display:flex;gap:8px;margin-bottom:2px;}
+.det-lb{color:#888;min-width:50px;}
+.det-vr{font-weight:600;color:#C0392B;}
+.det-links{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
+.det-links a{font-size:10px;color:#185FA5;text-decoration:none;background:#EBF3FF;padding:2px 6px;border-radius:8px;}
+.det-links a:hover{background:#185FA5;color:#fff;}
+.det-close{margin-left:auto;cursor:pointer;color:#aaa;font-size:16px;align-self:flex-start;}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>🗺 配置図 — C003_測量企画センター</h1>
+  <span style="margin-left:auto;font-size:11px;opacity:.8;">写真をクリック→地図がジャンプ</span>
+</div>
+<div class="sum">
+  <div class="si"><span class="sn">6</span><span class="sl">総箇所</span></div>
+  <div class="si"><span class="sn">17</span><span class="sl">写真枚数</span></div>
+  <div class="si"><span class="sn" id="s-visible">6</span><span class="sl">表示中</span></div>
+</div>
+<div class="filters">
+  <label>工種</label>
+  <select id="f-kouken" onchange="applyFilter()">
+    <option value="">すべて</option>
+    <option>護岸工</option><option>舗装工</option><option>道路土工</option>
+    <option>法面工</option><option>橋梁工</option><option>排水工</option>
+    <option>砂防工</option><option>（未確定）</option>
+  </select>
+  <label>検索</label>
+  <input id="f-search" type="text" placeholder="No番号・工種・メモ" oninput="applyFilter()">
+  <span class="fcnt" id="f-cnt">6/6 件</span>
+</div>
+<div class="main">
+  <div class="list" id="list"></div>
+  <div class="mapside">
+    <div class="maptabs">
+      <span class="tab active" onclick="setMap('std',this)">標準地図</span>
+      <span class="tab" onclick="setMap('photo',this)">空中写真</span>
+      <span class="tab" onclick="setMap('pale',this)">淡色地図</span>
+    </div>
+    <div id="map" style="flex:1;width:100%;"></div>
+    <div class="detail" id="detail">
+      <img class="det-img" id="det-img" src="" alt="">
+      <div class="det-info">
+        <div class="det-title" id="det-title"></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div class="det-row"><span class="det-lb">業者名</span><span id="det-gyosha"></span></div>
+            <div class="det-row"><span class="det-lb">撮影日</span><span id="det-date"></span></div>
+          </div>
+          <div>
+            <div class="det-row"><span class="det-lb">L 延長</span><span class="det-vr" id="det-L"></span></div>
+            <div class="det-row"><span class="det-lb">H 高さ</span><span class="det-vr" id="det-H"></span></div>
+            <div class="det-row"><span class="det-lb">写真枚数</span><span id="det-photos"></span></div>
+          </div>
+          <div>
+            <div class="det-row"><span class="det-lb">GPS</span><span id="det-gps" style="font-size:10px"></span></div>
+            <div class="det-row"><span class="det-lb">メモ</span><span id="det-memo" style="font-size:10px"></span></div>
+          </div>
+        </div>
+        <div class="det-links" id="det-links"></div>
+      </div>
+      <span class="det-close" onclick="closeDetail()">✕</span>
+    </div>
+  </div>
+</div>
+<script>
+var DATA = [
+{no:"No007",lat:33.3286,lon:130.9279028,kouken:"排水工",color:"#1D9E75",L:"14.5",H:"4.3",gyosha:"C003_測量企画センター",hatchu:"",photos:3,date:"",status:"写真収集済",memo:"記入票OCR: NO=007, 工種=排水工, L=14.5m, H=4.3m, S=15.1m, コメント=排水工によ",notion_url:"https://app.notion.com/p/No007-37427629d28f811da481d33660c46d0b",thumb:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCABaAEgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDV+xXf/PrN/wB+zR9iu/8An1m/79mu8lEhc7SwO85yrEEe2Kf8n92T8mri+oR/mPR/tOX8v4nArZXQYFrScrnkeWasi2Xbg6bc5wedrfhXa/J/dl/JqPk/uy/k1NYFL7X4CeYyf2fxZxP2Ybn/AOJbclSfl+VsgUq2yjrptyen8LV2AWXzySzeVnhQrZqX5P7sv5NT+pL+b8Bf2jL+X8WcFJZ3LSMY7OdVJ4XYxwKb9iu/+fWb/v2a7/5P7sv5NR8n92X8mqfqEf5iv7Sl/L+JwH2K7/59Zv8Av2aK78Y3rtWQHcOu7pRUvBJfaKWZSf2fxHzxSSIVjlMTH+IAHH505VYKAeSByfWpHWR41EUnlkHk7N2akjBSMLIS7Acttxmu48wgwfSjB9Ks5X+4fyoyv9w/lQBmJaXS/evGf6qB3z2/KrWD6UeTc9rojnP+qHT0/wA+tWcr/dP5UDat1K2D6UYPpVnK/wBw/lRlf7h/KgRWAOelFTuRtOFI/CikwK9z9m8lPtTKq5O0lyvP4VPAVMQMO1k7ENmq890tumZASOcYXdTLfUY7hmSLcCvXMZUfqKYF/L/3R+dGX/uj86g85/Wjzn9aYFf/AELcJPMAwxwTKQM5yf51fy/oPzrKj1S1kfYsTZGesOMc49Kvec/rSRUncny/90fnRl/7o/OoPOf1o85/WmSSyFthyBj60VEZWbg9KKlgI+FXdtds9lGaFAY42uPcilKM6riRkwf4cc0jQuy4FxIvuAKzcmVYd5Qo8oU1oXO3FxIMDtjn9KQ28hUj7VKM9+P8KXM+4WH+UKPKFP7UtHMx2RH5Qo8oVJRRzMLIjMYAzRTm+7RVxd0SxlGT60UUxBk+tGT60UUAGT60ZPrRRQAZPrRk+tFFABRRRQAUUUUwCo3nijOHcA1JRQA3zEJxuHNIssbEBXBJp9FABRRRQAUUUUAf/9k="},
+{no:"No008",lat:33.3286,lon:130.9279028,kouken:"排水工",color:"#D85A30",L:"40.9",H:"6.5",gyosha:"C003_測量企画センター",hatchu:"",photos:3,date:"",status:"写真収集済",memo:"記入票OCR: NO=008, 工種=排水工, L=40.9m, H=6.5m, S=41.4m, コメント=排水工によ",notion_url:"https://app.notion.com/p/No008-37427629d28f81cba554fa21004b9814",thumb:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCABaAEgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDV+xXf/PrN/wB+zR9iu/8An1m/79mu8lEhc7SwO85yrEEe2Kf8n92T8mri+oR/mPR/tOX8v4nArZXQYFrScrnkeWasi2Xbg6bc5wedrfhXa/J/dl/JqPk/uy/k1NYFL7X4CeYyf2fxZxP2Ybn/AOJbclSfl+VsgUq2yjrptyen8LV1+2bz87j5Wfu7Wzipvk/uy/k1P6kv5vwF/aMv5fxZwUlnctIxjs51UnhdjHApv2K7/wCfWb/v2a7/AOT+7L+TUfJ/dl/Jqn6hH+Yr+0pfy/icB9iu/wDn1m/79miu/GN67VkB3Dru6UVLwSX2ilmUn9n8R88UkiFY5TEx/iABx+dOVWCgHkgcn1qR1keNRFJ5ZB5OzdmpIwUjCyEuwHLbcZruPMIMH0owfSrOV/uH8qMr/cP5UAZiWl0v3rxn+qgd89vyq1g+lNEF0AB9sYkEnPkjkelW8r/dP5UDaS6lbB9KMH0qzlf7h/KjK/3D+VAisAc9KKncjacKR+FFJgV7n7N5KfamVVydpLlefwqeAqYgYdrJ2IbNV57pbdMyAkc4wu6mW+ox3DMkW4FeuYyo/UUwL+X/ALo/OjL+g/OoPOf1pGnZVLE8AZNMCuDYZWTzlGWO0+aQCev9a0Mv6D86yf7XtN+3YxJPaE9cfSry3DMoYHgjIpIqTuWMv/dH50Zf+6PzqDzn9aPOf1pkkshbYcgY+tFRGVm4PSipYCPhV3bXbPZRmhQGONrj3IpSjOq4kZMH+HHNI0LsuBcSL7gCs3JlWHeUKPKFNaFztxcSDA7Y5/SkNvIVI+1SjPfj/ClzPuFh/lCjyhT+1LRzMdkR+UKPKFSUUczCyIzGAM0U5vu0VcXdEsZRk+tFFMQZPrRk+tFFABk+tGT60UUAGT60ZPrRRQAUUUUAFFFFMAqN54ozh3ANSUUAN8xCcbhzSCWNiAHBJ6U+igAooooAKKKKAP/Z"},
+{no:"No009",lat:33.3286,lon:130.9279028,kouken:"法面工",color:"#BA7517",L:"30.5",H:"5.5",gyosha:"C003_測量企画センター",hatchu:"",photos:2,date:"",status:"写真収集済",memo:"記入票OCR: NO=009, 工種=法面工, L=30.5m, H=5.5m, S=31.0m, コメント=法面工によ",notion_url:"https://app.notion.com/p/No009-37427629d28f81498698dc088607719b",thumb:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCABaAEgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDV+xXf/PrN/wB+zR9iu/8An1m/79mu8lEhc7SwO85yrEEe2Kf8n92T8mri+oR/mPR/tOX8v4nArZXQYFrScrnkeWasi2Xbg6bc5wedrfhXa/J/dl/JqPk/uy/k1NYFL7X4CeYyf2fxZxP2Ybn/AOJbclSfl+VsgUq2yjrptyen8LV2G2bz87j5Wfu7Wzipfk/uy/k1P6kv5vwF/aMv5fxZwUlnctIxjs51UnhdjHApv2K7/wCfWb/v2a7/AOT+7L+TUfJ/dl/Jqn6hH+Yr+0pfy/icB9iu/wDn1m/79miu/GN67VkB3Dru6UVLwSX2ilmUn9n8R88UkiFY5TEx/iABx+dOVWCgHkgcn1qR1keNRFJ5ZB5OzdmpIwUjCyEuwHLbcZruPMIMH0owfSrOV/uH8qMr/cP5UAZS2V2s29r5mT+4VwOufX04q5g+lIIbnGPtZzuJz5Q6elWsr/dP5UDat1K2D6UYPpVnK/3D+VGV/uH8qBFYA56UVO5G04Uj8KKTAr3P2byU+1Mqrk7SXK8/hU8BUxAw7WTsQ2arz3S26ZkBI5xhd1Mt9RjuGZItwK9cxlR+opgX8v8A3R+dGX/uj86g85/Wjzn9aYFfNiHWQyqp3HH7wjnOT/Or+X9B+dZov7c3RtgmJFbH+r4zj1q35z+tJFSdyfL/AN0fnRl/7o/OoPOf1o85/WmSSyFthyBj60VEZWbg9KKlgI+FXdtds9lGaFAY42uPcilaNpEAWVo8HquOfzpGhdlwLiRfcAVm5Mqw7yhR5QprQuduLiQYHbHP6Uht5CpH2qUZ78f4UuZ9wsP8oUeUKf2paOZjsiPyhR5QqSijmYWRGYwBminN92iri7oljKMn1oopiDJ9aMn1oooAMn1oyfWiigAyfWjJ9aKKACiiigAooopgFRvPFGcO4BqSigBvmITjcOaQSxsQA4JPSn0UAFFFFABRRRQB/9k="},
+{no:"No003",lat:33.3287083,lon:130.9279778,kouken:"松野",color:"#534AB7",L:"41.4",H:"8.6",gyosha:"C003_測量企画センター",hatchu:"",photos:3,date:"2026:06:02 15:05:32",status:"写真収集済",memo:"記入票OCR: NO=003, 工種=松野, L=41.4m, H=8.6m, S=1.6m",notion_url:"https://app.notion.com/p/No003-37427629d28f81fa97c5c1d64784ddf9",thumb:"data:image/jpeg;base64,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"},
+{no:"No003",lat:33.3285528,lon:130.9277806,kouken:"（未確定）",color:"#185FA5",L:"1.2",H:"7.0",gyosha:"C003_測量企画センター",hatchu:"",photos:3,date:"2026:06:02 15:07:48",status:"写真収集済",memo:"記入票OCR: NO=003, L=1.2m, H=7.0m, S=8.4m, 調査者=松野",notion_url:"https://app.notion.com/p/No003-37427629d28f81759cb4c678ff0107da",thumb:"data:image/jpeg;base64,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"},
+{no:"No003",lat:33.3284917,lon:130.928025,kouken:"（未確定）",color:"#993556",L:"31.0",H:"28.7",gyosha:"C003_測量企画センター",hatchu:"",photos:3,date:"2026:06:02 15:10:41",status:"写真収集済",memo:"記入票OCR: NO=003, L=31.0m, H=28.7m, S=19.5m",notion_url:"https://app.notion.com/p/No003-37427629d28f81f6b3b5c7deff075d47",thumb:"data:image/jpeg;base64,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"}
+];
+var clat=33.3286;var clon=130.9279028;
+
+// ── Leaflet 地図初期化（GSIタイル直接読込） ──────────────
+var map = L.map('map').setView([clat, clon], 16);
+
+var tileStd = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',
+  {attribution:'国土地理院', maxZoom:18});
+var tilePhoto = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',
+  {attribution:'国土地理院', maxZoom:18});
+var tilePale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
+  {attribution:'国土地理院', maxZoom:18});
+
+tileStd.addTo(map);  // 初期は標準地図
+
+function setMap(type, el){
+  map.removeLayer(tileStd); map.removeLayer(tilePhoto); map.removeLayer(tilePale);
+  if(type==='photo') tilePhoto.addTo(map);
+  else if(type==='pale') tilePale.addTo(map);
+  else tileStd.addTo(map);
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+}
+
+// ── ピン（番号付き円マーカー）を地図に配置 ──────────────
+var markers = [];
+DATA.forEach(function(d, i){
+  if(!d.lat || !d.lon) return;
+  var icon = L.divIcon({
+    className: 'pin-marker',
+    html: '<div style="background:'+d.color+';width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;box-shadow:0 2px 5px rgba(0,0,0,0.4)">'+(i+1)+'</div>',
+    iconSize: [26,26], iconAnchor: [13,13]
+  });
+  var m = L.marker([d.lat, d.lon], {icon:icon}).addTo(map);
+  m.bindTooltip(d.no+' '+d.kouken, {direction:'top'});
+  m.on('click', function(){ selectItem(i); });
+  markers.push(m);
+});
+
+// 全ピンが収まるように表示範囲を調整
+if(markers.length>0){
+  var grp = L.featureGroup(markers);
+  map.fitBounds(grp.getBounds().pad(0.3));
+}
+
+function buildList(){
+  var html='';
+  DATA.forEach(function(d,i){
+    var lh='';
+    if(d.L) lh+='L='+d.L+'m ';
+    if(d.H) lh+='H='+d.H+'m';
+    var thumbHtml=d.thumb
+      ?'<img class="li-thumb" src="'+d.thumb+'" alt="'+d.no+'">'
+      :'<div class="li-nophoto">📷</div>';
+    html+='<div class="list-item" id="li-'+i+'" onclick="selectItem('+i+')">'
+      +thumbHtml
+      +'<div class="li-info">'
+        +'<div class="li-no">'
+          +'<span style="background:'+d.color+';width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">'+(i+1)+'</span>'
+          +' '+d.no
+          +'<span class="li-badge" style="background:'+d.color+'">'+d.kouken+'</span>'
+        +'</div>'
+        +'<div class="li-sub">'
+          +(lh?'<span class="li-lh">'+lh.trim()+'</span><br>':'')
+          +d.gyosha+'<br>写真'+d.photos+'枚'
+        +'</div>'
+      +'</div></div>';
+  });
+  document.getElementById('list').innerHTML=html;
+}
+function selectItem(i){
+  var d=DATA[i];
+  if(d.lat && d.lon){
+    map.flyTo([d.lat, d.lon], 18, {duration:0.6});
+    if(markers[i]) markers[i].openTooltip();
+  }
+  document.querySelectorAll('.list-item').forEach(function(el){el.classList.remove('active');});
+  document.getElementById('li-'+i).classList.add('active');
+  var gmap='https://www.google.com/maps?q='+d.lat+','+d.lon;
+  var gsi='https://maps.gsi.go.jp/#18/'+d.lat+'/'+d.lon+'/';
+  if(d.thumb) document.getElementById('det-img').src=d.thumb;
+  else document.getElementById('det-img').style.display='none';
+  document.getElementById('det-title').textContent=d.no+' — '+d.kouken;
+  document.getElementById('det-title').style.color=d.color;
+  document.getElementById('det-gyosha').textContent=d.gyosha;
+  document.getElementById('det-date').textContent=d.date;
+  document.getElementById('det-L').textContent=d.L?d.L+' m':'―';
+  document.getElementById('det-H').textContent=d.H?d.H+' m':'―';
+  document.getElementById('det-photos').textContent=d.photos+' 枚';
+  document.getElementById('det-gps').textContent=d.lat+', '+d.lon;
+  document.getElementById('det-memo').textContent=d.memo;
+  document.getElementById('det-links').innerHTML=
+    '<a href="'+gmap+'" target="_blank">📍GoogleMap</a>'
+    +'<a href="'+gsi+'" target="_blank">🗾国土地理院</a>'
+    +(d.notion_url?'<a href="'+d.notion_url+'" target="_blank">📋Notion</a>':'');
+  document.getElementById('detail').classList.add('show');
+}
+function closeDetail(){document.getElementById('detail').classList.remove('show');document.querySelectorAll('.list-item').forEach(function(el){el.classList.remove('active');});}
+function applyFilter(){
+  var fk=document.getElementById('f-kouken').value;
+  var fq=document.getElementById('f-search').value.toLowerCase();
+  var cnt=0;
+  DATA.forEach(function(d,i){
+    var el=document.getElementById('li-'+i);
+    var show=true;
+    if(fk&&d.kouken!==fk) show=false;
+    if(fq&&!(d.no.toLowerCase().includes(fq)||d.kouken.toLowerCase().includes(fq)||d.memo.toLowerCase().includes(fq))) show=false;
+    el.classList.toggle('hidden',!show);
+    if(show) cnt++;
+  });
+  document.getElementById('f-cnt').textContent=cnt+'/'+DATA.length+' 件';
+  document.getElementById('s-visible').textContent=cnt;
+}
+buildList();
+setTimeout(function(){ map.invalidateSize(); }, 300);
+</script>
+</body>
+</html>
