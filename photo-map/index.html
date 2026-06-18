@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>写真配置図</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Noto Sans JP", sans-serif; background: #1a1a2e; color: #eee; }
+
+    #header {
+      background: #065A82;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    #header h1 { font-size: 18px; color: #fff; font-weight: bold; }
+    #header .count { font-size: 13px; color: #02C39A; }
+
+    #map { width: 100%; height: calc(100vh - 50px); }
+
+    /* ポップアップ */
+    .popup-box {
+      min-width: 220px;
+      max-width: 300px;
+      font-size: 13px;
+    }
+    .popup-box .photo-name {
+      font-weight: bold;
+      font-size: 14px;
+      color: #065A82;
+      margin-bottom: 6px;
+      word-break: break-all;
+    }
+    .popup-box img {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin: 6px 0;
+      cursor: pointer;
+    }
+    .popup-box .meta {
+      color: #555;
+      font-size: 11px;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+    .popup-box .box-link {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 10px;
+      background: #065A82;
+      color: #fff;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 12px;
+    }
+    .popup-box .box-link:hover { background: #02C39A; }
+    .no-photo {
+      color: #999;
+      font-size: 12px;
+      padding: 8px 0;
+    }
+
+    /* 凡例 */
+    .legend {
+      background: rgba(255,255,255,0.95);
+      padding: 10px 14px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 12px;
+      line-height: 2;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    .legend-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      display: inline-block; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h1>📷 写真配置図</h1>
+  <span class="count" id="count-label"></span>
+</div>
+
+<div id="map"></div>
+
+<script>
+const PHOTOS = [
+  {
+    "name": "20260610_kkn-kensetu_R8道路91.jpg",
+    "lat": 33.324933,
+    "lon": 130.923203,
+    "box_url": "https://tkc-toho.box.com/s/zouncl3e8xx9x2mgqgor7bxrxzqd2m3l",
+    "taken_at": "2026-06-10T10:16:00.000+00:00",
+    "folder": "."
+  },
+  {
+    "name": "20260610_kkn-kensetu_R8道路91(3).jpg",
+    "lat": 33.1442506836819,
+    "lon": 131.248182356357,
+    "box_url": "https://tkc-toho.box.com/s/l9sp4qqtdha3dwli6oflxkt7tfupbz8y",
+    "taken_at": "2026-06-10T10:16:00.000+00:00",
+    "folder": "."
+  }
+];
+
+// 地図初期化（大分県日田市付近）
+const map = L.map('map').setView([33.32, 130.94], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors',
+  maxZoom: 19
+}).addTo(map);
+
+// カスタムピン（緑）
+function makeIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<svg width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 24 14 24s14-13.5 14-24C28 6.27 21.73 0 14 0z"
+            fill="${color}" stroke="#fff" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="6" fill="#fff"/>
+    </svg>`,
+    iconSize: [28, 38],
+    iconAnchor: [14, 38],
+    popupAnchor: [0, -38]
+  });
+}
+
+const iconGreen = makeIcon('#1D9E75');
+const iconOrange = makeIcon('#E07B00');
+
+// ピンを配置
+let bounds = [];
+PHOTOS.forEach(p => {
+  const hasPhoto = p.box_url && p.box_url.length > 0;
+  const icon = hasPhoto ? iconGreen : iconOrange;
+
+  // BOXの直接表示URL変換（共有リンク → 直接表示）
+  let imgHtml = '<p class="no-photo">📷 写真リンクなし</p>';
+  let linkHtml = '';
+  if (hasPhoto) {
+    // BOX共有リンクをプレビューURLに変換
+    const imgUrl = p.box_url.replace('https://app.box.com/s/', 'https://app.box.com/representation/file_version_0/thumb_1024/image.jpg?shared_name=');
+    imgHtml = `<img src="${p.box_url}" onerror="this.style.display='none'"
+                    onclick="window.open('${p.box_url}','_blank')" title="クリックで拡大">`;
+    linkHtml = `<a class="box-link" href="${p.box_url}" target="_blank">🔗 BOXで開く</a>`;
+  }
+
+  const popup = `
+    <div class="popup-box">
+      <div class="photo-name">${p.name}</div>
+      ${imgHtml}
+      <div class="meta">
+        ${p.taken_at ? '📅 ' + p.taken_at.slice(0,10) + '<br>' : ''}
+        ${p.folder && p.folder !== '.' ? '📁 ' + p.folder + '<br>' : ''}
+        📍 ${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}
+      </div>
+      ${linkHtml}
+    </div>`;
+
+  L.marker([p.lat, p.lon], {icon})
+    .addTo(map)
+    .bindPopup(popup, {maxWidth: 320});
+
+  bounds.push([p.lat, p.lon]);
+});
+
+// 全ピンが収まるようにズーム調整
+if (bounds.length > 0) {
+  map.fitBounds(bounds, {padding: [40, 40]});
+}
+
+// カウント表示
+document.getElementById('count-label').textContent =
+  `写真 ${PHOTOS.length} 件`;
+
+// 凡例
+const legend = L.control({position: 'bottomright'});
+legend.onAdd = () => {
+  const div = L.DomUtil.create('div', 'legend');
+  div.innerHTML = `
+    <div class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>BOXリンクあり</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#E07B00"></span>BOXリンクなし</div>
+  `;
+  return div;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>
