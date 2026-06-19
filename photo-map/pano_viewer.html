@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>360°パノラマビューア</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Meiryo',sans-serif;}
+body{background:#1a1a2e;color:#fff;height:100vh;display:flex;flex-direction:column;}
+.hdr{background:#185FA5;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.hdr h1{font-size:14px;}
+.back-btn{background:#fff;color:#185FA5;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;text-decoration:none;}
+.tabs{background:#0d3060;padding:6px 14px;display:flex;gap:8px;flex-shrink:0;overflow-x:auto;}
+.tab{background:rgba(255,255,255,0.1);border:none;color:#ccc;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap;}
+.tab.active{background:#185FA5;color:#fff;}
+#viewer{flex:1;}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>🌐 360°パノラマビューア</h1>
+  <a class="back-btn" href="index.html">← 地図に戻る</a>
+</div>
+<div class="tabs" id="tabs"></div>
+<div id="viewer"></div>
+
+<script>
+const PANOS = [{"name": "DJI_20240327094503_0011_D.JPG", "stem": "DJI_20240327094503_0011_D", "img": "pano/DJI_20240327094503_0011_D.jpg"}, {"name": "DJI_20240327094640_0012_D.JPG", "stem": "DJI_20240327094640_0012_D", "img": "pano/DJI_20240327094640_0012_D.jpg"}, {"name": "DJI_20240327094919_0020_D.JPG", "stem": "DJI_20240327094919_0020_D", "img": "pano/DJI_20240327094919_0020_D.jpg"}];
+let viewer = null;
+let current = 0;
+
+function loadPano(idx) {
+  current = idx;
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  if (viewer) viewer.destroy();
+  viewer = pannellum.viewer('viewer', {
+    type: 'equirectangular',
+    panorama: PANOS[idx].img,
+    autoLoad: true,
+    autoRotate: -2,
+    showControls: true,
+    hfov: 100,
+    title: PANOS[idx].name,
+  });
+}
+
+// タブ生成
+const tabs = document.getElementById('tabs');
+PANOS.forEach((p, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'tab' + (i===0 ? ' active' : '');
+  btn.textContent = p.name;
+  btn.onclick = () => loadPano(i);
+  tabs.appendChild(btn);
+});
+
+// URLパラメータでパノラマ指定
+const params = new URLSearchParams(location.search);
+const idx = parseInt(params.get('idx') || '0');
+loadPano(Math.min(idx, PANOS.length - 1));
+</script>
+</body>
+</html>
