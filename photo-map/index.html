@@ -1,106 +1,116 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>写真配置図</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: "Noto Sans JP", sans-serif; background: #1a1a2e; color: #eee; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>写真配置図</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Meiryo','Hiragino Sans',sans-serif;}
+body{background:#f4f4f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
 
-    #header {
-      background: #065A82;
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
-    #header h1 { font-size: 18px; color: #fff; font-weight: bold; }
-    #header .count { font-size: 13px; color: #02C39A; }
+/* ヘッダー */
+.hdr{background:#185FA5;color:#fff;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;}
+.hdr h1{font-size:14px;font-weight:500;flex:1;}
+.hdr-btns{display:flex;gap:6px;align-items:center;}
+.btn-notion{background:#fff;color:#185FA5;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+.btn-notion:hover{background:#e8f0fe;}
 
-    #map { width: 100%; height: calc(100vh - 50px); }
+/* サマリーバー */
+.sum{background:#fff;border-bottom:1px solid #ddd;padding:4px 14px;display:flex;gap:16px;flex-shrink:0;flex-wrap:wrap;align-items:center;}
+.si{display:flex;flex-direction:column;align-items:center;}
+.sn{font-size:18px;font-weight:600;color:#185FA5;line-height:1;}
+.sl{font-size:10px;color:#888;margin-top:1px;}
 
-    /* ポップアップ */
-    .popup-box {
-      min-width: 220px;
-      max-width: 300px;
-      font-size: 13px;
-    }
-    .popup-box .photo-name {
-      font-weight: bold;
-      font-size: 14px;
-      color: #065A82;
-      margin-bottom: 6px;
-      word-break: break-all;
-    }
-    .popup-box img {
-      width: 100%;
-      max-height: 200px;
-      object-fit: cover;
-      border-radius: 6px;
-      margin: 6px 0;
-      cursor: pointer;
-    }
-    .popup-box .meta {
-      color: #555;
-      font-size: 11px;
-      margin-top: 4px;
-      line-height: 1.6;
-    }
-    .popup-box .box-link {
-      display: inline-block;
-      margin-top: 8px;
-      padding: 4px 10px;
-      background: #065A82;
-      color: #fff;
-      border-radius: 4px;
-      text-decoration: none;
-      font-size: 12px;
-    }
-    .popup-box .box-link:hover { background: #02C39A; }
-    .no-photo {
-      color: #999;
-      font-size: 12px;
-      padding: 8px 0;
-    }
+/* フィルターバー */
+.filters{background:#fff;border-bottom:1px solid #ddd;padding:5px 14px;display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;}
+.filters label{font-size:11px;color:#666;}
+.filters select{font-size:11px;padding:2px 6px;border:1px solid #ddd;border-radius:6px;}
+.filters input{font-size:11px;padding:2px 8px;border:1px solid #ddd;border-radius:6px;width:140px;}
+.fcnt{font-size:11px;color:#888;margin-left:auto;}
 
-    /* 凡例 */
-    .legend {
-      background: rgba(255,255,255,0.95);
-      padding: 10px 14px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      font-size: 12px;
-      line-height: 2;
-    }
-    .legend-item { display: flex; align-items: center; gap: 8px; }
-    .legend-dot {
-      width: 12px; height: 12px; border-radius: 50%;
-      display: inline-block; flex-shrink: 0;
-    }
-  </style>
+/* メインエリア */
+.main{display:flex;flex:1;overflow:hidden;}
+#map{flex:1;}
+
+/* サイドパネル（PC） */
+.side{width:300px;overflow-y:auto;background:#f9f9f9;border-left:1px solid #ddd;flex-shrink:0;}
+.side-item{padding:10px 12px;border-bottom:1px solid #eee;cursor:pointer;transition:background 0.1s;}
+.side-item:hover{background:#e8f0fe;}
+.side-item.active{background:#dbeafe;border-left:3px solid #185FA5;}
+.si-name{font-size:12px;font-weight:600;color:#185FA5;word-break:break-all;}
+.si-meta{font-size:10px;color:#888;margin-top:2px;}
+
+/* 地図タイル切替 */
+.tile-ctrl{background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.15);padding:6px 10px;font-size:11px;}
+.tile-ctrl label{display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 0;}
+
+/* 凡例 */
+.legend{background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.15);padding:8px 12px;font-size:11px;line-height:1.8;}
+.leg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle;}
+
+/* ポップアップ */
+.popup-box{min-width:230px;max-width:300px;font-size:12px;}
+.popup-name{font-weight:bold;font-size:13px;color:#185FA5;margin-bottom:6px;word-break:break-all;}
+.popup-img{width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin:6px 0;cursor:pointer;}
+.popup-meta{color:#555;font-size:11px;line-height:1.7;}
+.popup-btn{display:inline-block;margin-top:8px;padding:4px 12px;background:#185FA5;color:#fff;border-radius:4px;text-decoration:none;font-size:11px;}
+.popup-btn:hover{background:#0d4a8a;}
+.no-photo{color:#999;font-size:11px;padding:6px 0;}
+
+/* スマホ対応 */
+@media(max-width:640px){
+  .side{display:none;}
+  .hdr h1{font-size:13px;}
+  .sn{font-size:15px;}
+}
+</style>
 </head>
 <body>
 
-<div id="header">
+<!-- ヘッダー -->
+<div class="hdr">
   <h1>📷 写真配置図</h1>
-  <span class="count" id="count-label"></span>
+  <div class="hdr-btns">
+    <a class="btn-notion" href="https://app.notion.com/p/38227629d28f804d8a0dc03ff120fd8a" target="_blank">📋 Notion DB</a>
+  </div>
 </div>
 
-<div id="map"></div>
+<!-- サマリーバー -->
+<div class="sum">
+  <div class="si"><span class="sn" id="cnt-total">113</span><span class="sl">総写真数</span></div>
+  <div class="si"><span class="sn" style="color:#1D9E75" id="cnt-box">113</span><span class="sl">BOXリンクあり</span></div>
+  <div class="si"><span class="sn" style="color:#E07B00" id="cnt-nobox">0</span><span class="sl">リンクなし</span></div>
+  <div class="si"><span class="sn" id="cnt-filter" style="color:#666">-</span><span class="sl">表示中</span></div>
+</div>
+
+<!-- フィルターバー -->
+<div class="filters">
+  <label>フォルダ</label>
+  <select id="sel-folder" onchange="applyFilter()"><option value="">すべて</option></select>
+  <label>検索</label>
+  <input id="inp-search" type="text" placeholder="写真名を検索..." oninput="applyFilter()">
+  <label><input type="checkbox" id="chk-box" onchange="applyFilter()"> BOXリンクあり</label>
+  <span class="fcnt" id="fcnt"></span>
+</div>
+
+<!-- メイン -->
+<div class="main">
+  <div id="map"></div>
+  <div class="side" id="side-panel"></div>
+</div>
 
 <script>
-const PHOTOS = [
+const ALL_PHOTOS = [
   {
     "name": "DJI_20240530095830_0016_D.JPG",
     "lat": 33.2551351,
     "lon": 131.0272743,
     "box_url": "https://tkc-toho.box.com/s/8z9tgfvwbo9wa8d9l4uyagokpd1yx92j",
     "taken_at": "2024-05-30T09:58:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095809_0015_D.JPG",
@@ -108,7 +118,8 @@ const PHOTOS = [
     "lon": 131.0274339,
     "box_url": "https://tkc-toho.box.com/s/l0a8fdshpvq14mmarvkaleh6pt328ks5",
     "taken_at": "2024-05-30T09:58:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095804_0014_D.JPG",
@@ -116,7 +127,8 @@ const PHOTOS = [
     "lon": 131.0274339,
     "box_url": "https://tkc-toho.box.com/s/64cc1bnc0leo71iyi4u308clnest334e",
     "taken_at": "2024-05-30T09:58:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095801_0013_D.JPG",
@@ -124,7 +136,8 @@ const PHOTOS = [
     "lon": 131.0274338,
     "box_url": "https://tkc-toho.box.com/s/ztlm2qcydyes8onkeg8p5av0h3eekbnc",
     "taken_at": "2024-05-30T09:58:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095758_0012_D.JPG",
@@ -132,7 +145,8 @@ const PHOTOS = [
     "lon": 131.0274339,
     "box_url": "https://tkc-toho.box.com/s/dqa0xblm2di5vftml6e2qgsw7wlmshp3",
     "taken_at": "2024-05-30T09:57:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095459_0010_D.JPG",
@@ -140,7 +154,8 @@ const PHOTOS = [
     "lon": 131.0281324,
     "box_url": "https://tkc-toho.box.com/s/ccmltyw33qn4aoxojfadhcveuibjb2yr",
     "taken_at": "2024-05-30T09:54:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095338_0009_D.JPG",
@@ -148,7 +163,8 @@ const PHOTOS = [
     "lon": 131.0292444,
     "box_url": "https://tkc-toho.box.com/s/ciihrn0xmeicu5mjitrg3yq1jztyann1",
     "taken_at": "2024-05-30T09:53:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095326_0008_D.JPG",
@@ -156,7 +172,8 @@ const PHOTOS = [
     "lon": 131.0292446,
     "box_url": "https://tkc-toho.box.com/s/onx9vo5fyj409aamwd3vwjoa8n64p3s4",
     "taken_at": "2024-05-30T09:53:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095232_0007_D.JPG",
@@ -164,7 +181,8 @@ const PHOTOS = [
     "lon": 131.0285947,
     "box_url": "https://tkc-toho.box.com/s/ajeiz2gmwqrwizhqzmg9ba4ledimx5tt",
     "taken_at": "2024-05-30T09:52:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095227_0006_D.JPG",
@@ -172,7 +190,8 @@ const PHOTOS = [
     "lon": 131.0285944,
     "box_url": "https://tkc-toho.box.com/s/ldnn2q24piqrv5p7jkbjrv52drmj50rk",
     "taken_at": "2024-05-30T09:52:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095225_0005_D.JPG",
@@ -180,7 +199,8 @@ const PHOTOS = [
     "lon": 131.028594,
     "box_url": "https://tkc-toho.box.com/s/mj84q1p0ghoti0hdr9b8gf8vma4m5x1h",
     "taken_at": "2024-05-30T09:52:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095222_0004_D.JPG",
@@ -188,7 +208,8 @@ const PHOTOS = [
     "lon": 131.0285937,
     "box_url": "https://tkc-toho.box.com/s/d5iurtvh5jz2cok8fzage90m4lq2bbsv",
     "taken_at": "2024-05-30T09:52:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095219_0003_D.JPG",
@@ -196,7 +217,8 @@ const PHOTOS = [
     "lon": 131.0285932,
     "box_url": "https://tkc-toho.box.com/s/aoapkdnravod8lo5ppgttskya93tnnlu",
     "taken_at": "2024-05-30T09:52:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095216_0002_D.JPG",
@@ -204,7 +226,8 @@ const PHOTOS = [
     "lon": 131.0285926,
     "box_url": "https://tkc-toho.box.com/s/35bt5vfoz2logmi3fq5t5k3pnu2xcpie",
     "taken_at": "2024-05-30T09:52:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240530095209_0001_D.JPG",
@@ -212,7 +235,8 @@ const PHOTOS = [
     "lon": 131.0285817,
     "box_url": "https://tkc-toho.box.com/s/us18p05fe7vy9g3ixqk8g10tjt46fkks",
     "taken_at": "2024-05-30T09:52:00.000+00:00",
-    "folder": "撮影データ"
+    "folder": "撮影データ",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094856_0019_D.JPG",
@@ -220,7 +244,8 @@ const PHOTOS = [
     "lon": 131.0274578,
     "box_url": "https://tkc-toho.box.com/s/msyk8r4k05h77hxzmtr3u09bd64hpf6o",
     "taken_at": "2024-03-27T09:48:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094850_0018_D.JPG",
@@ -228,7 +253,8 @@ const PHOTOS = [
     "lon": 131.027459,
     "box_url": "https://tkc-toho.box.com/s/j3k6x5etlojtu42whtn5ewbzev8x9t4f",
     "taken_at": "2024-03-27T09:48:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094842_0017_D.JPG",
@@ -236,7 +262,8 @@ const PHOTOS = [
     "lon": 131.0274454,
     "box_url": "https://tkc-toho.box.com/s/s2zoiy7arp5x5j1osglqwk7zkmbrnlq3",
     "taken_at": "2024-03-27T09:48:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094830_0016_D.JPG",
@@ -244,7 +271,8 @@ const PHOTOS = [
     "lon": 131.0276748,
     "box_url": "https://tkc-toho.box.com/s/7a3cuo2pkl1wpo461h6s6yc82z108l9t",
     "taken_at": "2024-03-27T09:48:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094809_0015_D.JPG",
@@ -252,7 +280,8 @@ const PHOTOS = [
     "lon": 131.0278867,
     "box_url": "https://tkc-toho.box.com/s/u21ketwqsicdk3uml3beivgzh35dgd28",
     "taken_at": "2024-03-27T09:48:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094805_0014_D.JPG",
@@ -260,7 +289,8 @@ const PHOTOS = [
     "lon": 131.0278871,
     "box_url": "https://tkc-toho.box.com/s/14k81wrkd41l1yvg7v1cd4z9q3c66e49",
     "taken_at": "2024-03-27T09:48:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094754_0013_D.JPG",
@@ -268,7 +298,8 @@ const PHOTOS = [
     "lon": 131.0278851,
     "box_url": "https://tkc-toho.box.com/s/g3uzm637dso73v2ndj772msx2hmf4tlf",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094456_0010_D.JPG",
@@ -276,7 +307,8 @@ const PHOTOS = [
     "lon": 131.0293592,
     "box_url": "https://tkc-toho.box.com/s/efy5cx72zzst9d6etxypn57grat3fpsn",
     "taken_at": "2024-03-27T09:44:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094422_0009_D.JPG",
@@ -284,7 +316,8 @@ const PHOTOS = [
     "lon": 131.0289124,
     "box_url": "https://tkc-toho.box.com/s/cbauoe6cfba7l719rfcprw46w8fh14g4",
     "taken_at": "2024-03-27T09:44:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094419_0008_D.JPG",
@@ -292,7 +325,8 @@ const PHOTOS = [
     "lon": 131.0289126,
     "box_url": "https://tkc-toho.box.com/s/el2bj8p518iaq23plp0zgcdd0s0ypyha",
     "taken_at": "2024-03-27T09:44:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094411_0007_D.JPG",
@@ -300,7 +334,8 @@ const PHOTOS = [
     "lon": 131.0289126,
     "box_url": "https://tkc-toho.box.com/s/0jq7g6pbi4m4zj6z3ckdesm69nd3loeb",
     "taken_at": "2024-03-27T09:44:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094357_0006_D.JPG",
@@ -308,7 +343,8 @@ const PHOTOS = [
     "lon": 131.0287582,
     "box_url": "https://tkc-toho.box.com/s/3nae3zjjf73bz0mjf566042fqf336g68",
     "taken_at": "2024-03-27T09:43:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094346_0005_D.JPG",
@@ -316,7 +352,8 @@ const PHOTOS = [
     "lon": 131.0286148,
     "box_url": "https://tkc-toho.box.com/s/x13x1yvwc7ghaurtt97yfgh1oa2jrznv",
     "taken_at": "2024-03-27T09:43:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094342_0004_D.JPG",
@@ -324,7 +361,8 @@ const PHOTOS = [
     "lon": 131.0286137,
     "box_url": "https://tkc-toho.box.com/s/78y86mq4iwg57i7a5tjlu1jn3sa04rvn",
     "taken_at": "2024-03-27T09:43:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094339_0003_D.JPG",
@@ -332,7 +370,8 @@ const PHOTOS = [
     "lon": 131.0286139,
     "box_url": "https://tkc-toho.box.com/s/au3sdadlcb7rt6llw5ormfa36n8gk9n0",
     "taken_at": "2024-03-27T09:43:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094335_0002_D.JPG",
@@ -340,7 +379,8 @@ const PHOTOS = [
     "lon": 131.0286149,
     "box_url": "https://tkc-toho.box.com/s/ydza3lq9g4iqg4d8u1e2gvow0xa0dl2c",
     "taken_at": "2024-03-27T09:43:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240327094328_0001_D.JPG",
@@ -348,7 +388,8 @@ const PHOTOS = [
     "lon": 131.0286145,
     "box_url": "https://tkc-toho.box.com/s/vqdlkf37gqrehmbpiuwdqqzyzf0514bw",
     "taken_at": "2024-03-27T09:43:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (9).JPG",
@@ -356,7 +397,8 @@ const PHOTOS = [
     "lon": 131.0272238,
     "box_url": "https://tkc-toho.box.com/s/p7ywf6hmxqhylxjjq8lnz8si39djif7c",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (8).JPG",
@@ -364,7 +406,8 @@ const PHOTOS = [
     "lon": 131.0272239,
     "box_url": "https://tkc-toho.box.com/s/tqx3nwost2l2uffg1ohm8123i7nt2z2h",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (7).JPG",
@@ -372,7 +415,8 @@ const PHOTOS = [
     "lon": 131.0272239,
     "box_url": "https://tkc-toho.box.com/s/owt7ut79nb7y3da6zmbfwrwg7bhgqmd0",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (6).JPG",
@@ -380,7 +424,8 @@ const PHOTOS = [
     "lon": 131.0272233,
     "box_url": "https://tkc-toho.box.com/s/clrq7ebm6ssjs7iwvlhk9lrrgjcjxqtt",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (5).JPG",
@@ -388,7 +433,8 @@ const PHOTOS = [
     "lon": 131.0272232,
     "box_url": "https://tkc-toho.box.com/s/w802age3m9s748r0gfyyu8enytw4wr8s",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (4).JPG",
@@ -396,7 +442,8 @@ const PHOTOS = [
     "lon": 131.0272235,
     "box_url": "https://tkc-toho.box.com/s/hpyya4libkd9bphus2s20aawh5q0nm59",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (3).JPG",
@@ -404,7 +451,8 @@ const PHOTOS = [
     "lon": 131.0272236,
     "box_url": "https://tkc-toho.box.com/s/eggg6vnazjcy4z1tcxbnlt9kir66729g",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (25).JPG",
@@ -412,7 +460,8 @@ const PHOTOS = [
     "lon": 131.0272238,
     "box_url": "https://tkc-toho.box.com/s/1qkmh4836q8x9976a0rgnbri8qh3xxn8",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (24).JPG",
@@ -420,7 +469,8 @@ const PHOTOS = [
     "lon": 131.0272235,
     "box_url": "https://tkc-toho.box.com/s/qhh26qv1s5xjzud1q9wp0bi2d9a55qav",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (23).JPG",
@@ -428,7 +478,8 @@ const PHOTOS = [
     "lon": 131.0272233,
     "box_url": "https://tkc-toho.box.com/s/654wxsu3xcd9c6p06k2z6px4537klnau",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (22).JPG",
@@ -436,7 +487,8 @@ const PHOTOS = [
     "lon": 131.0272236,
     "box_url": "https://tkc-toho.box.com/s/1pk09wcalt0ek7pplg97mnihya4bn046",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (21).JPG",
@@ -444,7 +496,8 @@ const PHOTOS = [
     "lon": 131.0272236,
     "box_url": "https://tkc-toho.box.com/s/1b4z317aandhsqwdbk3xg6stq6vcxv0u",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (20).JPG",
@@ -452,7 +505,8 @@ const PHOTOS = [
     "lon": 131.0272231,
     "box_url": "https://tkc-toho.box.com/s/5b0m70kk8xt33utk2rsfjrrpqmbyocg3",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (2).JPG",
@@ -460,7 +514,8 @@ const PHOTOS = [
     "lon": 131.0272238,
     "box_url": "https://tkc-toho.box.com/s/wb3nkfs8oj4m2o5t4nj7341qss9uktxi",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (19).JPG",
@@ -468,7 +523,8 @@ const PHOTOS = [
     "lon": 131.0272239,
     "box_url": "https://tkc-toho.box.com/s/1q62yyj2tkx1h7bj2jbz4xe48i7m2e4w",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (18).JPG",
@@ -476,7 +532,8 @@ const PHOTOS = [
     "lon": 131.0272236,
     "box_url": "https://tkc-toho.box.com/s/tip2qlxg08oy9zs8je6svl85w9aboe1o",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (17).JPG",
@@ -484,7 +541,8 @@ const PHOTOS = [
     "lon": 131.0272232,
     "box_url": "https://tkc-toho.box.com/s/ztmqxhq3c49lk8k5mzk5a5av6au1ngmj",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (16).JPG",
@@ -492,7 +550,8 @@ const PHOTOS = [
     "lon": 131.0272236,
     "box_url": "https://tkc-toho.box.com/s/b9dzygdx0qlztnk4nd5fp5dajjcy9mas",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (15).JPG",
@@ -500,7 +559,8 @@ const PHOTOS = [
     "lon": 131.0272236,
     "box_url": "https://tkc-toho.box.com/s/g7qamp8u26zpx0bubhm72cnb0we7wc50",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (14).JPG",
@@ -508,7 +568,8 @@ const PHOTOS = [
     "lon": 131.0272236,
     "box_url": "https://tkc-toho.box.com/s/29oot1bii47wded1cr6d2z51iym4aijv",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (13).JPG",
@@ -516,7 +577,8 @@ const PHOTOS = [
     "lon": 131.0272238,
     "box_url": "https://tkc-toho.box.com/s/gf2kybva6mkrxm45e8sz5gr7335ymtnj",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (12).JPG",
@@ -524,7 +586,8 @@ const PHOTOS = [
     "lon": 131.0272233,
     "box_url": "https://tkc-toho.box.com/s/o1pbebzclb33dcl5ac35p1fkqkgq5471",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (11).JPG",
@@ -532,7 +595,8 @@ const PHOTOS = [
     "lon": 131.0272233,
     "box_url": "https://tkc-toho.box.com/s/6isyljhzymkdt7k1dhnaq8ebnjw0nlma",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (10).JPG",
@@ -540,7 +604,8 @@ const PHOTOS = [
     "lon": 131.0272237,
     "box_url": "https://tkc-toho.box.com/s/94sn58r5oixveb8oj0ymzxxzf5dg2oyp",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0020 (1).JPG",
@@ -548,7 +613,8 @@ const PHOTOS = [
     "lon": 131.0272238,
     "box_url": "https://tkc-toho.box.com/s/2cbxsd38a7sgbmemp1e6cn7wjwztipin",
     "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (9).JPG",
@@ -556,7 +622,8 @@ const PHOTOS = [
     "lon": 131.0281828,
     "box_url": "https://tkc-toho.box.com/s/bfw1j3u5co1f8eivdg94wb42elxnayk8",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (8).JPG",
@@ -564,7 +631,8 @@ const PHOTOS = [
     "lon": 131.0281824,
     "box_url": "https://tkc-toho.box.com/s/t114icye6vw1lhvtlukepvhjinima0yv",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (7).JPG",
@@ -572,7 +640,8 @@ const PHOTOS = [
     "lon": 131.0281829,
     "box_url": "https://tkc-toho.box.com/s/e0bz0jql73c6mczpnpsm3p7322mnbgvs",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (6).JPG",
@@ -580,7 +649,8 @@ const PHOTOS = [
     "lon": 131.0281825,
     "box_url": "https://tkc-toho.box.com/s/vyjydkpoe9hir5lltws4hgcl0ahtsq9u",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (5).JPG",
@@ -588,7 +658,8 @@ const PHOTOS = [
     "lon": 131.0281823,
     "box_url": "https://tkc-toho.box.com/s/m3p759eggrsy6y3oc5i32ofy9llgssg3",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (4).JPG",
@@ -596,7 +667,8 @@ const PHOTOS = [
     "lon": 131.0281824,
     "box_url": "https://tkc-toho.box.com/s/99s8qtlog5yllz4jw3xal0xdtb4iumy6",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (3).JPG",
@@ -604,7 +676,8 @@ const PHOTOS = [
     "lon": 131.0281825,
     "box_url": "https://tkc-toho.box.com/s/mxflk9m5keeclrg7j9n64k1vm4sjaj4k",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (25).JPG",
@@ -612,7 +685,8 @@ const PHOTOS = [
     "lon": 131.0281829,
     "box_url": "https://tkc-toho.box.com/s/o2eq7k9eutg2vmt77zufl5ry6nqkx0po",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (24).JPG",
@@ -620,7 +694,8 @@ const PHOTOS = [
     "lon": 131.0281827,
     "box_url": "https://tkc-toho.box.com/s/bcvuh6bq2ltaxpztn2f2ryo5qosjcbr5",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (23).JPG",
@@ -628,7 +703,8 @@ const PHOTOS = [
     "lon": 131.0281829,
     "box_url": "https://tkc-toho.box.com/s/gumiwn59no7ur822rexhilbglzhzcaq7",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (22).JPG",
@@ -636,7 +712,8 @@ const PHOTOS = [
     "lon": 131.0281833,
     "box_url": "https://tkc-toho.box.com/s/bwdntzvy9be46splxslclqpil79v3wig",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (21).JPG",
@@ -644,7 +721,8 @@ const PHOTOS = [
     "lon": 131.0281833,
     "box_url": "https://tkc-toho.box.com/s/hmsg9njvltr303j7eww1aiq36lg3y8vw",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (20).JPG",
@@ -652,7 +730,8 @@ const PHOTOS = [
     "lon": 131.0281826,
     "box_url": "https://tkc-toho.box.com/s/i5bix6n0mahxcsk5dwto1w0ws2cf7daj",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (2).JPG",
@@ -660,7 +739,8 @@ const PHOTOS = [
     "lon": 131.0281828,
     "box_url": "https://tkc-toho.box.com/s/csqs0nnslklpv4ndka3fqah0bf6ve0g7",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (19).JPG",
@@ -668,7 +748,8 @@ const PHOTOS = [
     "lon": 131.0281827,
     "box_url": "https://tkc-toho.box.com/s/oqwl5jv482swleevoszch5y40d01ed83",
     "taken_at": "2024-03-27T09:47:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (18).JPG",
@@ -676,7 +757,8 @@ const PHOTOS = [
     "lon": 131.0281828,
     "box_url": "https://tkc-toho.box.com/s/zhkvph3ie53xvxaf0i7tejcol2sx5nni",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (17).JPG",
@@ -684,7 +766,8 @@ const PHOTOS = [
     "lon": 131.0281824,
     "box_url": "https://tkc-toho.box.com/s/t1dtcpxj3pwr2m12yrnwkrehwc6991y8",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (16).JPG",
@@ -692,7 +775,8 @@ const PHOTOS = [
     "lon": 131.0281829,
     "box_url": "https://tkc-toho.box.com/s/ee3r6gclc7uxn8m57z3wnhb2yzles9ln",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (15).JPG",
@@ -700,7 +784,8 @@ const PHOTOS = [
     "lon": 131.0281826,
     "box_url": "https://tkc-toho.box.com/s/jb0a4ai2pcjxk6y9zvq01ofbqmpx3t95",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (14).JPG",
@@ -708,7 +793,8 @@ const PHOTOS = [
     "lon": 131.0281824,
     "box_url": "https://tkc-toho.box.com/s/656yfp9stx96wn8tmairoxcgkbe2ew5q",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (13).JPG",
@@ -716,7 +802,8 @@ const PHOTOS = [
     "lon": 131.0281827,
     "box_url": "https://tkc-toho.box.com/s/p413ckwe1889g63jq123st67xoqyqsqq",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (12).JPG",
@@ -724,7 +811,8 @@ const PHOTOS = [
     "lon": 131.0281826,
     "box_url": "https://tkc-toho.box.com/s/rswxo8y4aayr2d0q5vwre07m3l6ewlk3",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (11).JPG",
@@ -732,7 +820,8 @@ const PHOTOS = [
     "lon": 131.0281823,
     "box_url": "https://tkc-toho.box.com/s/lgqcaoeau39q9cor90upmpn4vcetemlc",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (10).JPG",
@@ -740,7 +829,8 @@ const PHOTOS = [
     "lon": 131.0281828,
     "box_url": "https://tkc-toho.box.com/s/rpsi9c905tjw5cyja2e6v8glhir0vpyn",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0012 (1).JPG",
@@ -748,7 +838,8 @@ const PHOTOS = [
     "lon": 131.0281827,
     "box_url": "https://tkc-toho.box.com/s/ew4k32cbg8590nfrtedzsd7fdcmradk4",
     "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (9).JPG",
@@ -756,7 +847,8 @@ const PHOTOS = [
     "lon": 131.0293602,
     "box_url": "https://tkc-toho.box.com/s/i0ltfhxjcbupy27fn6gjp2lbw1ur96zc",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (8).JPG",
@@ -764,7 +856,8 @@ const PHOTOS = [
     "lon": 131.0293602,
     "box_url": "https://tkc-toho.box.com/s/p8sw36ybkliqxtcf5t66ddxnr9aosild",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (7).JPG",
@@ -772,7 +865,8 @@ const PHOTOS = [
     "lon": 131.0293608,
     "box_url": "https://tkc-toho.box.com/s/szc909tr0a9vvrbx1wjc6ji4v8s523v5",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (6).JPG",
@@ -780,7 +874,8 @@ const PHOTOS = [
     "lon": 131.0293604,
     "box_url": "https://tkc-toho.box.com/s/4nr37fwxfodvgim9g5xnlegum0yuqr9x",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (5).JPG",
@@ -788,7 +883,8 @@ const PHOTOS = [
     "lon": 131.0293605,
     "box_url": "https://tkc-toho.box.com/s/c3g2uzcd54ledsaz52twofzzue4y0wfs",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (4).JPG",
@@ -796,7 +892,8 @@ const PHOTOS = [
     "lon": 131.0293605,
     "box_url": "https://tkc-toho.box.com/s/23uzkfa00w3pkautowjdxpn0bvs9k2iu",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (3).JPG",
@@ -804,7 +901,8 @@ const PHOTOS = [
     "lon": 131.0293606,
     "box_url": "https://tkc-toho.box.com/s/4wkzngtuvefjx72aj2kgpka2se5yv2wh",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (25).JPG",
@@ -812,7 +910,8 @@ const PHOTOS = [
     "lon": 131.0293609,
     "box_url": "https://tkc-toho.box.com/s/lpwnqoljvvmdk1f5hnmfh7ghuygeingr",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (24).JPG",
@@ -820,7 +919,8 @@ const PHOTOS = [
     "lon": 131.0293612,
     "box_url": "https://tkc-toho.box.com/s/910nbarg1pcplod32g07qg9rbnb2aqft",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (23).JPG",
@@ -828,7 +928,8 @@ const PHOTOS = [
     "lon": 131.0293613,
     "box_url": "https://tkc-toho.box.com/s/s9ics45t4pybhhqfxo0csiqsuzwt60bm",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (22).JPG",
@@ -836,7 +937,8 @@ const PHOTOS = [
     "lon": 131.0293611,
     "box_url": "https://tkc-toho.box.com/s/mi2by58sz3tl8u29qej96wo5ze9x99ld",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (21).JPG",
@@ -844,7 +946,8 @@ const PHOTOS = [
     "lon": 131.029361,
     "box_url": "https://tkc-toho.box.com/s/wqr63vlvtirx83xplh23dzy3sb2zqjn7",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (20).JPG",
@@ -852,7 +955,8 @@ const PHOTOS = [
     "lon": 131.0293609,
     "box_url": "https://tkc-toho.box.com/s/wisenyl94dcykbkjz1y7heqsz2knh60m",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (2).JPG",
@@ -860,7 +964,8 @@ const PHOTOS = [
     "lon": 131.0293603,
     "box_url": "https://tkc-toho.box.com/s/7vo0tpqm9zfgy7q6nzs2qnxb08xatj5y",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (19).JPG",
@@ -868,7 +973,8 @@ const PHOTOS = [
     "lon": 131.0293606,
     "box_url": "https://tkc-toho.box.com/s/rh1n02a739aqqfvwdu16ebrcp0mece3e",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (18).JPG",
@@ -876,7 +982,8 @@ const PHOTOS = [
     "lon": 131.0293606,
     "box_url": "https://tkc-toho.box.com/s/0vzhb658erlc3hl1y2vbiv8bhom746yi",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (17).JPG",
@@ -884,7 +991,8 @@ const PHOTOS = [
     "lon": 131.0293597,
     "box_url": "https://tkc-toho.box.com/s/5oey9xnaf9veptdlgazhgkxys4xp6keo",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (16).JPG",
@@ -892,7 +1000,8 @@ const PHOTOS = [
     "lon": 131.0293607,
     "box_url": "https://tkc-toho.box.com/s/jzt4gbepc3n2utnb0ihg4oq5c5igq4n1",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (15).JPG",
@@ -900,7 +1009,8 @@ const PHOTOS = [
     "lon": 131.0293607,
     "box_url": "https://tkc-toho.box.com/s/8vcvz3d04y3zops4xsvflzseusahgl2x",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (14).JPG",
@@ -908,7 +1018,8 @@ const PHOTOS = [
     "lon": 131.0293604,
     "box_url": "https://tkc-toho.box.com/s/knao26urd0vo8y1p6ef89uk5b5i7jobp",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (13).JPG",
@@ -916,7 +1027,8 @@ const PHOTOS = [
     "lon": 131.0293603,
     "box_url": "https://tkc-toho.box.com/s/vcvfpnn5os88e952emwbj18zs0ti8n8o",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (12).JPG",
@@ -924,7 +1036,8 @@ const PHOTOS = [
     "lon": 131.0293604,
     "box_url": "https://tkc-toho.box.com/s/9agchxlrw27s1ev1wuxyp6s30vc6drxs",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (11).JPG",
@@ -932,7 +1045,8 @@ const PHOTOS = [
     "lon": 131.02936,
     "box_url": "https://tkc-toho.box.com/s/111bnduoqxgt5274d7z8z9zlp03o99r7",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (10).JPG",
@@ -940,7 +1054,8 @@ const PHOTOS = [
     "lon": 131.0293604,
     "box_url": "https://tkc-toho.box.com/s/313xrw3ofrtmnpbsnka08tpdldp5f2pk",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "002_0011 (1).JPG",
@@ -948,7 +1063,8 @@ const PHOTOS = [
     "lon": 131.0293604,
     "box_url": "https://tkc-toho.box.com/s/yml42j3rwx5m1gdxsrd7wthpbvy8ch5z",
     "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "ドローン"
+    "folder": "ドローン",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240705152408_0001_D.jpg",
@@ -956,7 +1072,8 @@ const PHOTOS = [
     "lon": 131.0198711,
     "box_url": "https://tkc-toho.box.com/s/vt9v7iu0pu1t753wy8upjboiu4a65uqu",
     "taken_at": "2024-07-05T15:24:00.000+00:00",
-    "folder": "玖珠川_定期撮影"
+    "folder": "玖珠川_定期撮影",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240705150939_0001_D.jpg",
@@ -964,7 +1081,8 @@ const PHOTOS = [
     "lon": 131.036178,
     "box_url": "https://tkc-toho.box.com/s/frct7k82g1n481qjmt43qnkzmtwiwomq",
     "taken_at": "2024-07-05T15:09:00.000+00:00",
-    "folder": "玖珠川_定期撮影"
+    "folder": "玖珠川_定期撮影",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240705145035_0004_D.jpg",
@@ -972,7 +1090,8 @@ const PHOTOS = [
     "lon": 131.0250546,
     "box_url": "https://tkc-toho.box.com/s/i75dvxhq3unc3lwxnrda4f1p5llodkq4",
     "taken_at": "2024-07-05T14:50:00.000+00:00",
-    "folder": "玖珠川_定期撮影"
+    "folder": "玖珠川_定期撮影",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240705144809_0003_D.jpg",
@@ -980,7 +1099,8 @@ const PHOTOS = [
     "lon": 131.0311456,
     "box_url": "https://tkc-toho.box.com/s/5xbu6saxi76g2kozzj0h02p8pcxgj08m",
     "taken_at": "2024-07-05T14:48:00.000+00:00",
-    "folder": "玖珠川_定期撮影"
+    "folder": "玖珠川_定期撮影",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240705144639_0002_D.jpg",
@@ -988,7 +1108,8 @@ const PHOTOS = [
     "lon": 131.0327556,
     "box_url": "https://tkc-toho.box.com/s/mek4ilqasx48iruivki3o19sffl94fz6",
     "taken_at": "2024-07-05T14:46:00.000+00:00",
-    "folder": "玖珠川_定期撮影"
+    "folder": "玖珠川_定期撮影",
+    "camera": "M3M"
   },
   {
     "name": "DJI_20240705144430_0001_D.jpg",
@@ -996,92 +1117,159 @@ const PHOTOS = [
     "lon": 131.0282631,
     "box_url": "https://tkc-toho.box.com/s/9kz7z04unnyur7cytff4xrvkrhq5uvwj",
     "taken_at": "2024-07-05T14:44:00.000+00:00",
-    "folder": "玖珠川_定期撮影"
+    "folder": "玖珠川_定期撮影",
+    "camera": "M3M"
   }
 ];
 
-// 地図初期化（大分県日田市付近）
-const map = L.map('map').setView([33.32, 130.94], 13);
+// 地図初期化
+const map = L.map('map').setView([33.35, 131.0], 11);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors',
-  maxZoom: 19
-}).addTo(map);
+// タイル定義
+const tiles = {
+  osm:   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:19}),
+  gsi:   L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {attribution:'© 国土地理院', maxZoom:18}),
+  gmap:  L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {attribution:'© Google Maps', maxZoom:20}),
+  gsat:  L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {attribution:'© Google Satellite', maxZoom:20}),
+};
+tiles.osm.addTo(map);
 
-// カスタムピン（緑）
-function makeIcon(color) {
-  return L.divIcon({
-    className: '',
-    html: `<svg width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
-      <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 24 14 24s14-13.5 14-24C28 6.27 21.73 0 14 0z"
-            fill="${color}" stroke="#fff" stroke-width="1.5"/>
-      <circle cx="14" cy="14" r="6" fill="#fff"/>
-    </svg>`,
-    iconSize: [28, 38],
-    iconAnchor: [14, 38],
-    popupAnchor: [0, -38]
+// タイル切替コントロール
+const tileCtrl = L.control({position:'topright'});
+tileCtrl.onAdd = () => {
+  const div = L.DomUtil.create('div','tile-ctrl');
+  div.innerHTML = `
+    <b style="font-size:11px;display:block;margin-bottom:4px">地図切替</b>
+    <label><input type="radio" name="tile" value="osm" checked> OpenStreetMap</label>
+    <label><input type="radio" name="tile" value="gsi"> 地理院地図</label>
+    <label><input type="radio" name="tile" value="gmap"> Google Map</label>
+    <label><input type="radio" name="tile" value="gsat"> Google 衛星</label>
+  `;
+  L.DomEvent.disableClickPropagation(div);
+  div.querySelectorAll('input[name=tile]').forEach(r => {
+    r.addEventListener('change', e => {
+      Object.values(tiles).forEach(t => map.removeLayer(t));
+      tiles[e.target.value].addTo(map);
+    });
   });
-}
-
-const iconGreen = makeIcon('#1D9E75');
-const iconOrange = makeIcon('#E07B00');
-
-// ピンを配置
-let bounds = [];
-PHOTOS.forEach(p => {
-  const hasPhoto = p.box_url && p.box_url.length > 0;
-  const icon = hasPhoto ? iconGreen : iconOrange;
-
-  // BOXの直接表示URL変換（共有リンク → 直接表示）
-  let imgHtml = '<p class="no-photo">📷 写真リンクなし</p>';
-  let linkHtml = '';
-  if (hasPhoto) {
-    // BOX共有リンクをプレビューURLに変換
-    const imgUrl = p.box_url.replace('https://app.box.com/s/', 'https://app.box.com/representation/file_version_0/thumb_1024/image.jpg?shared_name=');
-    imgHtml = `<img src="${p.box_url}" onerror="this.style.display='none'"
-                    onclick="window.open('${p.box_url}','_blank')" title="クリックで拡大">`;
-    linkHtml = `<a class="box-link" href="${p.box_url}" target="_blank">🔗 BOXで開く</a>`;
-  }
-
-  const popup = `
-    <div class="popup-box">
-      <div class="photo-name">${p.name}</div>
-      ${imgHtml}
-      <div class="meta">
-        ${p.taken_at ? '📅 ' + p.taken_at.slice(0,10) + '<br>' : ''}
-        ${p.folder && p.folder !== '.' ? '📁 ' + p.folder + '<br>' : ''}
-        📍 ${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}
-      </div>
-      ${linkHtml}
-    </div>`;
-
-  L.marker([p.lat, p.lon], {icon})
-    .addTo(map)
-    .bindPopup(popup, {maxWidth: 320});
-
-  bounds.push([p.lat, p.lon]);
-});
-
-// 全ピンが収まるようにズーム調整
-if (bounds.length > 0) {
-  map.fitBounds(bounds, {padding: [40, 40]});
-}
-
-// カウント表示
-document.getElementById('count-label').textContent =
-  `写真 ${PHOTOS.length} 件`;
+  return div;
+};
+tileCtrl.addTo(map);
 
 // 凡例
-const legend = L.control({position: 'bottomright'});
+const legend = L.control({position:'bottomright'});
 legend.onAdd = () => {
-  const div = L.DomUtil.create('div', 'legend');
+  const div = L.DomUtil.create('div','legend');
   div.innerHTML = `
-    <div class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>BOXリンクあり</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#E07B00"></span>BOXリンクなし</div>
+    <span class="leg-dot" style="background:#1D9E75"></span>BOXリンクあり<br>
+    <span class="leg-dot" style="background:#E07B00"></span>BOXリンクなし
   `;
   return div;
 };
 legend.addTo(map);
+
+// アイコン生成
+function makeIcon(color) {
+  return L.divIcon({
+    className:'',
+    html:`<svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 0C5.82 0 0 5.82 0 13c0 9.75 13 23 13 23s13-13.25 13-23C26 5.82 20.18 0 13 0z"
+            fill="${color}" stroke="#fff" stroke-width="1.5"/>
+      <circle cx="13" cy="13" r="5.5" fill="#fff"/></svg>`,
+    iconSize:[26,36], iconAnchor:[13,36], popupAnchor:[0,-36]
+  });
+}
+const iconGreen  = makeIcon('#1D9E75');
+const iconOrange = makeIcon('#E07B00');
+
+// フォルダ選択肢を作成
+const folders = [...new Set(ALL_PHOTOS.map(p => p.folder).filter(f => f && f !== '.'))];
+const sel = document.getElementById('sel-folder');
+folders.forEach(f => { const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o); });
+
+// マーカー管理
+let markers = [];
+let currentFiltered = [...ALL_PHOTOS];
+
+function buildPopup(p) {
+  const hasBox = p.box_url && p.box_url.length > 0;
+  const imgHtml = hasBox
+    ? `<img class="popup-img" src="${p.box_url}" onerror="this.style.display='none'" onclick="window.open('${p.box_url}','_blank')" title="クリックで拡大">`
+    : `<p class="no-photo">📷 写真リンクなし</p>`;
+  const linkHtml = hasBox ? `<a class="popup-btn" href="${p.box_url}" target="_blank">🔗 BOXで開く</a>` : '';
+  return `<div class="popup-box">
+    <div class="popup-name">${p.name}</div>
+    ${imgHtml}
+    <div class="popup-meta">
+      ${p.taken_at ? '📅 ' + p.taken_at.slice(0,10) + '<br>' : ''}
+      ${p.folder && p.folder !== '.' ? '📁 ' + p.folder + '<br>' : ''}
+      ${p.camera ? '📷 ' + p.camera + '<br>' : ''}
+      📍 ${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}
+    </div>
+    ${linkHtml}
+  </div>`;
+}
+
+function buildSidePanel(filtered) {
+  const side = document.getElementById('side-panel');
+  side.innerHTML = '';
+  filtered.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'side-item';
+    div.id = 'side-' + i;
+    div.innerHTML = `<div class="si-name">📷 ${p.name}</div>
+      <div class="si-meta">${p.taken_at ? p.taken_at.slice(0,10) : ''} ${p.box_url ? '🔗' : ''}</div>`;
+    div.onclick = () => {
+      markers[i].openPopup();
+      map.setView([p.lat, p.lon], 16);
+      document.querySelectorAll('.side-item').forEach(el => el.classList.remove('active'));
+      div.classList.add('active');
+    };
+    side.appendChild(div);
+  });
+}
+
+function applyFilter() {
+  const folder  = document.getElementById('sel-folder').value;
+  const search  = document.getElementById('inp-search').value.toLowerCase();
+  const boxOnly = document.getElementById('chk-box').checked;
+
+  currentFiltered = ALL_PHOTOS.filter(p => {
+    if (folder && p.folder !== folder) return false;
+    if (search && !p.name.toLowerCase().includes(search)) return false;
+    if (boxOnly && !p.box_url) return false;
+    return true;
+  });
+
+  // マーカーを再描画
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  const bounds = [];
+
+  currentFiltered.forEach((p, i) => {
+    const icon = p.box_url ? iconGreen : iconOrange;
+    const m = L.marker([p.lat, p.lon], {icon})
+      .addTo(map)
+      .bindPopup(buildPopup(p), {maxWidth:320});
+    m.on('click', () => {
+      document.querySelectorAll('.side-item').forEach(el => el.classList.remove('active'));
+      const el = document.getElementById('side-' + i);
+      if (el) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+    });
+    markers.push(m);
+    bounds.push([p.lat, p.lon]);
+  });
+
+  if (bounds.length > 0) map.fitBounds(bounds, {padding:[40,40]});
+
+  document.getElementById('cnt-filter').textContent = currentFiltered.length;
+  document.getElementById('fcnt').textContent = `${currentFiltered.length} 件表示中`;
+
+  buildSidePanel(currentFiltered);
+}
+
+// 初期表示
+applyFilter();
 </script>
 </body>
 </html>
