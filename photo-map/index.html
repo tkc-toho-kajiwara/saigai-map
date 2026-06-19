@@ -1340,22 +1340,12 @@ function buildPopup(p) {
 
   if (hasBox) {
     if (isPano) {
-      // Pannellumパノラマビューア
-      const panoId = 'pano-' + (panoCount++);
-      mediaHtml = `<div class="popup-pano" id="${panoId}"></div>`;
-      btnHtml   = `<a class="popup-btn pano" href="${p.box_url}" target="_blank">🌐 パノラマをBOXで開く</a>`;
-      // ビューア初期化（遅延）
-      setTimeout(() => {
-        if (document.getElementById(panoId)) {
-          pannellum.viewer(panoId, {
-            type: 'equirectangular',
-            panorama: p.box_url,
-            autoLoad: true,
-            showControls: true,
-            hfov: 100,
-          });
-        }
-      }, 300);
+      mediaHtml = `<div style="background:#f3e8ff;border-radius:6px;padding:16px;text-align:center;margin:6px 0;">
+        <div style="font-size:28px;margin-bottom:4px;">🌐</div>
+        <div style="font-size:11px;color:#7C3AED;font-weight:bold;">360°パノラマ写真</div>
+        <div style="font-size:10px;color:#888;margin-top:2px;">BOXで開いてご覧ください</div>
+      </div>`;
+      btnHtml = `<a class="popup-btn pano" href="${p.box_url}" target="_blank">🌐 パノラマをBOXで開く</a>`;
     } else {
       mediaHtml = `<img class="popup-img" src="${p.box_url}" onerror="this.style.display='none'"
                     onclick="window.open('${p.box_url}','_blank')" title="クリックで拡大">`;
