@@ -1338,18 +1338,23 @@ function buildPopup(p) {
   let mediaHtml = '<p class="no-photo">📷 写真リンクなし</p>';
   let btnHtml   = '';
 
-  if (hasBox) {
-    if (isPano) {
-      mediaHtml = `<div style="background:#f3e8ff;border-radius:6px;padding:16px;text-align:center;margin:6px 0;">
-        <div style="font-size:28px;margin-bottom:4px;">🌐</div>
-        <div style="font-size:11px;color:#7C3AED;font-weight:bold;">360°パノラマ写真</div>
-        <div style="font-size:10px;color:#888;margin-top:2px;">BOXで開いてご覧ください</div>
-      </div>`;
-      btnHtml = `<a class="popup-btn pano" href="${p.box_url}" target="_blank">🌐 パノラマをBOXで開く</a>`;
-    } else {
-      mediaHtml = `<img class="popup-img" src="${p.box_url}" onerror="this.style.display='none'"
-                    onclick="window.open('${p.box_url}','_blank')" title="クリックで拡大">`;
-      btnHtml   = `<a class="popup-btn" href="${p.box_url}" target="_blank">🔗 BOXで開く</a>`;
+  // サムネイル画像パス（thumbs/ファイル名.jpg）
+  const stem = p.name.replace(/\.[^.]+$/, '');
+  const thumbUrl = 'thumbs/' + stem + '.jpg';
+
+  if (isPano) {
+    mediaHtml = `<img class="popup-img" src="${thumbUrl}"
+                  onerror="this.style.display='none'"
+                  onclick="window.open('${p.box_url}','_blank')"
+                  title="クリックでBOXのパノラマを開く">`;
+    btnHtml = `<a class="popup-btn pano" href="${p.box_url}" target="_blank">🌐 パノラマをBOXで開く</a>`;
+  } else {
+    mediaHtml = `<img class="popup-img" src="${thumbUrl}"
+                  onerror="this.style.display='none'"
+                  onclick="window.open('${p.box_url || thumbUrl}','_blank')"
+                  title="クリックで拡大">`;
+    if (hasBox) {
+      btnHtml = `<a class="popup-btn" href="${p.box_url}" target="_blank">🔗 BOXで開く</a>`;
     }
   }
 
