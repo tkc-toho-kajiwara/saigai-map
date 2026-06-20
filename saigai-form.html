@@ -607,18 +607,18 @@ function nextKouku() {
   const current = parseInt(noInput.value, 10) || 0;
   noInput.value = String(current + 1).padStart(3, '0');
 
-  // ③ 工種チェックリセット
+  // ② 工種チェックリセット
   document.querySelectorAll('.koushuu-item input[type="checkbox"]').forEach(cb => {
     cb.checked = false;
     cb.closest('.koushuu-item').classList.remove('checked');
   });
 
-  // ④ L/H/S リセット
+  // ③ L/H/S リセット
   ['l1', 'l2', 'h1', 'h2', 's1', 's2'].forEach(id => {
     document.getElementById(id).value = '';
   });
 
-  // ⑤ フォームに戻る（業者・担当者はそのまま）
+  // ④ フォームに戻る（業者・担当者はそのまま）
   document.getElementById('form-card').style.display = 'block';
   document.getElementById('preview-area').style.display = 'none';
   document.getElementById('msg').style.display = 'none';
