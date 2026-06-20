@@ -478,7 +478,7 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- No -->
     <div class="row">
       <div class="label wide">No（工区番号）</div>
-      <input type="text" id="no" placeholder="例：001" style="font-size:20px;font-weight:bold;text-align:center;">
+      <input type="text" id="no" placeholder="自動連番" style="font-size:20px;font-weight:bold;text-align:center;">
     </div>
 
     <!-- 工種 -->
@@ -750,7 +750,7 @@ function nextKouku() {
   window.scrollTo(0, 0);
 }
 
-/* ===== ③ QRコード読み取り（SAIGAI:A001:001 形式） ===== */
+/* ===== ③ QRコード読み取り（SAIGAI:A001 形式：業者コードのみ） ===== */
 let qrStream = null;
 let qrRAF = null;
 const qrCanvas = document.createElement('canvas');
@@ -797,19 +797,32 @@ function scanLoop() {
 }
 
 function handleQRResult(text) {
-  // 形式： SAIGAI:A001:001 → 業者コード=A001, No=001
+  // 形式： SAIGAI:A001 → 業者コード=A001（Noはフォームで自動連番）
   const parts = text.split(':');
-  if (parts[0] === 'SAIGAI' && parts.length >= 3) {
+  if (parts[0] === 'SAIGAI' && parts.length >= 2 && parts[1].trim()) {
     const code = parts[1].trim();
-    const no = parts[2].trim();
     document.getElementById('vendor-code').value = code;
+    const no = getNextNo(code);
     document.getElementById('no').value = no;
     stopQRScan();
-    alert('✅ 読み取り成功\n\n業者コード： ' + code + '\nNo： ' + no);
+    alert('✅ 読み取り成功\n\n業者コード： ' + code + '\nNo（自動連番）： ' + no);
   } else {
     document.getElementById('qr-status').textContent = '⚠️ 対応形式外のQRです（' + text + '）';
     qrRAF = requestAnimationFrame(scanLoop);
   }
+}
+
+/* 業者コードごとに次のNoを自動採番（保存済み記録の最大No+1。なければ001） */
+function getNextNo(vendorCode) {
+  const recs = loadRecords();
+  let max = 0;
+  recs.forEach(r => {
+    if (r.vendor === vendorCode) {
+      const n = parseInt(r.no, 10) || 0;
+      if (n > max) max = n;
+    }
+  });
+  return String(max + 1).padStart(3, '0');
 }
 
 function stopQRScan() {
@@ -836,6 +849,7 @@ function addRecord() {
   const recs = loadRecords();
   const noVal = document.getElementById('no').value || '0';
   recs.push({
+    vendor: document.getElementById('vendor-code').value.trim(),
     no: noVal.padStart(3, '0'),
     koushuu: getCheckedKoushuu(),
     l: getNum('l1', 'l2'),
@@ -878,6 +892,15 @@ function renderRecords() {
 }
 
 renderRecords();
+
+// 業者コードを手入力したときも、Noが空なら自動連番をセット
+document.getElementById('vendor-code').addEventListener('change', function() {
+  const code = this.value.trim();
+  const noInput = document.getElementById('no');
+  if (code && !noInput.value.trim()) {
+    noInput.value = getNextNo(code);
+  }
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
