@@ -1347,7 +1347,10 @@ function buildPopup(p) {
                   onerror="this.style.display='none'"
                   onclick="window.open('${p.box_url}','_blank')"
                   title="クリックでBOXのパノラマを開く">`;
-    btnHtml = `<a class="popup-btn pano" href="${p.box_url}" target="_blank">🌐 パノラマをBOXで開く</a>`;
+    const panoNames = ['DJI_20240327094503_0011_D.JPG','DJI_20240327094640_0012_D.JPG','DJI_20240327094919_0020_D.JPG'];
+    const panoIdx = panoNames.indexOf(p.name);
+    const viewerUrl = 'pano_viewer.html?idx=' + (panoIdx >= 0 ? panoIdx : 0);
+    btnHtml = `<a class="popup-btn pano" href="${viewerUrl}" target="_blank">🌐 360°パノラマで見る</a>`;
   } else {
     mediaHtml = `<img class="popup-img" src="${thumbUrl}"
                   onerror="this.style.display='none'"
