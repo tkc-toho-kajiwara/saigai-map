@@ -798,8 +798,10 @@ function scanLoop() {
 
 function handleQRResult(text) {
   // 形式： SAIGAI:A001 → 業者コード=A001（Noはフォームで自動連番）
-  const parts = text.split(':');
-  if (parts[0] === 'SAIGAI' && parts.length >= 2 && parts[1].trim()) {
+  // 全角コロン「：」・前後の空白・英大小文字の揺れにも対応する
+  const normalized = (text || '').trim().replace(/：/g, ':');
+  const parts = normalized.split(':');
+  if (parts[0].trim().toUpperCase() === 'SAIGAI' && parts.length >= 2 && parts[1].trim()) {
     const code = parts[1].trim();
     document.getElementById('vendor-code').value = code;
     const no = getNextNo(code);
