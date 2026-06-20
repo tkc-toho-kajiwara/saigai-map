@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>災害調査 現地記録票</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+  background: #1a2744;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+}
+
+h1 {
+  color: #fff;
+  font-size: 18px;
+  margin-bottom: 16px;
+  letter-spacing: 0.05em;
+}
+
+/* ===== フォームカード ===== */
+.form-card {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.form-header {
+  background: #1a2744;
+  color: #fff;
+  text-align: center;
+  padding: 14px 16px 10px;
+  font-size: 17px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+}
+
+.form-header small {
+  display: block;
+  font-size: 11px;
+  font-weight: normal;
+  color: #8ab4f8;
+  margin-top: 2px;
+}
+
+.form-body { padding: 16px; }
+
+/* 行 */
+.row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 10px 0;
+  gap: 10px;
+}
+.row:last-child { border-bottom: none; }
+
+.label {
+  background: #1a2744;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 6px 10px;
+  border-radius: 4px;
+  min-width: 80px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.label.wide { min-width: 100px; }
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+  flex: 1;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 16px;
+  color: #1a2744;
+  background: #f8faff;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #1a2744;
+  background: #fff;
+}
+
+select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%231a2744' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+textarea { resize: vertical; min-height: 60px; }
+
+/* 数値入力（L/H/S） */
+.num-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.num-row input {
+  width: 70px;
+  flex: none;
+  text-align: right;
+}
+
+.num-row .dot {
+  color: #e00;
+  font-size: 20px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.num-row .dec {
+  width: 50px;
+  flex: none;
+  text-align: left;
+}
+
+.unit {
+  color: #666;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* 工種チェックボックス */
+.koushuu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  flex: 1;
+}
+
+.koushuu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  transition: all 0.15s;
+  font-size: 14px;
+  color: #333;
+}
+
+.koushuu-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  accent-color: #1a2744;
+}
+
+.koushuu-item.checked {
+  border-color: #1a2744;
+  background: #e8eef8;
+  color: #1a2744;
+  font-weight: bold;
+}
+
+/* ボタン */
+.btn-area {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #1a2744;
+  color: #fff;
+}
+
+.btn-primary:active { background: #0f1a30; }
+
+.btn-secondary {
+  background: #e8eef8;
+  color: #1a2744;
+}
+
+/* ===== プレビュー（記入票風） ===== */
+#preview-area {
+  display: none;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 20px;
+}
+
+.ticket {
+  background: #fff;
+  border: 3px solid #1a2744;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.ticket-header {
+  background: #1a2744;
+  color: #fff;
+  text-align: center;
+  padding: 10px;
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+}
+
+.ticket-meta {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #1a2744;
+}
+
+.ticket-meta-item {
+  flex: 1;
+  padding: 8px 10px;
+  border-right: 1px solid #1a2744;
+  font-size: 12px;
+}
+.ticket-meta-item:last-child { border-right: none; }
+.ticket-meta-item .mlabel { color: #666; font-size: 10px; }
+.ticket-meta-item .mval { font-size: 14px; font-weight: bold; color: #1a2744; }
+
+.ticket-no {
+  text-align: center;
+  padding: 12px;
+  font-size: 28px;
+  font-weight: bold;
+  color: #1a2744;
+  border-bottom: 2px solid #1a2744;
+  letter-spacing: 0.15em;
+}
+
+.ticket-row {
+  display: flex;
+  border-bottom: 1px solid #ccc;
+}
+.ticket-row:last-child { border-bottom: none; }
+
+.ticket-th {
+  background: #1a2744;
+  color: #fff;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  width: 80px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ticket-td {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1a2744;
+  display: flex;
+  align-items: center;
+}
+
+.ticket-footer {
+  background: #f0f4ff;
+  text-align: center;
+  padding: 6px;
+  font-size: 10px;
+  color: #666;
+  border-top: 1px solid #ccc;
+}
+
+.save-btn-area {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* メッセージ */
+.msg {
+  text-align: center;
+  color: #fff;
+  font-size: 14px;
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<h1>📋 災害調査 現地記録票</h1>
+
+<!-- 入力フォーム -->
+<div class="form-card" id="form-card">
+  <div class="form-header">
+    災害調査システム　現地記録票
+    <small>株式会社東豊開発コンサルタント</small>
+  </div>
+  <div class="form-body">
+
+    <!-- 業者コード -->
+    <div class="row">
+      <div class="label">業者</div>
+      <select id="vendor">
+        <option value="">選択してください</option>
+        <option value="A001_東豊開発コンサルタント">A001 東豊開発コンサルタント</option>
+        <option value="B002_大分技術開発">B002 大分技術開発</option>
+        <option value="C003_測量企画センター">C003 測量企画センター</option>
+        <option value="D004_大日測量設計">D004 大日測量設計</option>
+        <option value="E005_順次割付">E005 その他</option>
+      </select>
+    </div>
+
+    <!-- 担当者 -->
+    <div class="row">
+      <div class="label">担当者</div>
+      <input type="text" id="tantousha" placeholder="氏名を入力">
+    </div>
+
+    <!-- No -->
+    <div class="row">
+      <div class="label wide">No（工区番号）</div>
+      <input type="text" id="no" placeholder="例：001" style="font-size:20px;font-weight:bold;text-align:center;">
+    </div>
+
+    <!-- 工種 -->
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:10px;">
+      <div class="label">工種</div>
+      <div class="koushuu-grid" id="koushuu-grid">
+        <label class="koushuu-item"><input type="checkbox" value="道路土工"> 道路土工</label>
+        <label class="koushuu-item"><input type="checkbox" value="法面工"> 法面工</label>
+        <label class="koushuu-item"><input type="checkbox" value="護岸工"> 護岸工</label>
+        <label class="koushuu-item"><input type="checkbox" value="排水工"> 排水工</label>
+        <label class="koushuu-item"><input type="checkbox" value="舗装工"> 舗装工</label>
+        <label class="koushuu-item"><input type="checkbox" value="橋梁工"> 橋梁工</label>
+        <label class="koushuu-item"><input type="checkbox" value="砂防工"> 砂防工</label>
+        <label class="koushuu-item"><input type="checkbox" value="その他"> その他</label>
+      </div>
+    </div>
+
+    <!-- L延長 -->
+    <div class="row">
+      <div class="label">L延長</div>
+      <div class="num-row">
+        <input type="number" id="l1" placeholder="0" min="0" max="9999">
+        <span class="dot">.</span>
+        <input type="number" id="l2" placeholder="0" min="0" max="9" class="dec">
+      </div>
+      <span class="unit">m</span>
+    </div>
+
+    <!-- H高さ -->
+    <div class="row">
+      <div class="label">H高さ</div>
+      <div class="num-row">
+        <input type="number" id="h1" placeholder="0" min="0" max="9999">
+        <span class="dot">.</span>
+        <input type="number" id="h2" placeholder="0" min="0" max="9" class="dec">
+      </div>
+      <span class="unit">m</span>
+    </div>
+
+    <!-- 斜長S -->
+    <div class="row">
+      <div class="label">斜長S</div>
+      <div class="num-row">
+        <input type="number" id="s1" placeholder="0" min="0" max="9999">
+        <span class="dot">.</span>
+        <input type="number" id="s2" placeholder="0" min="0" max="9" class="dec">
+      </div>
+      <span class="unit">m</span>
+    </div>
+
+    <!-- 災害種類 -->
+    <div class="row">
+      <div class="label">災害種類</div>
+      <select id="saigai">
+        <option value="">選択</option>
+        <option value="A">A（豪雨）</option>
+        <option value="B">B（台風）</option>
+        <option value="C">C（地震）</option>
+        <option value="D">D（その他）</option>
+      </select>
+    </div>
+
+    <!-- コメント -->
+    <div class="row">
+      <div class="label">コメント</div>
+      <textarea id="comment" placeholder="メモ・特記事項など"></textarea>
+    </div>
+
+  </div>
+
+  <div class="btn-area">
+    <button class="btn btn-primary" onclick="generateTicket()">📸 記入票を作成する</button>
+  </div>
+</div>
+
+<!-- プレビュー（記入票風） -->
+<div id="preview-area">
+  <div class="ticket" id="ticket">
+    <div class="ticket-header">災害調査 現地記録票</div>
+    <div class="ticket-meta">
+      <div class="ticket-meta-item">
+        <div class="mlabel">業者コード</div>
+        <div class="mval" id="p-vendor">-</div>
+      </div>
+      <div class="ticket-meta-item">
+        <div class="mlabel">担当者</div>
+        <div class="mval" id="p-tanto">-</div>
+      </div>
+    </div>
+    <div class="ticket-no" id="p-no">NO: -</div>
+    <div class="ticket-row">
+      <div class="ticket-th">工種</div>
+      <div class="ticket-td" id="p-koushuu">-</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-th">L延長</div>
+      <div class="ticket-td" id="p-l">-</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-th">H高さ</div>
+      <div class="ticket-td" id="p-h">-</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-th">斜長S</div>
+      <div class="ticket-td" id="p-s">-</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-th">災害種類</div>
+      <div class="ticket-td" id="p-saigai">-</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-th">コメント</div>
+      <div class="ticket-td" id="p-comment" style="white-space:pre-wrap;">-</div>
+    </div>
+    <div class="ticket-footer" id="p-footer">災害調査システム　東豊開発コンサルタント</div>
+  </div>
+
+  <div class="save-btn-area">
+    <button class="btn btn-primary" onclick="saveAsImage()">📷 スクリーンショット保存案内</button>
+    <button class="btn btn-secondary" onclick="backToForm()">✏️ 修正する</button>
+  </div>
+</div>
+
+<div class="msg" id="msg"></div>
+
+<script>
+// 工種チェックボックスのスタイル制御
+document.querySelectorAll('.koushuu-item input[type="checkbox"]').forEach(cb => {
+  cb.addEventListener('change', function() {
+    const label = this.closest('.koushuu-item');
+    if (this.checked) {
+      label.classList.add('checked');
+    } else {
+      label.classList.remove('checked');
+    }
+  });
+});
+
+function getCheckedKoushuu() {
+  const checked = [];
+  document.querySelectorAll('.koushuu-item input:checked').forEach(cb => {
+    checked.push(cb.value);
+  });
+  return checked.join('・') || '未選択';
+}
+
+function getNum(id1, id2) {
+  const v1 = document.getElementById(id1).value || '0';
+  const v2 = document.getElementById(id2).value || '0';
+  return `${v1}.${v2}`;
+}
+
+function generateTicket() {
+  const vendor = document.getElementById('vendor').value;
+  const tanto = document.getElementById('tantousha').value;
+  const no = document.getElementById('no').value;
+
+  if (!vendor) { alert('業者を選択してください'); return; }
+  if (!no) { alert('No（工区番号）を入力してください'); return; }
+
+  // プレビューに値をセット
+  const vendorShort = vendor.split('_')[0];
+  document.getElementById('p-vendor').textContent = vendorShort;
+  document.getElementById('p-tanto').textContent = tanto || '-';
+  document.getElementById('p-no').textContent = 'NO: ' + no.padStart(3, '0');
+  document.getElementById('p-koushuu').textContent = getCheckedKoushuu();
+  document.getElementById('p-l').textContent = getNum('l1','l2') + ' m';
+  document.getElementById('p-h').textContent = getNum('h1','h2') + ' m';
+  document.getElementById('p-s').textContent = getNum('s1','s2') + ' m';
+  document.getElementById('p-saigai').textContent = document.getElementById('saigai').value || '-';
+  document.getElementById('p-comment').textContent = document.getElementById('comment').value || '-';
+  document.getElementById('p-footer').textContent = `災害調査システム  NO:${no.padStart(3,'0')}  ${vendor}`;
+
+  // 表示切替
+  document.getElementById('form-card').style.display = 'none';
+  document.getElementById('preview-area').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+function saveAsImage() {
+  const msg = document.getElementById('msg');
+  msg.style.display = 'block';
+  msg.innerHTML = `📱 <b>スクリーンショット保存手順</b><br><br>
+Android：電源ボタン＋音量下ボタン<br>
+iPhone：サイドボタン＋音量上ボタン<br><br>
+📂 保存したら<b>Googleドライブの<br>業者フォルダにアップ</b>してください`;
+}
+
+function backToForm() {
+  document.getElementById('form-card').style.display = 'block';
+  document.getElementById('preview-area').style.display = 'none';
+  document.getElementById('msg').style.display = 'none';
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
