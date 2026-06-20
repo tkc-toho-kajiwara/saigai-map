@@ -1,8 +1,9 @@
-const CACHE_NAME = 'saigai-form-v3';
+const CACHE_NAME = 'saigai-form-v4';
 const ASSETS = [
   './saigai-form.html',
   './manifest.json',
   './html2canvas.min.js',
+  './jsQR.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];

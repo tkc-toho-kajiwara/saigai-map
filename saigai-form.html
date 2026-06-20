@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="記録票">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <script src="html2canvas.min.js"></script>
+<script src="jsQR.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -321,6 +322,102 @@ textarea { resize: vertical; min-height: 60px; }
   gap: 8px;
 }
 
+/* ===== 保存済み一覧 ===== */
+#record-card {
+  display: none;
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.record-header {
+  background: #1a6e3a;
+  color: #fff;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.record-list { padding: 8px 12px 12px; }
+
+.rec-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-bottom: 1px solid #eee;
+}
+.rec-item:last-child { border-bottom: none; }
+
+.rec-no {
+  background: #1a2744;
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  min-width: 56px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.rec-info { flex: 1; min-width: 0; }
+.rec-koushuu { font-size: 13px; font-weight: bold; color: #1a2744; }
+.rec-lhs { font-size: 12px; color: #666; margin-top: 2px; }
+
+.rec-del {
+  background: #f8d7da;
+  color: #b02a37;
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ===== QRスキャナー ===== */
+#qr-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 1000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+#qr-video {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 12px;
+  background: #000;
+}
+
+#qr-status {
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+}
+
+.btn-qr {
+  background: #2b5797;
+  color: #fff;
+}
+.btn-qr:active { background: #1d3c66; }
+
 /* メッセージ */
 .msg {
   text-align: center;
@@ -338,6 +435,15 @@ textarea { resize: vertical; min-height: 60px; }
 
 <h1>📋 災害調査 現地記録票</h1>
 
+<!-- 保存済み調査票一覧 -->
+<div id="record-card">
+  <div class="record-header">
+    <span>📝 保存した調査票</span>
+    <span id="record-count">0件</span>
+  </div>
+  <div class="record-list" id="record-list"></div>
+</div>
+
 <!-- 入力フォーム -->
 <div class="form-card" id="form-card">
   <div class="form-header">
@@ -346,17 +452,21 @@ textarea { resize: vertical; min-height: 60px; }
   </div>
   <div class="form-body">
 
+    <!-- QRコード読み取り -->
+    <div class="row" style="border-bottom:none; padding-bottom:0;">
+      <button class="btn btn-qr" onclick="startQRScan()">📷 QRコード読み取り</button>
+    </div>
+
     <!-- 業者コード -->
     <div class="row">
-      <div class="label">業者</div>
-      <select id="vendor">
-        <option value="">選択してください</option>
-        <option value="A001_東豊開発コンサルタント">A001 東豊開発コンサルタント</option>
-        <option value="B002_大分技術開発">B002 大分技術開発</option>
-        <option value="C003_測量企画センター">C003 測量企画センター</option>
-        <option value="D004_大日測量設計">D004 大日測量設計</option>
-        <option value="E005_順次割付">E005 その他</option>
-      </select>
+      <div class="label">業者コード</div>
+      <input type="text" id="vendor-code" placeholder="例：A001">
+    </div>
+
+    <!-- 業者名 -->
+    <div class="row">
+      <div class="label">業者名</div>
+      <input type="text" id="vendor-name" placeholder="業者名を入力">
     </div>
 
     <!-- 担当者 -->
@@ -495,6 +605,13 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="msg" id="msg"></div>
 
+<!-- QRコードスキャナー -->
+<div id="qr-modal">
+  <div id="qr-status">QRコードをカメラに写してください</div>
+  <video id="qr-video" playsinline muted></video>
+  <button class="btn btn-secondary" style="max-width:200px;" onclick="stopQRScan()">閉じる</button>
+</div>
+
 <script>
 // 工種チェックボックスのスタイル制御
 document.querySelectorAll('.koushuu-item input[type="checkbox"]').forEach(cb => {
@@ -523,16 +640,17 @@ function getNum(id1, id2) {
 }
 
 function generateTicket() {
-  const vendor = document.getElementById('vendor').value;
+  const vendorCode = document.getElementById('vendor-code').value.trim();
+  const vendorName = document.getElementById('vendor-name').value.trim();
   const tanto = document.getElementById('tantousha').value;
   const no = document.getElementById('no').value;
 
-  if (!vendor) { alert('業者を選択してください'); return; }
+  if (!vendorCode) { alert('業者コードを入力してください'); return; }
   if (!no) { alert('No（工区番号）を入力してください'); return; }
 
   // プレビューに値をセット
-  const vendorShort = vendor.split('_')[0];
-  document.getElementById('p-vendor').textContent = vendorShort;
+  const vendorDisp = vendorName ? `${vendorCode} ${vendorName}` : vendorCode;
+  document.getElementById('p-vendor').textContent = vendorDisp;
   document.getElementById('p-tanto').textContent = tanto || '-';
   document.getElementById('p-no').textContent = 'NO: ' + no.padStart(3, '0');
   document.getElementById('p-koushuu').textContent = getCheckedKoushuu();
@@ -541,7 +659,7 @@ function generateTicket() {
   document.getElementById('p-s').textContent = getNum('s1','s2') + ' m';
   document.getElementById('p-saigai').textContent = document.getElementById('saigai').value || '-';
   document.getElementById('p-comment').textContent = document.getElementById('comment').value || '-';
-  document.getElementById('p-footer').textContent = `災害調査システム  NO:${no.padStart(3,'0')}  ${vendor}`;
+  document.getElementById('p-footer').textContent = `災害調査システム  NO:${no.padStart(3,'0')}  ${vendorDisp}`;
 
   // 表示切替
   document.getElementById('form-card').style.display = 'none';
@@ -583,6 +701,8 @@ async function saveAsImage() {
     link.href = canvas.toDataURL('image/png');
     link.click();
 
+    addRecord();
+
     msg.style.display = 'block';
     msg.innerHTML = `✅ <b>${filename}</b> を保存しました`;
   } catch (e) {
@@ -602,7 +722,12 @@ function backToForm() {
 }
 
 function nextKouku() {
-  // ① No +1
+  // ① 確認ダイアログ
+  if (!confirm('次の工区へ進みますか？\n\n・Noが +1 されます\n・工種 / L・H・S はリセットされます\n・業者・担当者はそのまま引き継がれます')) {
+    return;
+  }
+
+  // No +1
   const noInput = document.getElementById('no');
   const current = parseInt(noInput.value, 10) || 0;
   noInput.value = String(current + 1).padStart(3, '0');
@@ -624,6 +749,135 @@ function nextKouku() {
   document.getElementById('msg').style.display = 'none';
   window.scrollTo(0, 0);
 }
+
+/* ===== ③ QRコード読み取り（SAIGAI:A001:001 形式） ===== */
+let qrStream = null;
+let qrRAF = null;
+const qrCanvas = document.createElement('canvas');
+const qrCtx = qrCanvas.getContext('2d', { willReadFrequently: true });
+
+async function startQRScan() {
+  if (typeof jsQR !== 'function') {
+    alert('QR読み取りライブラリを読み込めませんでした');
+    return;
+  }
+  const modal = document.getElementById('qr-modal');
+  const video = document.getElementById('qr-video');
+  const status = document.getElementById('qr-status');
+  modal.style.display = 'flex';
+  status.textContent = '📷 カメラを起動中...';
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    video.srcObject = qrStream;
+    video.setAttribute('playsinline', 'true');
+    await video.play();
+    status.textContent = 'QRコードをカメラに写してください';
+    qrRAF = requestAnimationFrame(scanLoop);
+  } catch (e) {
+    status.textContent = '⚠️ カメラを起動できません（' + e.name + '）';
+  }
+}
+
+function scanLoop() {
+  const video = document.getElementById('qr-video');
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    qrCanvas.width = video.videoWidth;
+    qrCanvas.height = video.videoHeight;
+    qrCtx.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
+    const img = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) {
+      handleQRResult(code.data.trim());
+      return;
+    }
+  }
+  qrRAF = requestAnimationFrame(scanLoop);
+}
+
+function handleQRResult(text) {
+  // 形式： SAIGAI:A001:001 → 業者コード=A001, No=001
+  const parts = text.split(':');
+  if (parts[0] === 'SAIGAI' && parts.length >= 3) {
+    const code = parts[1].trim();
+    const no = parts[2].trim();
+    document.getElementById('vendor-code').value = code;
+    document.getElementById('no').value = no;
+    stopQRScan();
+    alert('✅ 読み取り成功\n\n業者コード： ' + code + '\nNo： ' + no);
+  } else {
+    document.getElementById('qr-status').textContent = '⚠️ 対応形式外のQRです（' + text + '）';
+    qrRAF = requestAnimationFrame(scanLoop);
+  }
+}
+
+function stopQRScan() {
+  if (qrRAF) { cancelAnimationFrame(qrRAF); qrRAF = null; }
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  const video = document.getElementById('qr-video');
+  if (video) video.srcObject = null;
+  document.getElementById('qr-modal').style.display = 'none';
+}
+
+/* ===== ④ 保存済み調査票の一覧 ===== */
+const REC_KEY = 'saigai-records';
+
+function loadRecords() {
+  try { return JSON.parse(localStorage.getItem(REC_KEY)) || []; }
+  catch (e) { return []; }
+}
+
+function saveRecords(arr) {
+  localStorage.setItem(REC_KEY, JSON.stringify(arr));
+}
+
+function addRecord() {
+  const recs = loadRecords();
+  const noVal = document.getElementById('no').value || '0';
+  recs.push({
+    no: noVal.padStart(3, '0'),
+    koushuu: getCheckedKoushuu(),
+    l: getNum('l1', 'l2'),
+    h: getNum('h1', 'h2'),
+    s: getNum('s1', 's2'),
+    time: Date.now()
+  });
+  saveRecords(recs);
+  renderRecords();
+}
+
+function deleteRecord(i) {
+  if (!confirm('この記録を一覧から削除しますか？')) return;
+  const recs = loadRecords();
+  recs.splice(i, 1);
+  saveRecords(recs);
+  renderRecords();
+}
+
+function renderRecords() {
+  const recs = loadRecords();
+  const card = document.getElementById('record-card');
+  const list = document.getElementById('record-list');
+  const count = document.getElementById('record-count');
+  if (!recs.length) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  count.textContent = recs.length + '件';
+  list.innerHTML = recs.map((r, i) => `
+    <div class="rec-item">
+      <div class="rec-no">No.${r.no}</div>
+      <div class="rec-info">
+        <div class="rec-koushuu">${r.koushuu}</div>
+        <div class="rec-lhs">L:${r.l} ／ H:${r.h} ／ S:${r.s} m</div>
+      </div>
+      <button class="rec-del" onclick="deleteRecord(${i})">✕</button>
+    </div>`).join('');
+}
+
+renderRecords();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
