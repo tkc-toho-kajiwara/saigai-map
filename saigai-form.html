@@ -220,6 +220,12 @@ textarea { resize: vertical; min-height: 60px; }
   color: #1a2744;
 }
 
+.btn-next {
+  background: #1a6e3a;
+  color: #fff;
+}
+.btn-next:active { background: #0f4d28; }
+
 /* ===== プレビュー（記入票風） ===== */
 #preview-area {
   display: none;
@@ -482,6 +488,7 @@ textarea { resize: vertical; min-height: 60px; }
 
   <div class="save-btn-area">
     <button class="btn btn-primary" id="save-btn" onclick="saveAsImage()">📸 画像として保存</button>
+    <button class="btn btn-next" onclick="nextKouku()">➡️ 次の工区へ</button>
     <button class="btn btn-secondary" onclick="backToForm()">✏️ 修正する</button>
   </div>
 </div>
@@ -588,6 +595,30 @@ async function saveAsImage() {
 }
 
 function backToForm() {
+  document.getElementById('form-card').style.display = 'block';
+  document.getElementById('preview-area').style.display = 'none';
+  document.getElementById('msg').style.display = 'none';
+  window.scrollTo(0, 0);
+}
+
+function nextKouku() {
+  // ① No +1
+  const noInput = document.getElementById('no');
+  const current = parseInt(noInput.value, 10) || 0;
+  noInput.value = String(current + 1).padStart(3, '0');
+
+  // ③ 工種チェックリセット
+  document.querySelectorAll('.koushuu-item input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.koushuu-item').classList.remove('checked');
+  });
+
+  // ④ L/H/S リセット
+  ['l1', 'l2', 'h1', 'h2', 's1', 's2'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  // ⑤ フォームに戻る（業者・担当者はそのまま）
   document.getElementById('form-card').style.display = 'block';
   document.getElementById('preview-area').style.display = 'none';
   document.getElementById('msg').style.display = 'none';
