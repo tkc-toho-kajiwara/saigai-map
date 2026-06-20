@@ -1,0 +1,25 @@
+{
+  "name": "災害調査 現地記録票",
+  "short_name": "記録票",
+  "description": "東豊開発コンサルタント 災害調査現地記録票",
+  "start_url": "./saigai-form.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a2744",
+  "theme_color": "#1a2744",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ]
+}
