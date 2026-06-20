@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="記録票">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<script src="html2canvas.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -480,7 +481,7 @@ textarea { resize: vertical; min-height: 60px; }
   </div>
 
   <div class="save-btn-area">
-    <button class="btn btn-primary" onclick="saveAsImage()">📷 スクリーンショット保存案内</button>
+    <button class="btn btn-primary" id="save-btn" onclick="saveAsImage()">📸 画像として保存</button>
     <button class="btn btn-secondary" onclick="backToForm()">✏️ 修正する</button>
   </div>
 </div>
@@ -541,13 +542,49 @@ function generateTicket() {
   window.scrollTo(0, 0);
 }
 
-function saveAsImage() {
+async function saveAsImage() {
+  const ticket = document.getElementById('ticket');
+  const noVal = document.getElementById('no').value || '000';
+  const noStr = noVal.padStart(3, '0');
+
+  const now = new Date();
+  const datetime =
+    now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0') + '_' +
+    String(now.getHours()).padStart(2, '0') +
+    String(now.getMinutes()).padStart(2, '0');
+
+  const filename = `記入票_No${noStr}_${datetime}.png`;
+
+  const btn = document.getElementById('save-btn');
   const msg = document.getElementById('msg');
-  msg.style.display = 'block';
-  msg.innerHTML = `📱 <b>スクリーンショット保存手順</b><br><br>
-Android：電源ボタン＋音量下ボタン<br>
-iPhone：サイドボタン＋音量上ボタン<br><br>
-📂 保存したら<b>Googleドライブの<br>業者フォルダにアップ</b>してください`;
+  btn.disabled = true;
+  btn.textContent = '⏳ 生成中...';
+  msg.style.display = 'none';
+
+  try {
+    const canvas = await html2canvas(ticket, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false
+    });
+
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    msg.style.display = 'block';
+    msg.innerHTML = `✅ <b>${filename}</b> を保存しました`;
+  } catch (e) {
+    msg.style.display = 'block';
+    msg.innerHTML = '⚠️ 画像の生成に失敗しました。スクリーンショットで保存してください。';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📸 画像として保存';
+  }
 }
 
 function backToForm() {
