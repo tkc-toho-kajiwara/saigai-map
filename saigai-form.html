@@ -809,8 +809,17 @@ function handleQRResult(text) {
     stopQRScan();
     alert('✅ 読み取り成功\n\n業者コード： ' + code + '\nNo（自動連番）： ' + no);
   } else {
+    // 【デバッグ版】実際に読み取った文字列をそのまま表示して内容を確認する
+    stopQRScan();
+    alert(
+      '🐞 デバッグ：QRは読み取れましたが対応形式外でした\n\n' +
+      '── 生の読み取り文字列 ──\n「' + text + '」\n\n' +
+      '── 正規化後（：→:）──\n「' + normalized + '」\n\n' +
+      '── 区切り（:）の結果 ──\n' +
+      parts.map((p, i) => '[' + i + '] 「' + p + '」').join('\n') + '\n\n' +
+      '文字数： ' + (text ? text.length : 0)
+    );
     document.getElementById('qr-status').textContent = '⚠️ 対応形式外のQRです（' + text + '）';
-    qrRAF = requestAnimationFrame(scanLoop);
   }
 }
 
