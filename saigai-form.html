@@ -557,6 +557,7 @@ textarea { resize: vertical; min-height: 60px; }
 
   <div class="btn-area">
     <button class="btn btn-primary" onclick="generateTicket()">📸 記入票を作成する</button>
+    <button class="btn btn-camera" onclick="showUploadGuide()">📤 WiFi環境でアップロード</button>
   </div>
 </div>
 
@@ -704,10 +705,16 @@ async function saveAsImage() {
       logging: false
     });
 
+    // Blob + objectURL で保存（ダウンロード確認ダイアログを出さずに直接保存）
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.download = filename;
-    link.href = canvas.toDataURL('image/png');
+    link.href = url;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     addRecord();
 
@@ -720,6 +727,16 @@ async function saveAsImage() {
     btn.disabled = false;
     btn.textContent = '📸 画像として保存';
   }
+}
+
+function showUploadGuide() {
+  alert(
+    '📤 WiFi環境でアップロード手順\n\n' +
+    '①ファイルアプリ→ダウンロードフォルダの記入票画像を選択\n' +
+    '②Googleドライブアプリを開く\n' +
+    '③業者フォルダにアップロード\n' +
+    '④現場写真も同じフォルダにアップロード'
+  );
 }
 
 function openCamera() {
