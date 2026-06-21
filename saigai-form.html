@@ -227,6 +227,19 @@ textarea { resize: vertical; min-height: 60px; }
 }
 .btn-camera:active { background: #1a4576; }
 
+.camera-guide {
+  margin: 4px 0;
+  padding: 12px;
+  background: #eef4fb;
+  border: 1px solid #b7d0ea;
+  border-radius: 8px;
+  color: #1a4576;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.5;
+}
+
 .btn-next {
   background: #1a6e3a;
   color: #fff;
@@ -605,10 +618,9 @@ textarea { resize: vertical; min-height: 60px; }
 
   <div class="save-btn-area">
     <button class="btn btn-primary" id="save-btn" onclick="saveAsImage()">📸 画像として保存</button>
-    <button class="btn btn-camera" onclick="openCamera()">📷 カメラ起動</button>
+    <p class="camera-guide">📷 記入票保存後、カメラアプリで現場写真を撮影してください</p>
     <button class="btn btn-next" onclick="nextKouku()">➡️ 次の工区へ</button>
     <button class="btn btn-secondary" onclick="backToForm()">✏️ 修正する</button>
-    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
   </div>
 </div>
 
@@ -737,38 +749,6 @@ function showUploadGuide() {
     '③業者フォルダにアップロード\n' +
     '④現場写真も同じフォルダにアップロード'
   );
-}
-
-function openCamera() {
-  // スマホの標準カメラアプリを直接起動して写真を撮影
-  // 撮影した写真は端末のカメラロール（ギャラリー）に自動保存される
-  const ua = navigator.userAgent || '';
-  const isAndroid = /Android/i.test(ua);
-  const isIOS = /iPhone|iPad|iPod/i.test(ua) ||
-    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-
-  if (isAndroid) {
-    // Android標準カメラアプリをintentで直接起動
-    // STILL_IMAGE_CAMERA は通常のカメラアプリを開き、撮影写真はギャラリーに保存される
-    window.location.href =
-      'intent:#Intent;action=android.media.action.STILL_IMAGE_CAMERA;end';
-    return;
-  }
-
-  if (isIOS) {
-    // iOSはWebページからカメラアプリを直接起動する公開URLスキームが存在しないため、
-    // 案内メッセージを表示し、撮影後にこのフォームへ戻るようガイドする
-    alert(
-      '📷 iPhoneはカメラアプリで撮影してください\n\n' +
-      '①ホーム画面でカメラアプリを開いて現場写真を撮影\n' +
-      '②撮影後、この記入票の画面に戻ってください\n' +
-      '（写真は自動的にカメラロールへ保存されます）'
-    );
-    return;
-  }
-
-  // その他の端末はファイル入力経由でカメラ起動
-  document.getElementById('camera-input').click();
 }
 
 function backToForm() {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'saigai-form-v12';
+const CACHE_NAME = 'saigai-form-v13';
 const ASSETS = [
   './saigai-form.html',
   './manifest.json',
