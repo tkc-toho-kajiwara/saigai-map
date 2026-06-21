@@ -221,6 +221,12 @@ textarea { resize: vertical; min-height: 60px; }
   color: #1a2744;
 }
 
+.btn-camera {
+  background: #2563a8;
+  color: #fff;
+}
+.btn-camera:active { background: #1a4576; }
+
 .btn-next {
   background: #1a6e3a;
   color: #fff;
@@ -598,8 +604,10 @@ textarea { resize: vertical; min-height: 60px; }
 
   <div class="save-btn-area">
     <button class="btn btn-primary" id="save-btn" onclick="saveAsImage()">📸 画像として保存</button>
+    <button class="btn btn-camera" onclick="openCamera()">📷 カメラ起動</button>
     <button class="btn btn-next" onclick="nextKouku()">➡️ 次の工区へ</button>
     <button class="btn btn-secondary" onclick="backToForm()">✏️ 修正する</button>
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
   </div>
 </div>
 
@@ -712,6 +720,11 @@ async function saveAsImage() {
     btn.disabled = false;
     btn.textContent = '📸 画像として保存';
   }
+}
+
+function openCamera() {
+  // スマホの標準カメラアプリを起動して写真を撮影
+  document.getElementById('camera-input').click();
 }
 
 function backToForm() {
