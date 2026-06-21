@@ -740,7 +740,29 @@ function showUploadGuide() {
 }
 
 function openCamera() {
-  // スマホの標準カメラアプリを起動して写真を撮影
+  // スマホの標準カメラアプリを直接起動して写真を撮影
+  // 撮影した写真は端末のカメラロール（ギャラリー）に自動保存される
+  const ua = navigator.userAgent || '';
+  const isAndroid = /Android/i.test(ua);
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+  if (isAndroid) {
+    // Android標準カメラアプリをintentで直接起動
+    // STILL_IMAGE_CAMERA は通常のカメラアプリを開き、撮影写真はギャラリーに保存される
+    window.location.href =
+      'intent://#Intent;action=android.media.action.STILL_IMAGE_CAMERA;end';
+    return;
+  }
+
+  if (isIOS) {
+    // iOSはWebページからカメラアプリを直接起動する公開URLスキームが存在しないため、
+    // capture属性付きファイル入力でカメラを起動する（撮影後ページに戻る）
+    document.getElementById('camera-input').click();
+    return;
+  }
+
+  // その他の端末はファイル入力経由でカメラ起動
   document.getElementById('camera-input').click();
 }
 
