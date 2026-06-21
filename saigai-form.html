@@ -688,6 +688,21 @@ function generateTicket() {
   window.scrollTo(0, 0);
 }
 
+// スマホのGPS座標を取得する。取得できない場合はnullを返す。
+function getGpsCoords() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+}
+
 async function saveAsImage() {
   const ticket = document.getElementById('ticket');
   const noVal = document.getElementById('no').value || '000';
@@ -701,13 +716,23 @@ async function saveAsImage() {
     String(now.getHours()).padStart(2, '0') +
     String(now.getMinutes()).padStart(2, '0');
 
-  const filename = `記入票_No${noStr}_${datetime}.png`;
-
   const btn = document.getElementById('save-btn');
   const msg = document.getElementById('msg');
   btn.disabled = true;
   btn.textContent = '⏳ 生成中...';
   msg.style.display = 'none';
+
+  // GPS座標を取得（取得できない場合はGPSなしで保存）
+  btn.textContent = '📍 位置情報取得中...';
+  const coords = await getGpsCoords();
+  let gpsSuffix = '';
+  if (coords) {
+    gpsSuffix = `_${coords.lat.toFixed(4)}_${coords.lng.toFixed(4)}`;
+  }
+
+  const filename = `記入票_No${noStr}_${datetime}${gpsSuffix}.png`;
+
+  btn.textContent = '⏳ 生成中...';
 
   try {
     const canvas = await html2canvas(ticket, {
