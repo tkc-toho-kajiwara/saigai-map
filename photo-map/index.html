@@ -58,9 +58,9 @@ body{background:#f4f4f0;height:100vh;display:flex;flex-direction:column;overflow
   </div>
 </div>
 <div class="sum">
-  <div class="si"><span class="sn">119</span><span class="sl">総写真数</span></div>
-  <div class="si"><span class="sn" style="color:#1D9E75">106</span><span class="sl">通常写真</span></div>
-  <div class="si"><span class="sn" style="color:#7C3AED">13</span><span class="sl">パノラマ360°</span></div>
+  <div class="si"><span class="sn">116</span><span class="sl">総写真数</span></div>
+  <div class="si"><span class="sn" style="color:#1D9E75">105</span><span class="sl">通常写真</span></div>
+  <div class="si"><span class="sn" style="color:#7C3AED">11</span><span class="sl">パノラマ360°</span></div>
   <div class="si"><span class="sn" id="cnt-filter" style="color:#666">-</span><span class="sl">表示中</span></div>
 </div>
 <div class="filters">
@@ -83,36 +83,6 @@ body{background:#f4f4f0;height:100vh;display:flex;flex-direction:column;overflow
 
 <script>
 const ALL_PHOTOS = [
-  {
-    "name": "DJI_20240327094919_0020_D.JPG",
-    "lat": 33.2550256,
-    "lon": 131.0272238,
-    "box_url": "https://tkc-toho.box.com/s/8nncdsvu96hxik6ptyvz9sti0jwne37s",
-    "taken_at": "2024-03-27T09:49:00.000+00:00",
-    "folder": "パノラマ",
-    "camera": "",
-    "photo_type": "パノラマ360°"
-  },
-  {
-    "name": "DJI_20240327094640_0012_D.JPG",
-    "lat": 33.2549553,
-    "lon": 131.0281827,
-    "box_url": "https://tkc-toho.box.com/s/tdg3uho7n2h2yu5a5zvx45iiervitjrq",
-    "taken_at": "2024-03-27T09:46:00.000+00:00",
-    "folder": "パノラマ",
-    "camera": "",
-    "photo_type": "パノラマ360°"
-  },
-  {
-    "name": "DJI_20240327094503_0011_D.JPG",
-    "lat": 33.2550261,
-    "lon": 131.0293604,
-    "box_url": "https://tkc-toho.box.com/s/4vyhzu53er61zrycf2gfrk9ysind6opp",
-    "taken_at": "2024-03-27T09:45:00.000+00:00",
-    "folder": "パノラマ",
-    "camera": "",
-    "photo_type": "パノラマ360°"
-  },
   {
     "name": "DJI_20240327094919_0020_D.JPG",
     "lat": 33.2550256,
@@ -211,7 +181,7 @@ const ALL_PHOTOS = [
     "taken_at": "2024-05-30T09:53:00.000+00:00",
     "folder": "撮影データ",
     "camera": "M3M",
-    "photo_type": "通常"
+    "photo_type": "パノラマ360°"
   },
   {
     "name": "DJI_20240530095326_0008_D.JPG",
@@ -1347,7 +1317,12 @@ function buildPopup(p) {
                   onerror="this.style.display='none'"
                   onclick="window.open('${p.box_url}','_blank')"
                   title="クリックでBOXのパノラマを開く">`;
-    const panoNames = ['DJI_20240327094503_0011_D.JPG','DJI_20240327094640_0012_D.JPG','DJI_20240327094919_0020_D.JPG'];
+    const panoNames = [
+      'DJI_20240327094503_0011_D.JPG','DJI_20240327094640_0012_D.JPG','DJI_20240327094919_0020_D.JPG',
+      'DJI_20240530095459_0010_D.JPG','DJI_20240530095338_0009_D.JPG',
+      'DJI_20240705152408_0001_D.jpg','DJI_20240705150939_0001_D.jpg','DJI_20240705145035_0004_D.jpg',
+      'DJI_20240705144809_0003_D.jpg','DJI_20240705144639_0002_D.jpg','DJI_20240705144430_0001_D.jpg'
+    ];
     const panoIdx = panoNames.indexOf(p.name);
     const viewerUrl = 'pano_viewer.html?idx=' + (panoIdx >= 0 ? panoIdx : 0);
     btnHtml = `<a class="popup-btn pano" href="${viewerUrl}" target="_blank">🌐 360°パノラマで見る</a>`;

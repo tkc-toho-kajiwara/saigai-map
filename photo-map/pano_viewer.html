@@ -10,10 +10,10 @@
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Meiryo',sans-serif;}
 body{background:#1a1a2e;color:#fff;height:100vh;display:flex;flex-direction:column;}
 .hdr{background:#185FA5;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.hdr h1{font-size:14px;}
+.hdr h1{font-size:14px;flex:1;}
 .back-btn{background:#fff;color:#185FA5;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;text-decoration:none;}
-.tabs{background:#0d3060;padding:6px 14px;display:flex;gap:8px;flex-shrink:0;overflow-x:auto;}
-.tab{background:rgba(255,255,255,0.1);border:none;color:#ccc;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap;}
+.tabs{background:#0d3060;padding:6px 14px;display:flex;gap:6px;flex-shrink:0;overflow-x:auto;}
+.tab{background:rgba(255,255,255,0.1);border:none;color:#ccc;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:10px;white-space:nowrap;}
 .tab.active{background:#185FA5;color:#fff;}
 #viewer{flex:1;}
 </style>
@@ -25,14 +25,11 @@ body{background:#1a1a2e;color:#fff;height:100vh;display:flex;flex-direction:colu
 </div>
 <div class="tabs" id="tabs"></div>
 <div id="viewer"></div>
-
 <script>
-const PANOS = [{"name": "DJI_20240327094503_0011_D.JPG", "stem": "DJI_20240327094503_0011_D", "img": "pano/DJI_20240327094503_0011_D.jpg"}, {"name": "DJI_20240327094640_0012_D.JPG", "stem": "DJI_20240327094640_0012_D", "img": "pano/DJI_20240327094640_0012_D.jpg"}, {"name": "DJI_20240327094919_0020_D.JPG", "stem": "DJI_20240327094919_0020_D", "img": "pano/DJI_20240327094919_0020_D.jpg"}];
+const PANOS = [{"name": "DJI_20240327094503_0011_D.JPG", "stem": "DJI_20240327094503_0011_D", "img": "pano/DJI_20240327094503_0011_D.jpg"}, {"name": "DJI_20240327094640_0012_D.JPG", "stem": "DJI_20240327094640_0012_D", "img": "pano/DJI_20240327094640_0012_D.jpg"}, {"name": "DJI_20240327094919_0020_D.JPG", "stem": "DJI_20240327094919_0020_D", "img": "pano/DJI_20240327094919_0020_D.jpg"}, {"name": "DJI_20240530095338_0009_D.JPG", "stem": "DJI_20240530095338_0009_D", "img": "pano/DJI_20240530095338_0009_D.jpg"}, {"name": "DJI_20240530095459_0010_D.JPG", "stem": "DJI_20240530095459_0010_D", "img": "pano/DJI_20240530095459_0010_D.jpg"}, {"name": "DJI_20240705144430_0001_D.jpg", "stem": "DJI_20240705144430_0001_D", "img": "pano/DJI_20240705144430_0001_D.jpg"}, {"name": "DJI_20240705144639_0002_D.jpg", "stem": "DJI_20240705144639_0002_D", "img": "pano/DJI_20240705144639_0002_D.jpg"}, {"name": "DJI_20240705144809_0003_D.jpg", "stem": "DJI_20240705144809_0003_D", "img": "pano/DJI_20240705144809_0003_D.jpg"}, {"name": "DJI_20240705145035_0004_D.jpg", "stem": "DJI_20240705145035_0004_D", "img": "pano/DJI_20240705145035_0004_D.jpg"}, {"name": "DJI_20240705150939_0001_D.jpg", "stem": "DJI_20240705150939_0001_D", "img": "pano/DJI_20240705150939_0001_D.jpg"}, {"name": "DJI_20240705152408_0001_D.jpg", "stem": "DJI_20240705152408_0001_D", "img": "pano/DJI_20240705152408_0001_D.jpg"}];
 let viewer = null;
-let current = 0;
 
 function loadPano(idx) {
-  current = idx;
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
   if (viewer) viewer.destroy();
   viewer = pannellum.viewer('viewer', {
@@ -46,7 +43,6 @@ function loadPano(idx) {
   });
 }
 
-// タブ生成
 const tabs = document.getElementById('tabs');
 PANOS.forEach((p, i) => {
   const btn = document.createElement('button');
@@ -56,10 +52,8 @@ PANOS.forEach((p, i) => {
   tabs.appendChild(btn);
 });
 
-// URLパラメータでパノラマ指定
 const params = new URLSearchParams(location.search);
-const idx = parseInt(params.get('idx') || '0');
-loadPano(Math.min(idx, PANOS.length - 1));
+loadPano(parseInt(params.get('idx') || '0'));
 </script>
 </body>
 </html>
