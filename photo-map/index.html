@@ -1310,7 +1310,7 @@ function buildPopup(p) {
 
   // サムネイル画像パス（thumbs/ファイル名.jpg）
   const stem = p.name.replace(/\.[^.]+$/, '');
-  const thumbUrl = 'thumbs/' + stem + '.jpg';
+  const thumbUrl = 'thumbs/' + stem + '.jpg?v=2';
 
   if (isPano) {
     mediaHtml = `<img class="popup-img" src="${thumbUrl}"
