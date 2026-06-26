@@ -812,7 +812,7 @@ function nextKouku() {
   window.scrollTo(0, 0);
 }
 
-/* ===== ③ QRコード読み取り（SAIGAI:A001 形式：業者コードのみ） ===== */
+/* ===== ③ QRコード読み取り（SAIGAI:A001:東豊開発コンサルタント 形式：業者コード＋業者名） ===== */
 let qrStream = null;
 let qrRAF = null;
 const qrCanvas = document.createElement('canvas');
@@ -859,17 +859,23 @@ function scanLoop() {
 }
 
 function handleQRResult(text) {
-  // 形式： SAIGAI:A001 → 業者コード=A001（Noはフォームで自動連番）
+  // 形式： SAIGAI:A001:東豊開発コンサルタント → 業者コード=A001・業者名=東豊開発コンサルタント
+  //（Noはフォームで自動連番。業者名は省略可）
   // 全角コロン「：」・前後の空白・英大小文字の揺れにも対応する
   const normalized = (text || '').trim().replace(/：/g, ':');
   const parts = normalized.split(':');
   if (parts[0].trim().toUpperCase() === 'SAIGAI' && parts.length >= 2 && parts[1].trim()) {
     const code = parts[1].trim();
+    // 業者名にコロンが含まれる場合も考慮して3番目以降を結合
+    const name = parts.slice(2).join(':').trim();
     document.getElementById('vendor-code').value = code;
+    if (name) document.getElementById('vendor-name').value = name;
     const no = getNextNo(code);
     document.getElementById('no').value = no;
     stopQRScan();
-    alert('✅ 読み取り成功\n\n業者コード： ' + code + '\nNo（自動連番）： ' + no);
+    alert('✅ 読み取り成功\n\n業者コード： ' + code +
+          (name ? '\n業者名： ' + name : '') +
+          '\nNo（自動連番）： ' + no);
   } else {
     document.getElementById('qr-status').textContent = '⚠️ 対応形式外のQRです（' + text + '）';
   }
