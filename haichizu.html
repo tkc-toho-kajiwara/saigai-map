@@ -19,9 +19,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tb-sel{padding:7px 8px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;font-size:12px;color:#333;max-width:140px}
 .tb-sep{width:1px;height:20px;background:#e0e0d8;flex-shrink:0}
 .mode-on{background:#E6F1FB!important;border-color:#185FA5!important;color:#185FA5!important}
-#main{display:flex;flex:1;min-height:0}
-#map{flex:1;min-width:0;z-index:1}
-#side{width:130px;border-left:1px solid #e5e5e0;background:#fff;display:flex;flex-direction:column;z-index:2;flex-shrink:0;overflow:hidden}
+#main{display:flex;flex:1;min-height:0;position:relative}
+#map-wrap{flex:1;min-width:0;position:relative;overflow:hidden}
+#map{position:absolute;top:0;left:0;width:100%;height:100%}
+#side{width:130px;border-left:1px solid #e5e5e0;background:#fff;display:flex;flex-direction:column;z-index:2;flex-shrink:0}
 #side-hd{padding:8px 6px;font-size:10px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e0;text-align:center}
 #photo-list{flex:1;overflow-y:auto;padding:4px;-webkit-overflow-scrolling:touch}
 .ph-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 3px;border-radius:8px;cursor:pointer;border:1.5px solid transparent;margin-bottom:3px}
@@ -84,7 +85,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     </button>
   </div>
   <div id="main">
-    <div id="map"></div>
+    <div id="map-wrap"><div id="map"></div></div>
     <div id="side">
       <div id="side-hd">写真リスト</div>
       <div id="photo-list"><div id="empty-hint">①写真追加<br>②配置モードON<br>③地図をタップ</div></div>
@@ -116,7 +117,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 <script>
 const TILES={
-  osm:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap contributors',max:19},
+  osm:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap',max:19},
   gsi:{url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',attr:'© 国土地理院',max:18},
   gsip:{url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',attr:'© 国土地理院',max:18},
   gsil:{url:'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',attr:'© 国土地理院',max:18},
@@ -124,46 +125,71 @@ const TILES={
   gsat:{url:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',attr:'© Google',max:20},
 };
 
-const map=L.map('map',{zoomControl:true}).setView([33.3206,130.8994],14);
-let curLayer=L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:19}).addTo(map);
+// マップは map-wrap のサイズに合わせて初期化
+const mapWrap = document.getElementById('map-wrap');
+const mapEl = document.getElementById('map');
 
-// ツールバーの高さ変動でLeafletのサイズがずれる→invalidateSizeで修正
+const map = L.map('map',{zoomControl:true}).setView([33.3206,130.8994],14);
+let curLayer = L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:19}).addTo(map);
+
+// 確実なサイズ修正：map-wrapのサイズをmapに明示的にセット
 function fixMapSize(){
-  setTimeout(()=>map.invalidateSize(),100);
-  setTimeout(()=>map.invalidateSize(),400);
+  const w = mapWrap.offsetWidth;
+  const h = mapWrap.offsetHeight;
+  if(w>0 && h>0){
+    mapEl.style.width = w+'px';
+    mapEl.style.height = h+'px';
+    map.invalidateSize(true);
+  }
+}
+
+// 複数タイミングで修正を試みる
+function fixMapSizeRepeat(){
+  fixMapSize();
+  setTimeout(fixMapSize, 200);
+  setTimeout(fixMapSize, 500);
+  setTimeout(fixMapSize, 1000);
+  setTimeout(fixMapSize, 2000);
 }
 
 function changeLayer(k){
   const t=TILES[k];if(!t)return;
   map.removeLayer(curLayer);
   curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:t.max}).addTo(map);
-  fixMapSize();
+  fixMapSizeRepeat();
 }
 
 const photos=[];let placeMode=false;let selId=null;
 
-function openAddModal(){
-  document.getElementById('add-modal').classList.add('open');
-  fixMapSize();
-}
-function closeAddModal(){
-  document.getElementById('add-modal').classList.remove('open');
-  fixMapSize();
-}
+function openAddModal(){document.getElementById('add-modal').classList.add('open');}
+function closeAddModal(){document.getElementById('add-modal').classList.remove('open');fixMapSizeRepeat();}
 
 function triggerCamera(){
   closeAddModal();
   const inp=document.createElement('input');
-  inp.type='file';inp.accept='image/*';inp.capture='environment';inp.hidden=true;
-  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();fixMapSize();};
-  document.body.appendChild(inp);inp.click();
+  inp.type='file';inp.accept='image/*';inp.capture='environment';
+  inp.style.display='none';
+  inp.onchange=e=>{
+    Array.from(e.target.files).forEach(addPhoto);
+    document.body.removeChild(inp);
+    fixMapSizeRepeat();
+  };
+  document.body.appendChild(inp);
+  inp.click();
 }
+
 function triggerGallery(){
   closeAddModal();
   const inp=document.createElement('input');
-  inp.type='file';inp.accept='image/*';inp.multiple=true;inp.hidden=true;
-  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();fixMapSize();};
-  document.body.appendChild(inp);inp.click();
+  inp.type='file';inp.accept='image/*';inp.multiple=true;
+  inp.style.display='none';
+  inp.onchange=e=>{
+    Array.from(e.target.files).forEach(addPhoto);
+    document.body.removeChild(inp);
+    fixMapSizeRepeat();
+  };
+  document.body.appendChild(inp);
+  inp.click();
 }
 
 function addPhoto(f){
@@ -175,18 +201,17 @@ function addPhoto(f){
   photos.push(ph);
   if(!selId)selId=id;
   renderSide();
-  fixMapSize();
   readExifGPS(f).then(coords=>{
     if(coords){
       ph.latlng=coords;
       placeMarker(ph);
       map.setView(coords,16);
-      setStatus('No.'+num+' GPS自動配置: '+name);
+      setStatus('No.'+num+' GPS自動配置完了: '+name);
     } else {
-      setStatus('No.'+num+' 追加 → 配置モードONで地図をタップ');
+      setStatus('No.'+num+' 追加完了 → 配置モードONで地図をタップ');
     }
     renderSide();
-    fixMapSize();
+    fixMapSizeRepeat();
   });
 }
 
@@ -202,28 +227,33 @@ function readExifGPS(file){
         while(off<buf.byteLength-2){
           const mk=dv.getUint16(off);
           if(mk===0xFFE1){
-            const es=String.fromCharCode(...new Uint8Array(buf,off+4,6));
-            if(es.startsWith('Exif')){
-              const tf=off+10;
-              const le=dv.getUint16(tf)===0x4949;
-              const rd=(o,s)=>s===2?dv.getUint16(tf+o,le):dv.getUint32(tf+o,le);
-              const i0=rd(4,4);const n=rd(i0,2);let gp=null;
-              for(let i=0;i<n;i++){if(rd(i0+2+i*12,2)===0x8825){gp=rd(i0+2+i*12+8,4);break;}}
-              if(!gp){res(null);return;}
-              const gn=rd(gp,2);let lr='N',mr='E',la=null,lo=null;
-              for(let i=0;i<gn;i++){
-                const b=gp+2+i*12;const tg=rd(b,2);const vo=rd(b+8,4);
-                const dm=o=>rd(o,4)/rd(o+4,4);
-                if(tg===1)lr=String.fromCharCode(dv.getUint8(tf+vo));
-                else if(tg===2)la=dm(tf+vo)+dm(tf+vo+8)/60+dm(tf+vo+16)/3600;
-                else if(tg===3)mr=String.fromCharCode(dv.getUint8(tf+vo));
-                else if(tg===4)lo=dm(tf+vo)+dm(tf+vo+8)/60+dm(tf+vo+16)/3600;
-              }
-              if(la&&lo){res({lat:lr==='S'?-la:la,lng:mr==='W'?-lo:lo});return;}
+            const ts=off+10;
+            const le=dv.getUint16(ts)===0x4949;
+            const ru16=o=>le?dv.getUint16(ts+o,true):dv.getUint16(ts+o,false);
+            const ru32=o=>le?dv.getUint32(ts+o,true):dv.getUint32(ts+o,false);
+            const ifd0=ru32(4);const n=ru16(ifd0);let gp=null;
+            for(let i=0;i<n;i++){if(ru16(ifd0+2+i*12)===0x8825){gp=ru32(ifd0+2+i*12+8);break;}}
+            if(!gp){res(null);return;}
+            const gn=ru16(gp);let lr='N',mr='E',la=null,lo=null;
+            for(let i=0;i<gn;i++){
+              const b=gp+2+i*12;const tg=ru16(b);const vo=ru32(b+8);
+              const dms=o=>{
+                const getU32=(oo)=>le?dv.getUint32(ts+oo,true):dv.getUint32(ts+oo,false);
+                const d=getU32(o)/getU32(o+4);
+                const m=getU32(o+8)/getU32(o+12);
+                const sd=getU32(o+16);const ss=getU32(o+20);
+                return d+m/60+(ss?sd/ss:0)/3600;
+              };
+              if(tg===1)lr=String.fromCharCode(dv.getUint8(ts+vo));
+              else if(tg===2)la=dms(vo);
+              else if(tg===3)mr=String.fromCharCode(dv.getUint8(ts+vo));
+              else if(tg===4)lo=dms(vo);
             }
+            if(la&&lo){res({lat:lr==='S'?-la:la,lng:mr==='W'?-lo:lo});return;}
+            res(null);return;
           }
           if((mk&0xFF00)!==0xFF00)break;
-          off+=2+dv.getUint16(off+2);
+          off+=2+dv.getUint16(off+2,false);
         }
         res(null);
       }catch(e){res(null);}
@@ -308,11 +338,18 @@ function closeModal(){document.getElementById('modal').classList.remove('open');
 function exportPrint(){if(!photos.filter(p=>p.latlng).length){alert('写真を配置してから印刷してください');return;}window.print();}
 function setStatus(msg){document.getElementById('statusbar').textContent=msg;}
 
-window.addEventListener('resize',fixMapSize);
+// Android対応：あらゆるタイミングで地図を修正
+window.addEventListener('resize',fixMapSizeRepeat);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') fixMapSizeRepeat();
+});
+window.addEventListener('pageshow', fixMapSizeRepeat);
+window.addEventListener('focus', fixMapSizeRepeat);
+
 map.locate({setView:true,maxZoom:15});
-map.on('locationfound',()=>{setStatus('現在地を取得しました');fixMapSize();});
-map.on('locationerror',()=>{map.setView([33.3206,130.8994],14);setStatus('写真追加ボタンから写真を追加してください');fixMapSize();});
-setTimeout(fixMapSize,500);
+map.on('locationfound',()=>{setStatus('現在地を取得しました');fixMapSizeRepeat();});
+map.on('locationerror',()=>{map.setView([33.3206,130.8994],14);setStatus('写真追加ボタンから写真を追加してください');});
+fixMapSizeRepeat();
 </script>
 </body>
 </html>
