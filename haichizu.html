@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="写真配置図">
+<title>災害調査 写真配置図</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+#toolbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#fff;border-bottom:1px solid #e5e5e0;flex-wrap:wrap;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.tb-btn{display:flex;align-items:center;gap:4px;padding:8px 12px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;color:#333;white-space:nowrap;-webkit-appearance:none;touch-action:manipulation}
+.tb-btn:active{background:#f0f0ea;transform:scale(0.97)}
+.tb-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.tb-sel{padding:7px 8px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;font-size:13px;color:#333;-webkit-appearance:none;appearance:none;padding-right:24px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
+.tb-sep{width:1px;height:20px;background:#e0e0d8;flex-shrink:0}
+.mode-on{background:#E6F1FB!important;border-color:#185FA5!important;color:#185FA5!important}
+#main{display:flex;flex:1;overflow:hidden}
+#map{flex:1;z-index:1}
+#side{width:160px;border-left:1px solid #e5e5e0;background:#fff;display:flex;flex-direction:column;z-index:2;flex-shrink:0}
+@media(max-width:480px){#side{width:100px}}
+#side-hd{padding:8px 10px;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e0;letter-spacing:.5px;text-transform:uppercase}
+#photo-list{flex:1;overflow-y:auto;padding:6px;-webkit-overflow-scrolling:touch}
+.ph-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;border-radius:8px;cursor:pointer;border:1.5px solid transparent;margin-bottom:4px;touch-action:manipulation}
+.ph-item:active{background:#f5f5f0}
+.ph-item.sel{border-color:#185FA5;background:#EDF5FC}
+.ph-item.placed .ph-thumb-wrap::after{content:'✓';position:absolute;bottom:2px;right:2px;background:#1D9E75;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;line-height:1}
+.ph-thumb-wrap{position:relative;width:60px;height:45px;flex-shrink:0}
+@media(max-width:480px){.ph-thumb-wrap{width:44px;height:33px}}
+.ph-thumb{width:100%;height:100%;object-fit:cover;border-radius:4px;display:block}
+.ph-name{font-size:9px;color:#555;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+#statusbar{padding:5px 12px;font-size:11px;color:#888;background:#fafaf8;border-top:1px solid #e5e5e0;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#empty-hint{padding:20px 8px;font-size:11px;color:#aaa;text-align:center;line-height:1.8}
+.leaflet-popup-content-wrapper{border-radius:12px!important;padding:0!important;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.2)!important}
+.leaflet-popup-content{margin:0!important}
+.ph-popup{text-align:center}
+.ph-popup img{display:block;width:100%;max-width:260px;max-height:180px;object-fit:contain;cursor:pointer}
+.ph-popup-name{font-size:12px;color:#555;padding:6px 12px 4px}
+.ph-popup-del{display:block;width:100%;padding:8px;background:#fff3f3;color:#c0392b;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#modal.open{display:flex}
+#modal img{max-width:92vw;max-height:75vh;object-fit:contain;border-radius:8px}
+#modal-name{color:#fff;font-size:13px;opacity:.8}
+#modal-close{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer;font-family:inherit}
+.ph-marker-wrap{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}
+.ph-marker-wrap img{display:block;border-radius:3px;object-fit:cover}
+.ph-marker-wrap .ph-mlabel{font-size:9px;text-align:center;background:rgba(0,0,0,.6);color:#fff;padding:1px 3px;border-radius:2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ph-num{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}
+
+/* 写真追加モーダル */
+#add-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;align-items:flex-end;justify-content:center}
+#add-modal.open{display:flex}
+#add-sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:480px;padding:20px 16px 32px;display:flex;flex-direction:column;gap:12px}
+#add-sheet h3{font-size:15px;font-weight:600;color:#333;text-align:center;margin-bottom:4px}
+.add-option{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #e0e0d8;border-radius:12px;cursor:pointer;font-size:14px;color:#333;background:#fff;width:100%;text-align:left;font-family:inherit;touch-action:manipulation}
+.add-option:active{background:#f5f5f0}
+.add-option svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;color:#378ADD}
+.add-option-sub{font-size:11px;color:#888;display:block;margin-top:2px}
+.add-cancel{background:none;border:none;color:#888;font-size:14px;padding:8px;cursor:pointer;width:100%;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <select class="tb-sel" id="map-sel" onchange="changeLayer(this.value)">
+      <option value="gmap">🗺 Googleマップ</option>
+      <option value="gsat">🛰 Google航空</option>
+      <option value="ghyb">🛰 Gハイブリッド</option>
+      <option value="gsi">📍 地理院標準</option>
+      <option value="gsip">🗾 地理院航空</option>
+      <option value="gsil">📋 地理院淡色</option>
+    </select>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" onclick="openAddModal()">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      写真追加
+    </button>
+    <button class="tb-btn" id="btn-mode" onclick="toggleMode()">
+      <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span id="btn-mode-txt">配置モード</span>
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" onclick="exportPrint()">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      印刷
+    </button>
+  </div>
+
+  <div id="main">
+    <div id="map"></div>
+    <div id="side">
+      <div id="side-hd">写真リスト</div>
+      <div id="photo-list">
+        <div id="empty-hint">「写真追加」で<br>写真を選択→<br>「配置モード」ON→<br>地図をタップ</div>
+      </div>
+    </div>
+  </div>
+  <div id="statusbar">地図を読み込み中...</div>
+</div>
+
+<!-- 写真追加モーダル（カメラ/ギャラリー選択） -->
+<div id="add-modal" onclick="if(event.target===this)closeAddModal()">
+  <div id="add-sheet">
+    <h3>写真を追加</h3>
+    <button class="add-option" onclick="triggerCamera()">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <div>
+        <span>カメラで撮影</span>
+        <span class="add-option-sub">今すぐ撮影して追加</span>
+      </div>
+    </button>
+    <button class="add-option" onclick="triggerGallery()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <div>
+        <span>ギャラリーから選択</span>
+        <span class="add-option-sub">保存済みの写真を選択（複数可）</span>
+      </div>
+    </button>
+    <button class="add-cancel" onclick="closeAddModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- カメラ専用input（撮影のたびにリセット） -->
+<input type="file" accept="image/*" capture="environment" hidden id="camera-input">
+<!-- ギャラリー専用input（captureなし・複数選択可） -->
+<input type="file" accept="image/*" multiple hidden id="gallery-input">
+
+<!-- 拡大モーダル -->
+<div id="modal" onclick="closeModal()">
+  <img id="modal-img" src="" alt="">
+  <div id="modal-name"></div>
+  <button id="modal-close" onclick="closeModal()">閉じる</button>
+</div>
+
+<script>
+const TILES={
+  gmap:{url:'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',attr:'© Google',max:20},
+  gsat:{url:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',attr:'© Google',max:20},
+  ghyb:{url:'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',attr:'© Google',max:20},
+  gsi:{url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',attr:'© 国土地理院',max:18},
+  gsip:{url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',attr:'© 国土地理院',max:18},
+  gsil:{url:'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',attr:'© 国土地理院',max:18},
+};
+
+const map=L.map('map',{zoomControl:true}).setView([33.3206,130.8994],14);
+let curLayer=L.tileLayer(TILES.gmap.url,{attribution:TILES.gmap.attr,maxZoom:20}).addTo(map);
+
+function changeLayer(k){
+  const t=TILES[k];if(!t)return;
+  map.removeLayer(curLayer);
+  curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:t.max}).addTo(map);
+}
+
+const photos=[];
+let placeMode=false;
+let selId=null;
+
+// 写真追加モーダル
+function openAddModal(){document.getElementById('add-modal').classList.add('open');}
+function closeAddModal(){document.getElementById('add-modal').classList.remove('open');}
+
+function triggerCamera(){
+  closeAddModal();
+  // カメラinputを毎回作り直してキャッシュ問題を防ぐ
+  const old=document.getElementById('camera-input');
+  if(old)old.remove();
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';inp.capture='environment';inp.hidden=true;inp.id='camera-input';
+  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();};
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+function triggerGallery(){
+  closeAddModal();
+  // ギャラリーinputも毎回作り直す
+  const old=document.getElementById('gallery-input');
+  if(old)old.remove();
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';inp.multiple=true;inp.hidden=true;inp.id='gallery-input';
+  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();};
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+function addPhoto(f){
+  const id='p'+Date.now()+Math.random().toString(36).slice(2,5);
+  const url=URL.createObjectURL(f);
+  const name=f.name.replace(/\.[^.]+$/,'');
+  const num=photos.length+1;
+  const ph={id,url,name,num,marker:null,latlng:null};
+  photos.push(ph);
+  if(selId===null)selId=id;
+  readExifGPS(f).then(coords=>{
+    if(coords){ph.latlng=coords;placeMarker(ph);setStatus('No.'+num+' GPS自動配置: '+name);}
+    renderSide();
+  });
+  renderSide();
+  setStatus('No.'+num+' 追加: '+name+(placeMode?' → 地図をタップして配置':' → 配置モードONで地図をタップ'));
+}
+
+function readExifGPS(file){
+  return new Promise(res=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const buf=e.target.result;
+        const view=new DataView(buf);
+        if(view.getUint16(0)!==0xFFD8){res(null);return;}
+        let offset=2;
+        while(offset<buf.byteLength-2){
+          const marker=view.getUint16(offset);
+          if(marker===0xFFE1){
+            const exifStr=String.fromCharCode(...new Uint8Array(buf,offset+4,6));
+            if(exifStr.startsWith('Exif')){
+              const tiff=offset+10;
+              const le=view.getUint16(tiff)===0x4949;
+              const rd=(o,s)=>s===2?view.getUint16(tiff+o,le):view.getUint32(tiff+o,le);
+              const ifd0=rd(4,4);const n=rd(ifd0,2);let gpsOff=null;
+              for(let i=0;i<n;i++){const tag=rd(ifd0+2+i*12,2);if(tag===0x8825){gpsOff=rd(ifd0+2+i*12+8,4);break;}}
+              if(gpsOff===null){res(null);return;}
+              const gn=rd(gpsOff,2);let latRef='N',lonRef='E',lat=null,lon=null;
+              for(let i=0;i<gn;i++){
+                const base=gpsOff+2+i*12;const tag=rd(base,2);const voff=rd(base+8,4);
+                const dms=o=>rd(o,4)/rd(o+4,4);
+                if(tag===1)latRef=String.fromCharCode(view.getUint8(tiff+voff));
+                else if(tag===2)lat=dms(tiff+voff)+dms(tiff+voff+8)/60+dms(tiff+voff+16)/3600;
+                else if(tag===3)lonRef=String.fromCharCode(view.getUint8(tiff+voff));
+                else if(tag===4)lon=dms(tiff+voff)+dms(tiff+voff+8)/60+dms(tiff+voff+16)/3600;
+              }
+              if(lat&&lon){res({lat:latRef==='S'?-lat:lat,lng:lonRef==='W'?-lon:lon});return;}
+            }
+          }
+          if((marker&0xFF00)!==0xFF00)break;
+          offset+=2+view.getUint16(offset+2);
+        }
+        res(null);
+      }catch(err){res(null);}
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function placeMarker(ph,latlng){
+  const pos=latlng||ph.latlng;if(!pos)return;
+  ph.latlng=pos;
+  if(ph.marker)map.removeLayer(ph.marker);
+  const sz=72;
+  const icon=L.divIcon({
+    className:'',
+    html:`<div class="ph-marker-wrap" style="width:${sz}px"><div class="ph-num">${ph.num}</div><img src="${ph.url}" style="width:${sz}px;height:${Math.round(sz*3/4)}px"><div class="ph-mlabel">${ph.name}</div></div>`,
+    iconSize:[sz+4,Math.round(sz*3/4)+22],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+11]
+  });
+  ph.marker=L.marker(pos,{icon,draggable:true}).addTo(map);
+  ph.marker.on('click',()=>{selId=ph.id;renderSide();showPopup(ph);});
+  ph.marker.on('dragend',e=>{ph.latlng=e.target.getLatLng();setStatus('No.'+ph.num+' 移動: '+ph.name);});
+  renderSide();
+}
+
+function showPopup(ph){
+  const content=document.createElement('div');
+  content.className='ph-popup';
+  const img=document.createElement('img');img.src=ph.url;img.onclick=()=>openModal(ph);
+  const nameDiv=document.createElement('div');nameDiv.className='ph-popup-name';nameDiv.textContent='No.'+ph.num+' '+ph.name;
+  const delBtn=document.createElement('button');delBtn.className='ph-popup-del';delBtn.textContent='このマーカーを削除';
+  delBtn.onclick=()=>removePhoto(ph.id);
+  content.appendChild(img);content.appendChild(nameDiv);content.appendChild(delBtn);
+  L.popup({maxWidth:280}).setLatLng(ph.latlng).setContent(content).openOn(map);
+}
+
+function removePhoto(id){
+  const idx=photos.findIndex(p=>p.id===id);if(idx<0)return;
+  const ph=photos[idx];
+  if(ph.marker)map.removeLayer(ph.marker);
+  map.closePopup();
+  photos.splice(idx,1);
+  if(selId===id)selId=photos.length>0?photos[0].id:null;
+  renderSide();setStatus('削除しました');
+}
+
+function toggleMode(){
+  placeMode=!placeMode;
+  document.getElementById('btn-mode').classList.toggle('mode-on',placeMode);
+  document.getElementById('btn-mode-txt').textContent=placeMode?'配置中...':'配置モード';
+  map.getContainer().style.cursor=placeMode?'crosshair':'';
+  setStatus(placeMode?'配置モードON — 地図をタップして写真を配置':'配置モードOFF');
+}
+
+map.on('click',e=>{
+  if(!placeMode)return;
+  if(!selId){setStatus('サイドの写真をタップして選択してから配置してください');return;}
+  const ph=photos.find(p=>p.id===selId);if(!ph)return;
+  placeMarker(ph,e.latlng);
+  setStatus('No.'+ph.num+' 配置完了: '+ph.name+' （ドラッグで移動可）');
+  const next=photos.find(p=>!p.latlng&&p.id!==selId);
+  if(next){selId=next.id;renderSide();}
+});
+
+function renderSide(){
+  const list=document.getElementById('photo-list');
+  if(photos.length===0){list.innerHTML='<div id="empty-hint">「写真追加」で<br>写真を選択→<br>「配置モード」ON→<br>地図をタップ</div>';return;}
+  list.innerHTML='';
+  photos.forEach(ph=>{
+    const d=document.createElement('div');
+    d.className='ph-item'+(ph.latlng?' placed':'')+(selId===ph.id?' sel':'');
+    d.onclick=()=>{selId=ph.id;renderSide();if(ph.latlng){map.panTo(ph.latlng);showPopup(ph);}};
+    const wrap=document.createElement('div');wrap.className='ph-thumb-wrap';
+    const img=document.createElement('img');img.className='ph-thumb';img.src=ph.url;img.alt=ph.name;
+    wrap.appendChild(img);
+    const nm=document.createElement('div');nm.className='ph-name';nm.textContent='No.'+ph.num+' '+ph.name;
+    d.appendChild(wrap);d.appendChild(nm);list.appendChild(d);
+  });
+}
+
+function openModal(ph){document.getElementById('modal-img').src=ph.url;document.getElementById('modal-name').textContent='No.'+ph.num+' '+ph.name;document.getElementById('modal').classList.add('open');}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function exportPrint(){if(photos.filter(p=>p.latlng).length===0){alert('地図上に写真を配置してから印刷してください');return;}window.print();}
+function setStatus(msg){document.getElementById('statusbar').textContent=msg;}
+
+map.locate({setView:true,maxZoom:15});
+map.on('locationfound',()=>setStatus('現在地を取得しました'));
+map.on('locationerror',()=>{map.setView([33.3206,130.8994],14);setStatus('Googleマップ表示中 — 写真追加ボタンから写真を追加してください');});
+</script>
+</body>
+</html>
