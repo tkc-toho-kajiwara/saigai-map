@@ -12,30 +12,30 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh}
-#toolbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#fff;border-bottom:1px solid #e5e5e0;flex-wrap:wrap;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.tb-btn{display:flex;align-items:center;gap:4px;padding:8px 12px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;color:#333;white-space:nowrap;-webkit-appearance:none;touch-action:manipulation}
+#toolbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#fff;border-bottom:1px solid #e5e5e0;flex-wrap:wrap;flex-shrink:0}
+.tb-btn{display:flex;align-items:center;gap:4px;padding:8px 12px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;color:#333;white-space:nowrap;touch-action:manipulation}
 .tb-btn:active{background:#f0f0ea}
 .tb-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
-.tb-sel{padding:7px 8px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;font-size:12px;color:#333;max-width:130px}
+.tb-sel{padding:7px 8px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;font-size:12px;color:#333;max-width:140px}
 .tb-sep{width:1px;height:20px;background:#e0e0d8;flex-shrink:0}
 .mode-on{background:#E6F1FB!important;border-color:#185FA5!important;color:#185FA5!important}
-#main{display:flex;flex:1;overflow:hidden}
-#map{flex:1;z-index:1;background:#e8e0d8}
-#side{width:150px;border-left:1px solid #e5e5e0;background:#fff;display:flex;flex-direction:column;z-index:2;flex-shrink:0}
-#side-hd{padding:8px 10px;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e0;text-transform:uppercase;letter-spacing:.5px}
-#photo-list{flex:1;overflow-y:auto;padding:6px;-webkit-overflow-scrolling:touch}
-.ph-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;border-radius:8px;cursor:pointer;border:1.5px solid transparent;margin-bottom:4px}
+#main{display:flex;flex:1;min-height:0}
+#map{flex:1;min-width:0;z-index:1}
+#side{width:130px;border-left:1px solid #e5e5e0;background:#fff;display:flex;flex-direction:column;z-index:2;flex-shrink:0;overflow:hidden}
+#side-hd{padding:8px 6px;font-size:10px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e0;text-align:center}
+#photo-list{flex:1;overflow-y:auto;padding:4px;-webkit-overflow-scrolling:touch}
+.ph-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 3px;border-radius:8px;cursor:pointer;border:1.5px solid transparent;margin-bottom:3px}
 .ph-item.sel{border-color:#185FA5;background:#EDF5FC}
-.ph-item.placed .ph-tw::after{content:'✓';position:absolute;bottom:2px;right:2px;background:#1D9E75;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;line-height:1}
-.ph-tw{position:relative;width:56px;height:42px}
+.ph-item.placed .ph-tw::after{content:'✓';position:absolute;bottom:1px;right:1px;background:#1D9E75;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;display:flex;align-items:center;justify-content:center;line-height:1}
+.ph-tw{position:relative;width:52px;height:39px}
 .ph-thumb{width:100%;height:100%;object-fit:cover;border-radius:4px;display:block}
 .ph-name{font-size:9px;color:#555;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#statusbar{padding:5px 12px;font-size:11px;color:#888;background:#fafaf8;border-top:1px solid #e5e5e0;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#empty-hint{padding:16px 8px;font-size:11px;color:#aaa;text-align:center;line-height:1.8}
+#statusbar{padding:4px 10px;font-size:11px;color:#666;background:#f5f5f0;border-top:1px solid #e5e5e0;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#empty-hint{padding:12px 6px;font-size:10px;color:#aaa;text-align:center;line-height:1.9}
 .leaflet-popup-content-wrapper{border-radius:12px!important;padding:0!important;overflow:hidden}
 .leaflet-popup-content{margin:0!important}
-.ph-popup img{display:block;width:100%;max-width:240px;max-height:160px;object-fit:contain;cursor:pointer}
-.ph-popup-name{font-size:12px;color:#555;padding:5px 10px 3px;text-align:center}
+.ph-popup img{display:block;width:100%;max-width:220px;max-height:150px;object-fit:contain;cursor:pointer}
+.ph-popup-name{font-size:11px;color:#555;padding:4px 10px;text-align:center}
 .ph-popup-del{display:block;width:100%;padding:7px;background:#fff3f3;color:#c0392b;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
 #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
 #modal.open{display:flex}
@@ -44,13 +44,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #modal-close{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer;font-family:inherit}
 .ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}
 .ph-mw img{display:block;border-radius:3px;object-fit:cover}
-.ph-mw .ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.6);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff}
+.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}
 #add-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;align-items:flex-end;justify-content:center}
 #add-modal.open{display:flex}
 #add-sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;padding:20px 16px 32px;display:flex;flex-direction:column;gap:10px}
 #add-sheet h3{font-size:15px;font-weight:600;color:#333;text-align:center}
-.add-opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #e0e0d8;border-radius:12px;cursor:pointer;font-size:14px;color:#333;background:#fff;width:100%;text-align:left;font-family:inherit}
+.add-opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #e0e0d8;border-radius:12px;cursor:pointer;font-size:14px;color:#333;background:#fff;width:100%;text-align:left;font-family:inherit;touch-action:manipulation}
+.add-opt:active{background:#f5f5f0}
 .add-opt svg{width:22px;height:22px;stroke:#378ADD;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
 .add-sub{font-size:11px;color:#888;display:block;margin-top:2px}
 .add-cancel{background:none;border:none;color:#888;font-size:14px;padding:8px;cursor:pointer;width:100%;font-family:inherit}
@@ -86,7 +87,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     <div id="map"></div>
     <div id="side">
       <div id="side-hd">写真リスト</div>
-      <div id="photo-list"><div id="empty-hint">「写真追加」→<br>「配置モード」ON→<br>地図をタップ</div></div>
+      <div id="photo-list"><div id="empty-hint">①写真追加<br>②配置モードON<br>③地図をタップ</div></div>
     </div>
   </div>
   <div id="statusbar">地図を読み込み中...</div>
@@ -124,37 +125,44 @@ const TILES={
 };
 
 const map=L.map('map',{zoomControl:true}).setView([33.3206,130.8994],14);
-let curLayer=L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:19,crossOrigin:true}).addTo(map);
+let curLayer=L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:19}).addTo(map);
 
-map.on('tileload',()=>setStatus('地図表示中'));
-map.on('tileerror',()=>{
-  setStatus('地図タイルエラー — 別の地図に切り替えてください');
-});
+// ツールバーの高さ変動でLeafletのサイズがずれる→invalidateSizeで修正
+function fixMapSize(){
+  setTimeout(()=>map.invalidateSize(),100);
+  setTimeout(()=>map.invalidateSize(),400);
+}
 
 function changeLayer(k){
   const t=TILES[k];if(!t)return;
   map.removeLayer(curLayer);
-  curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:t.max,crossOrigin:true}).addTo(map);
-  setStatus('地図切替: '+document.getElementById('map-sel').options[document.getElementById('map-sel').selectedIndex].text);
+  curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:t.max}).addTo(map);
+  fixMapSize();
 }
 
 const photos=[];let placeMode=false;let selId=null;
 
-function openAddModal(){document.getElementById('add-modal').classList.add('open');}
-function closeAddModal(){document.getElementById('add-modal').classList.remove('open');}
+function openAddModal(){
+  document.getElementById('add-modal').classList.add('open');
+  fixMapSize();
+}
+function closeAddModal(){
+  document.getElementById('add-modal').classList.remove('open');
+  fixMapSize();
+}
 
 function triggerCamera(){
   closeAddModal();
   const inp=document.createElement('input');
   inp.type='file';inp.accept='image/*';inp.capture='environment';inp.hidden=true;
-  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();};
+  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();fixMapSize();};
   document.body.appendChild(inp);inp.click();
 }
 function triggerGallery(){
   closeAddModal();
   const inp=document.createElement('input');
   inp.type='file';inp.accept='image/*';inp.multiple=true;inp.hidden=true;
-  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();};
+  inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);inp.remove();fixMapSize();};
   document.body.appendChild(inp);inp.click();
 }
 
@@ -166,6 +174,8 @@ function addPhoto(f){
   const ph={id,url,name,num,marker:null,latlng:null};
   photos.push(ph);
   if(!selId)selId=id;
+  renderSide();
+  fixMapSize();
   readExifGPS(f).then(coords=>{
     if(coords){
       ph.latlng=coords;
@@ -173,11 +183,11 @@ function addPhoto(f){
       map.setView(coords,16);
       setStatus('No.'+num+' GPS自動配置: '+name);
     } else {
-      setStatus('No.'+num+' 追加完了 → 配置モードONで地図をタップして配置');
+      setStatus('No.'+num+' 追加 → 配置モードONで地図をタップ');
     }
     renderSide();
+    fixMapSize();
   });
-  renderSide();
 }
 
 function readExifGPS(file){
@@ -186,34 +196,34 @@ function readExifGPS(file){
     reader.onload=e=>{
       try{
         const buf=e.target.result;
-        const view=new DataView(buf);
-        if(view.getUint16(0)!==0xFFD8){res(null);return;}
-        let offset=2;
-        while(offset<buf.byteLength-2){
-          const marker=view.getUint16(offset);
-          if(marker===0xFFE1){
-            const exifStr=String.fromCharCode(...new Uint8Array(buf,offset+4,6));
-            if(exifStr.startsWith('Exif')){
-              const tiff=offset+10;
-              const le=view.getUint16(tiff)===0x4949;
-              const rd=(o,s)=>s===2?view.getUint16(tiff+o,le):view.getUint32(tiff+o,le);
-              const ifd0=rd(4,4);const n=rd(ifd0,2);let gpsOff=null;
-              for(let i=0;i<n;i++){const tag=rd(ifd0+2+i*12,2);if(tag===0x8825){gpsOff=rd(ifd0+2+i*12+8,4);break;}}
-              if(!gpsOff){res(null);return;}
-              const gn=rd(gpsOff,2);let latRef='N',lonRef='E',lat=null,lon=null;
+        const dv=new DataView(buf);
+        if(dv.getUint16(0)!==0xFFD8){res(null);return;}
+        let off=2;
+        while(off<buf.byteLength-2){
+          const mk=dv.getUint16(off);
+          if(mk===0xFFE1){
+            const es=String.fromCharCode(...new Uint8Array(buf,off+4,6));
+            if(es.startsWith('Exif')){
+              const tf=off+10;
+              const le=dv.getUint16(tf)===0x4949;
+              const rd=(o,s)=>s===2?dv.getUint16(tf+o,le):dv.getUint32(tf+o,le);
+              const i0=rd(4,4);const n=rd(i0,2);let gp=null;
+              for(let i=0;i<n;i++){if(rd(i0+2+i*12,2)===0x8825){gp=rd(i0+2+i*12+8,4);break;}}
+              if(!gp){res(null);return;}
+              const gn=rd(gp,2);let lr='N',mr='E',la=null,lo=null;
               for(let i=0;i<gn;i++){
-                const base=gpsOff+2+i*12;const tag=rd(base,2);const voff=rd(base+8,4);
-                const dms=o=>rd(o,4)/rd(o+4,4);
-                if(tag===1)latRef=String.fromCharCode(view.getUint8(tiff+voff));
-                else if(tag===2)lat=dms(tiff+voff)+dms(tiff+voff+8)/60+dms(tiff+voff+16)/3600;
-                else if(tag===3)lonRef=String.fromCharCode(view.getUint8(tiff+voff));
-                else if(tag===4)lon=dms(tiff+voff)+dms(tiff+voff+8)/60+dms(tiff+voff+16)/3600;
+                const b=gp+2+i*12;const tg=rd(b,2);const vo=rd(b+8,4);
+                const dm=o=>rd(o,4)/rd(o+4,4);
+                if(tg===1)lr=String.fromCharCode(dv.getUint8(tf+vo));
+                else if(tg===2)la=dm(tf+vo)+dm(tf+vo+8)/60+dm(tf+vo+16)/3600;
+                else if(tg===3)mr=String.fromCharCode(dv.getUint8(tf+vo));
+                else if(tg===4)lo=dm(tf+vo)+dm(tf+vo+8)/60+dm(tf+vo+16)/3600;
               }
-              if(lat&&lon){res({lat:latRef==='S'?-lat:lat,lng:lonRef==='W'?-lon:lon});return;}
+              if(la&&lo){res({lat:lr==='S'?-la:la,lng:mr==='W'?-lo:lo});return;}
             }
           }
-          if((marker&0xFF00)!==0xFF00)break;
-          offset+=2+view.getUint16(offset+2);
+          if((mk&0xFF00)!==0xFF00)break;
+          off+=2+dv.getUint16(off+2);
         }
         res(null);
       }catch(e){res(null);}
@@ -226,11 +236,11 @@ function placeMarker(ph,latlng){
   const pos=latlng||ph.latlng;if(!pos)return;
   ph.latlng=pos;
   if(ph.marker)map.removeLayer(ph.marker);
-  const sz=72;
+  const sz=68;
   const icon=L.divIcon({
     className:'',
     html:`<div class="ph-mw" style="width:${sz}px"><div class="ph-mn">${ph.num}</div><img src="${ph.url}" style="width:${sz}px;height:${Math.round(sz*3/4)}px"><div class="ph-ml">${ph.name}</div></div>`,
-    iconSize:[sz+4,Math.round(sz*3/4)+22],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+11]
+    iconSize:[sz+4,Math.round(sz*3/4)+20],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+10]
   });
   ph.marker=L.marker(pos,{icon,draggable:true}).addTo(map);
   ph.marker.on('click',()=>{selId=ph.id;renderSide();showPopup(ph);});
@@ -245,7 +255,7 @@ function showPopup(ph){
   const db=document.createElement('button');db.className='ph-popup-del';db.textContent='このマーカーを削除';
   db.onclick=()=>removePhoto(ph.id);
   c.appendChild(img);c.appendChild(nd);c.appendChild(db);
-  L.popup({maxWidth:260}).setLatLng(ph.latlng).setContent(c).openOn(map);
+  L.popup({maxWidth:240}).setLatLng(ph.latlng).setContent(c).openOn(map);
 }
 
 function removePhoto(id){
@@ -276,7 +286,7 @@ map.on('click',e=>{
 
 function renderSide(){
   const list=document.getElementById('photo-list');
-  if(!photos.length){list.innerHTML='<div id="empty-hint">「写真追加」→<br>「配置モード」ON→<br>地図をタップ</div>';return;}
+  if(!photos.length){list.innerHTML='<div id="empty-hint">①写真追加<br>②配置モードON<br>③地図をタップ</div>';return;}
   list.innerHTML='';
   photos.forEach(ph=>{
     const d=document.createElement('div');
@@ -284,19 +294,25 @@ function renderSide(){
     d.onclick=()=>{selId=ph.id;renderSide();if(ph.latlng){map.setView(ph.latlng,16);showPopup(ph);}};
     const tw=document.createElement('div');tw.className='ph-tw';
     const img=document.createElement('img');img.className='ph-thumb';img.src=ph.url;tw.appendChild(img);
-    const nm=document.createElement('div');nm.className='ph-name';nm.textContent='No.'+ph.num+' '+ph.name;
+    const nm=document.createElement('div');nm.className='ph-name';nm.textContent='No.'+ph.num;
     d.appendChild(tw);d.appendChild(nm);list.appendChild(d);
   });
 }
 
-function openModal(ph){document.getElementById('modal-img').src=ph.url;document.getElementById('modal-name').textContent='No.'+ph.num+' '+ph.name;document.getElementById('modal').classList.add('open');}
+function openModal(ph){
+  document.getElementById('modal-img').src=ph.url;
+  document.getElementById('modal-name').textContent='No.'+ph.num+' '+ph.name;
+  document.getElementById('modal').classList.add('open');
+}
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 function exportPrint(){if(!photos.filter(p=>p.latlng).length){alert('写真を配置してから印刷してください');return;}window.print();}
 function setStatus(msg){document.getElementById('statusbar').textContent=msg;}
 
+window.addEventListener('resize',fixMapSize);
 map.locate({setView:true,maxZoom:15});
-map.on('locationfound',()=>setStatus('現在地を取得 — 写真追加ボタンから写真を追加してください'));
-map.on('locationerror',()=>{map.setView([33.3206,130.8994],14);setStatus('写真追加ボタンから写真を追加してください');});
+map.on('locationfound',()=>{setStatus('現在地を取得しました');fixMapSize();});
+map.on('locationerror',()=>{map.setView([33.3206,130.8994],14);setStatus('写真追加ボタンから写真を追加してください');fixMapSize();});
+setTimeout(fixMapSize,500);
 </script>
 </body>
 </html>
