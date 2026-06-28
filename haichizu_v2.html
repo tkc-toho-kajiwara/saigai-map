@@ -525,28 +525,64 @@ function readExifGPS(file){
         while(off<buf.byteLength-2){
           const mk=dv.getUint16(off);
           if(mk===0xFFE1){
-            const ts=off+10,le=dv.getUint16(ts)===0x4949;
-            const ru16=o=>dv.getUint16(ts+o,le),ru32=o=>dv.getUint32(ts+o,le);
-            const ifd0=ru32(4),n=ru16(ifd0);let gp=null;
-            for(let i=0;i<n;i++)if(ru16(ifd0+2+i*12)===0x8825){gp=ru32(ifd0+2+i*12+8);break;}
-            if(!gp){res(null);return;}
-            const gn=ru16(gp);let lr='N',mr='E',la=null,lo=null;
-            for(let i=0;i<gn;i++){
-              const b=gp+2+i*12,tg=ru16(b),vo=ru32(b+8);
-              const dms=o=>{const g=o=>dv.getUint32(ts+o,le);return g(o)/g(o+4)+g(o+8)/g(o+12)/60+(g(o+20)?g(o+16)/g(o+20):0)/3600;};
-              if(tg===1)lr=String.fromCharCode(dv.getUint8(ts+vo));
-              else if(tg===2)la=dms(vo);
-              else if(tg===3)mr=String.fromCharCode(dv.getUint8(ts+vo));
-              else if(tg===4)lo=dms(vo);
+            // ts = TIFFヘッダの絶対開始位置
+            const ts=off+10;
+            const le=dv.getUint16(ts)===0x4949; // II=LE(Android), MM=BE(iPhone)
+            // ru16/ru32 はTIFF相対オフセットで読む
+            const ru16=(o)=>dv.getUint16(ts+o,le);
+            const ru32=(o)=>dv.getUint32(ts+o,le);
+
+            // IFD0からGPS IFDオフセットを取得
+            const ifd0=ru32(4),n=ru16(ifd0);
+            let gp=null;
+            for(let i=0;i<n;i++){
+              if(ru16(ifd0+2+i*12)===0x8825){gp=ru32(ifd0+2+i*12+8);break;}
             }
-            if(la&&lo){res({lat:lr==='S'?-la:la,lng:mr==='W'?-lo:lo});return;}
+            if(!gp){res(null);return;}
+
+            // GPS IFDを読む（gp=TIFF相対オフセット）
+            const gn=ru16(gp);
+            let lr='N',mr='E',la=null,lo=null;
+
+            for(let i=0;i<gn;i++){
+              const b=gp+2+i*12; // エントリのTIFF相対位置
+              const tg=ru16(b);
+              const vo=ru32(b+8); // 値のTIFF相対オフセット
+
+              // RATIONAL型(型5)の度分秒計算
+              // vo はTIFF相対 → 絶対位置は ts+vo
+              const dms=()=>{
+                const g=(o)=>dv.getUint32(ts+vo+o,le);
+                const d=g(0)/g(4);
+                const m=g(8)/g(12);
+                const sd=g(20);
+                return d+m/60+(sd?g(16)/sd:0)/3600;
+              };
+
+              if(tg===1){
+                // GPSLatitudeRef: ASCII 'N' or 'S'
+                // cnt=2(文字+null)でvo値フィールドに直接格納(iPhone/Android共通)
+                // b+8 はTIFF相対 → 絶対位置 ts+b+8
+                lr=String.fromCharCode(dv.getUint8(ts+b+8));
+              }else if(tg===3){
+                // GPSLongitudeRef: ASCII 'E' or 'W'
+                mr=String.fromCharCode(dv.getUint8(ts+b+8));
+              }else if(tg===2){
+                la=dms();
+              }else if(tg===4){
+                lo=dms();
+              }
+            }
+            if(la&&lo){
+              res({lat:lr==='S'?-la:la,lng:mr==='W'?-lo:lo});return;
+            }
             res(null);return;
           }
           if((mk&0xFF00)!==0xFF00)break;
           off+=2+dv.getUint16(off+2,false);
         }
         res(null);
-      }catch(e){res(null);}
+      }catch(ex){res(null);}
     };
     reader.readAsArrayBuffer(file);
   });
