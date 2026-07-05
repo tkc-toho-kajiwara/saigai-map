@@ -167,15 +167,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="card">
       <div class="card-title">STEP 2 　樹種</div>
       <div id="species-grid">
-        <div class="sp-btn" onclick="selectSpecies('スギ','needle')">🌲 スギ</div>
-        <div class="sp-btn" onclick="selectSpecies('ヒノキ','needle')">🌲 ヒノキ</div>
-        <div class="sp-btn" onclick="selectSpecies('マツ','needle')">🌲 マツ</div>
-        <div class="sp-btn" onclick="selectSpecies('竹','bamboo')">🎋 竹</div>
-        <div class="sp-btn" onclick="selectSpecies('クリ','fruit')">🌰 クリ</div>
-        <div class="sp-btn" onclick="selectSpecies('ウメ','fruit')">🌸 ウメ</div>
-        <div class="sp-btn" onclick="selectSpecies('サクラ','garden')">🌸 サクラ</div>
-        <div class="sp-btn" onclick="selectSpecies('カキ','fruit')">🍊 カキ</div>
-        <div class="sp-btn" onclick="selectSpecies('その他','other')">🌿 その他</div>
+        <div class="sp-btn" onclick="selectSpecies('スギ','needle',this)">🌲 スギ</div>
+        <div class="sp-btn" onclick="selectSpecies('ヒノキ','needle',this)">🌲 ヒノキ</div>
+        <div class="sp-btn" onclick="selectSpecies('マツ','needle',this)">🌲 マツ</div>
+        <div class="sp-btn" onclick="selectSpecies('竹','bamboo',this)">🎋 竹</div>
+        <div class="sp-btn" onclick="selectSpecies('クリ','fruit',this)">🌰 クリ</div>
+        <div class="sp-btn" onclick="selectSpecies('ウメ','fruit',this)">🌸 ウメ</div>
+        <div class="sp-btn" onclick="selectSpecies('サクラ','garden',this)">🌸 サクラ</div>
+        <div class="sp-btn" onclick="selectSpecies('カキ','fruit',this)">🍊 カキ</div>
+        <div class="sp-btn" onclick="selectSpecies('その他','other',this)">🌿 その他</div>
         <div class="sp-btn" onclick="openCustomSpecies()">✏️ 手入力</div>
       </div>
       <div id="species-selected" style="text-align:center;font-size:13px;color:#888">樹種を選択してください</div>
@@ -190,18 +190,49 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div id="voice-result"></div>
       </div>
       <!-- 動的フォーム（樹種により自動切替） -->
-      <div id="dynamic-fields" style="margin-top:12px"></div>
+      <!-- 手入力フォーム（樹種選択前は主要項目を表示） -->
+      <div id="dynamic-fields" style="margin-top:12px">
+        <!-- 樹種選択前のデフォルトフォーム -->
+        <div id="default-fields">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div class="field required">
+              <label>胸高直径（cm）<span class="badge badge-req">必須</span></label>
+              <input type="number" id="df-dbh" inputmode="decimal" step="any" placeholder="例：30">
+            </div>
+            <div class="field required">
+              <label>樹高（m）<span class="badge badge-req">必須</span></label>
+              <input type="number" id="df-height" inputmode="decimal" step="any" placeholder="例：12">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field required">
+              <label>本数<span class="badge badge-req">必須</span></label>
+              <input type="number" id="df-count" inputmode="numeric" placeholder="1" value="1">
+            </div>
+            <div class="field">
+              <label>樹齢（年）<span class="badge badge-opt">任意</span></label>
+              <input type="number" id="df-age" inputmode="numeric" placeholder="聞き取り">
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- STEP 4: 写真（任意） -->
     <div class="card">
       <div class="card-title">STEP 4 　写真（任意）</div>
-      <div style="font-size:11px;color:#888;margin-bottom:8px">
+      <div style="font-size:11px;color:#888;margin-bottom:10px">
         代表写真・樹種変更時・特徴的な木のみ。毎本撮影は不要です。
       </div>
-      <div id="photo-area">
-        <div class="ph-add" onclick="triggerPhoto()">📷</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <button class="btn btn-gray" onclick="triggerCamera()" style="padding:10px;font-size:13px">
+          📷 カメラで撮影
+        </button>
+        <button class="btn btn-gray" onclick="triggerGallery()" style="padding:10px;font-size:13px">
+          🖼️ ギャラリーから選択
+        </button>
       </div>
+      <div id="photo-area" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
 
     <!-- STEP 5: 備考 -->
@@ -317,7 +348,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 </div>
 
 <!-- ファイル入力（非表示） -->
-<input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="addPhotos(this)">
 
 <script>
 // ===== データ管理 =====
@@ -395,11 +425,11 @@ function showTab(name) {
 }
 
 // ===== 樹種選択 =====
-function selectSpecies(name, cat) {
+function selectSpecies(name, cat, el) {
   currentSpecies = name;
   currentCategory = cat;
-  document.querySelectorAll('.sp-btn').forEach(el => el.classList.remove('sel'));
-  event.currentTarget.classList.add('sel');
+  document.querySelectorAll('.sp-btn').forEach(b => b.classList.remove('sel'));
+  if (el) el.classList.add('sel');
   document.getElementById('species-selected').textContent = '選択中：' + name;
   document.getElementById('species-selected').style.color = '#0F6E56';
   renderDynamicFields();
@@ -430,11 +460,21 @@ function renderDynamicFields() {
   const cat = currentCategory || 'other';
   const master = SPECIES_MASTER[cat];
   const container = document.getElementById('dynamic-fields');
+  // 既存の入力値を保存
+  const saved = {};
+  ['dbh','height','count','age','area','spread','cond','biko2'].forEach(k => {
+    const el = document.getElementById('df-' + k);
+    if (el && el.value) saved[k] = el.value;
+  });
   container.innerHTML = '';
+  // グリッドレイアウトで2列表示
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
+  const single = []; // 選択式など1列表示のもの
+
   master.fields.forEach(f => {
     const div = document.createElement('div');
     div.className = 'field' + (f.required ? ' required' : '');
-    div.style.marginBottom = '10px';
     const lbl = document.createElement('label');
     lbl.innerHTML = f.label + (f.unit ? '（' + f.unit + '）' : '') +
       (f.required ? '<span class="badge badge-req">必須</span>' : '<span class="badge badge-opt">任意</span>');
@@ -447,22 +487,29 @@ function renderDynamicFields() {
         opt.value = o; opt.textContent = o || '-- 選択 --';
         inp.appendChild(opt);
       });
+      single.push(div); // セレクトは1列
     } else if (f.type === 'text') {
       inp = document.createElement('input');
       inp.type = 'text';
       inp.placeholder = f.placeholder || '';
+      single.push(div);
     } else {
       inp = document.createElement('input');
       inp.type = 'number';
       inp.inputMode = 'decimal';
       inp.step = 'any';
-      inp.placeholder = f.default !== undefined ? String(f.default) : '数値を入力';
+      inp.placeholder = f.default !== undefined ? String(f.default) : '';
       if (f.default !== undefined) inp.value = f.default;
+      grid.appendChild(div);
     }
     inp.id = 'df-' + f.key;
+    // 以前の入力値を復元
+    if (saved[f.key] !== undefined) inp.value = saved[f.key];
     div.appendChild(inp);
-    container.appendChild(div);
   });
+
+  if (grid.children.length) container.appendChild(grid);
+  single.forEach(d => { d.style.marginTop = '8px'; container.appendChild(d); });
 }
 
 // ===== 音声入力 =====
@@ -523,8 +570,8 @@ function parseVoiceInput(txt) {
       document.getElementById('species-selected').textContent = '選択中：' + sp.name;
       document.getElementById('species-selected').style.color = '#0F6E56';
       // ボタンのハイライトも更新
-      document.querySelectorAll('.sp-btn').forEach(el => {
-        el.classList.toggle('sel', el.textContent.includes(sp.name));
+      document.querySelectorAll('.sp-btn').forEach(b => {
+        b.classList.toggle('sel', b.textContent.trim().includes(sp.name));
       });
       renderDynamicFields();
       break;
@@ -640,9 +687,23 @@ function applyManual() {
 }
 
 // ===== 写真 =====
-function triggerPhoto() { document.getElementById('photo-input').click(); }
+function triggerCamera() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+  inp.style.display = 'none';
+  inp.onchange = e => { addPhotos(e); document.body.removeChild(inp); };
+  document.body.appendChild(inp); inp.click();
+}
+function triggerGallery() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+  inp.style.display = 'none';
+  inp.onchange = e => { addPhotos(e); document.body.removeChild(inp); };
+  document.body.appendChild(inp); inp.click();
+}
 
-function addPhotos(input) {
+function addPhotos(e) {
+  const input = e.target;
   Array.from(input.files).forEach(f => {
     const url = URL.createObjectURL(f);
     currentPhotos.push({url, name: f.name});
@@ -723,12 +784,23 @@ function clearFormAfterRegister() {
   document.querySelectorAll('.sp-btn').forEach(el => el.classList.remove('sel'));
   document.getElementById('species-selected').textContent = '樹種を選択してください';
   document.getElementById('species-selected').style.color = '#888';
-  document.getElementById('dynamic-fields').innerHTML = '';
+  // 動的フォームをデフォルト（スギ系）に戻す
+  document.getElementById('dynamic-fields').innerHTML = `
+    <div id="default-fields">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="field required"><label>胸高直径（cm）<span class="badge badge-req">必須</span></label><input type="number" id="df-dbh" inputmode="decimal" step="any" placeholder="例：30"></div>
+        <div class="field required"><label>樹高（m）<span class="badge badge-req">必須</span></label><input type="number" id="df-height" inputmode="decimal" step="any" placeholder="例：12"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field required"><label>本数<span class="badge badge-req">必須</span></label><input type="number" id="df-count" inputmode="numeric" placeholder="1" value="1"></div>
+        <div class="field"><label>樹齢（年）<span class="badge badge-opt">任意</span></label><input type="number" id="df-age" inputmode="numeric" placeholder="聞き取り"></div>
+      </div>
+    </div>`;
   document.getElementById('f-biko').value = '';
   document.getElementById('voice-text').innerHTML = 'マイクボタンを押して話してください<br><span style="font-size:11px;color:#aaa">例：「胸高30 樹高12 本数2」</span>';
   // 写真エリアリセット
   const pa = document.getElementById('photo-area');
-  pa.innerHTML = '<div class="ph-add" onclick="triggerPhoto()">📷</div>';
+  pa.innerHTML = '';
   window.scrollTo(0, 0);
 }
 
@@ -746,7 +818,7 @@ function clearForm() {
   document.getElementById('species-selected').style.color = '#888';
   document.getElementById('dynamic-fields').innerHTML = '';
   const pa = document.getElementById('photo-area');
-  pa.innerHTML = '<div class="ph-add" onclick="triggerPhoto()">📷</div>';
+  pa.innerHTML = '';
 }
 
 function clearAll() {
