@@ -225,12 +225,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         代表写真・樹種変更時・特徴的な木のみ。毎本撮影は不要です。
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-        <button class="btn btn-gray" onclick="triggerCamera()" style="padding:10px;font-size:13px">
+        <label class="btn btn-gray" style="padding:10px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer">
           📷 カメラで撮影
-        </button>
-        <button class="btn btn-gray" onclick="triggerGallery()" style="padding:10px;font-size:13px">
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="addPhotos(this)">
+        </label>
+        <label class="btn btn-gray" style="padding:10px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer">
           🖼️ ギャラリーから選択
-        </button>
+          <input type="file" accept="image/*" multiple style="display:none" onchange="addPhotos(this)">
+        </label>
       </div>
       <div id="photo-area" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
@@ -702,8 +704,7 @@ function triggerGallery() {
   document.body.appendChild(inp); inp.click();
 }
 
-function addPhotos(e) {
-  const input = e.target;
+function addPhotos(input) {
   Array.from(input.files).forEach(f => {
     const url = URL.createObjectURL(f);
     currentPhotos.push({url, name: f.name});
