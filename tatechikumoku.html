@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="毎木調査">
+<title>立竹木調査システム</title>
+<!-- QRスキャン -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#222}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+/* ヘッダー */
+#hd{background:#0F6E56;color:#fff;padding:10px 14px;flex-shrink:0}
+#hd-top{display:flex;align-items:center;justify-content:space-between}
+#hd h1{font-size:15px;font-weight:600}
+#hd-sub{font-size:11px;opacity:.8;margin-top:2px}
+#chiban-badge{background:rgba(255,255,255,.2);border-radius:5px;padding:3px 8px;font-size:11px;margin-top:4px;display:none}
+#chiban-badge.show{display:block}
+
+/* タブ */
+#tabs{display:flex;background:#fff;border-bottom:2px solid #e0e0d8;flex-shrink:0}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:12px;color:#888;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;touch-action:manipulation}
+.tab.act{color:#0F6E56;border-bottom-color:#0F6E56;font-weight:600}
+
+/* メインコンテンツ */
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+
+/* カード */
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.card-title{font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ボタン */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:13px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;width:100%;font-family:inherit;touch-action:manipulation}
+.btn-green{background:#0F6E56;color:#fff}
+.btn-green:active{background:#085041}
+.btn-blue{background:#185FA5;color:#fff}
+.btn-blue:active{background:#0C447C}
+.btn-gray{background:#f0f0ea;color:#444}
+.btn-gray:active{background:#e0e0d8}
+.btn-red{background:#E24B4A;color:#fff}
+.btn-sm{padding:8px 14px;font-size:12px;border-radius:8px;font-weight:500}
+.btn-outline{background:#fff;border:1.5px solid #0F6E56;color:#0F6E56}
+
+/* 入力 */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:500}
+.field label .req{color:#E24B4A;margin-left:2px}
+.field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:#222;-webkit-appearance:none;appearance:none}
+.field input:focus,.field select:focus{outline:none;border-color:#0F6E56}
+.field.required input,.field.required select{border-color:#0F6E56}
+
+/* 樹種グリッド */
+#species-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.sp-btn{padding:10px 4px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid #ddd;background:#fff;color:#444;text-align:center;touch-action:manipulation}
+.sp-btn.sel{border-color:#0F6E56;background:#E1F5EE;color:#085041}
+
+/* 音声入力 */
+#voice-area{display:flex;flex-direction:column;gap:8px}
+#voice-btn{background:#E24B4A;color:#fff;border:none;border-radius:50%;width:72px;height:72px;font-size:28px;cursor:pointer;margin:0 auto;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(226,75,74,.4);touch-action:manipulation}
+#voice-btn.rec{animation:pulse 1s infinite;background:#c0392b}
+@keyframes pulse{0%,100%{box-shadow:0 4px 12px rgba(226,75,74,.4)}50%{box-shadow:0 4px 24px rgba(226,75,74,.7)}}
+#voice-text{background:#f5f5f0;border-radius:8px;padding:10px;font-size:13px;color:#444;min-height:44px;text-align:center}
+#voice-result{display:none;flex-direction:column;gap:6px}
+
+/* 動的フォームエリア */
+#dynamic-fields{display:flex;flex-direction:column;gap:0}
+
+/* 写真エリア */
+#photo-area{display:flex;gap:8px;flex-wrap:wrap}
+.ph-thumb{width:72px;height:54px;object-fit:cover;border-radius:6px;border:1.5px solid #ddd}
+.ph-add{width:72px;height:54px;border-radius:6px;border:1.5px dashed #aaa;display:flex;align-items:center;justify-content:center;font-size:22px;color:#aaa;cursor:pointer;background:#f5f5f0;touch-action:manipulation}
+
+/* 調査リスト */
+#tree-list{display:flex;flex-direction:column;gap:8px}
+.tree-item{background:#fff;border-radius:10px;padding:12px;border-left:4px solid #0F6E56;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.tree-item.bamboo{border-left-color:#27500A}
+.tree-item.fruit{border-left-color:#854F0B}
+.tree-item.garden{border-left-color:#0C447C}
+.tree-num{font-size:11px;color:#888;margin-bottom:2px}
+.tree-species{font-size:15px;font-weight:600;margin-bottom:4px}
+.tree-detail{font-size:12px;color:#555;line-height:1.7}
+.tree-chiban{font-size:10px;color:#0F6E56;background:#E1F5EE;border-radius:3px;padding:1px 5px;display:inline-block;margin-top:3px}
+
+/* ステータスバー */
+#statusbar{background:#f0f0ea;border-top:0.5px solid #ddd;padding:5px 12px;font-size:11px;color:#666;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* モーダル */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;align-items:flex-end;justify-content:center}
+.modal.open{display:flex}
+.modal-sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;padding:20px 16px 32px;max-height:85vh;overflow-y:auto}
+.modal-sheet h3{font-size:15px;font-weight:600;text-align:center;margin-bottom:14px}
+.modal-cancel{background:none;border:none;color:#888;font-size:14px;padding:10px;width:100%;cursor:pointer;font-family:inherit;margin-top:4px}
+
+/* QR */
+#qr-reader{width:100%;border-radius:8px;overflow:hidden;margin-bottom:8px}
+#qr-result-text{padding:10px;background:#E1F5EE;border-radius:8px;font-size:12px;color:#085041;text-align:center;min-height:36px;margin-bottom:8px}
+
+/* サマリー */
+.summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid #eee;font-size:13px}
+.summary-row:last-child{border:none}
+.summary-val{font-weight:600;color:#0F6E56}
+
+/* バッジ */
+.badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px}
+.badge-req{background:#FFE4E4;color:#C0392B}
+.badge-opt{background:#f0f0ea;color:#666}
+
+/* 空状態 */
+.empty{text-align:center;padding:32px 16px;color:#aaa;font-size:13px;line-height:2}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ヘッダー -->
+<div id="hd">
+  <div id="hd-top">
+    <h1>🌳 立竹木調査システム</h1>
+    <button onclick="openQrModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit">
+      🏷️ QRスキャン
+    </button>
+  </div>
+  <div id="hd-sub">毎木調査デジタル入力</div>
+  <div id="chiban-badge">📍 <span id="chiban-text"></span></div>
+</div>
+
+<!-- タブ -->
+<div id="tabs">
+  <div class="tab act" onclick="showTab('input')">📝 入力</div>
+  <div class="tab" onclick="showTab('list')">📋 調査リスト</div>
+  <div class="tab" onclick="showTab('summary')">📊 集計</div>
+  <div class="tab" onclick="showTab('export')">💾 出力</div>
+</div>
+
+<!-- コンテンツ -->
+<div id="content">
+
+  <!-- ===== 入力タブ ===== -->
+  <div id="tab-input">
+
+    <!-- STEP 1: 地番（QRまたは手入力） -->
+    <div class="card">
+      <div class="card-title">STEP 1 　地番・地権者</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px">
+        <div class="field" style="margin:0">
+          <input id="f-chiban" type="text" placeholder="地番（例：694）">
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="openQrModal()" style="white-space:nowrap">QR読込</button>
+      </div>
+      <div class="field">
+        <input id="f-owner" type="text" placeholder="所有者名（任意）">
+      </div>
+      <div class="field">
+        <select id="f-chimo">
+          <option value="">地目を選択（任意）</option>
+          <option>宅地</option><option>田</option><option>畑</option>
+          <option>山林</option><option>原野</option><option>保安林</option><option>雑種地</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 2: 樹種選択 -->
+    <div class="card">
+      <div class="card-title">STEP 2 　樹種</div>
+      <div id="species-grid">
+        <div class="sp-btn" onclick="selectSpecies('スギ','needle')">🌲 スギ</div>
+        <div class="sp-btn" onclick="selectSpecies('ヒノキ','needle')">🌲 ヒノキ</div>
+        <div class="sp-btn" onclick="selectSpecies('マツ','needle')">🌲 マツ</div>
+        <div class="sp-btn" onclick="selectSpecies('竹','bamboo')">🎋 竹</div>
+        <div class="sp-btn" onclick="selectSpecies('クリ','fruit')">🌰 クリ</div>
+        <div class="sp-btn" onclick="selectSpecies('ウメ','fruit')">🌸 ウメ</div>
+        <div class="sp-btn" onclick="selectSpecies('サクラ','garden')">🌸 サクラ</div>
+        <div class="sp-btn" onclick="selectSpecies('カキ','fruit')">🍊 カキ</div>
+        <div class="sp-btn" onclick="selectSpecies('その他','other')">🌿 その他</div>
+        <div class="sp-btn" onclick="openCustomSpecies()">✏️ 手入力</div>
+      </div>
+      <div id="species-selected" style="text-align:center;font-size:13px;color:#888">樹種を選択してください</div>
+    </div>
+
+    <!-- STEP 3: 音声入力 -->
+    <div class="card">
+      <div class="card-title">STEP 3 　計測値（音声 or 手入力）</div>
+      <div id="voice-area">
+        <button id="voice-btn" onclick="toggleVoice()">🎤</button>
+        <div id="voice-text">マイクボタンを押して話してください<br><span style="font-size:11px;color:#aaa">例：「胸高30 樹高12 本数2」</span></div>
+        <div id="voice-result"></div>
+      </div>
+      <!-- 動的フォーム（樹種により自動切替） -->
+      <div id="dynamic-fields" style="margin-top:12px"></div>
+    </div>
+
+    <!-- STEP 4: 写真（任意） -->
+    <div class="card">
+      <div class="card-title">STEP 4 　写真（任意）</div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">
+        代表写真・樹種変更時・特徴的な木のみ。毎本撮影は不要です。
+      </div>
+      <div id="photo-area">
+        <div class="ph-add" onclick="triggerPhoto()">📷</div>
+      </div>
+    </div>
+
+    <!-- STEP 5: 備考 -->
+    <div class="card">
+      <div class="card-title">STEP 5 　備考（任意）</div>
+      <div class="field" style="margin:0">
+        <textarea id="f-biko" rows="2" placeholder="健全度・病害・特記事項など" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;resize:none"></textarea>
+      </div>
+    </div>
+
+    <!-- 登録ボタン -->
+    <button class="btn btn-green" onclick="registerTree()" style="margin-bottom:8px">
+      ✅ この木を登録して次へ
+    </button>
+    <button class="btn btn-gray btn-sm" onclick="clearForm()">
+      クリア
+    </button>
+
+  </div>
+
+  <!-- ===== 調査リストタブ ===== -->
+  <div id="tab-list" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:500">登録済み：<span id="list-count">0</span>本</div>
+      <button class="btn btn-gray btn-sm" onclick="clearAll()" style="width:auto">全削除</button>
+    </div>
+    <div id="tree-list"><div class="empty">まだ登録がありません<br>入力タブから登録してください</div></div>
+  </div>
+
+  <!-- ===== 集計タブ ===== -->
+  <div id="tab-summary" style="display:none">
+    <div class="card">
+      <div class="card-title">樹種別集計</div>
+      <div id="summary-content"><div class="empty">データがありません</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">地番別集計</div>
+      <div id="chiban-summary"><div class="empty">データがありません</div></div>
+    </div>
+  </div>
+
+  <!-- ===== 出力タブ ===== -->
+  <div id="tab-export" style="display:none">
+    <div class="card">
+      <div class="card-title">成果品の出力</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-green" onclick="exportCSV()">
+          📊 毎木調査表（CSV）をダウンロード
+        </button>
+        <button class="btn btn-blue" onclick="exportJSON()">
+          💾 全データ（JSON）を保存
+        </button>
+        <button class="btn btn-gray" onclick="exportPrint()">
+          🖨️ 印刷・PDF出力
+        </button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">データのインポート</div>
+      <button class="btn btn-gray" onclick="triggerImport()">
+        📂 保存済みJSONを読み込む
+      </button>
+      <input type="file" id="import-input" accept=".json" style="display:none" onchange="importJSON(this)">
+    </div>
+    <div class="card" style="background:#E1F5EE;border:none">
+      <div style="font-size:12px;color:#085041;line-height:1.8">
+        <strong>📍 地番後付けについて</strong><br>
+        QRなしで登録した木も、GPS座標が記録されています。<br>
+        帰社後に chiban_extract.py を実行すると、<br>
+        GPS×筆ポリゴンで地番が自動照合されます。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ステータスバー -->
+<div id="statusbar">起動しました。QRスキャンまたは地番入力から開始してください。</div>
+
+</div><!-- #app -->
+
+<!-- QRモーダル -->
+<div class="modal" id="qr-modal" onclick="if(event.target===this)closeQrModal()">
+  <div class="modal-sheet">
+    <h3>🏷️ 地番QRスキャン</h3>
+    <div style="font-size:11px;color:#888;text-align:center;margin-bottom:10px">
+      QRをスキャンすると地番・地権者が自動入力されます
+    </div>
+    <div id="qr-reader"></div>
+    <div id="qr-result-text">カメラをQRコードに向けてください</div>
+    <div id="qr-manual" style="display:none;flex-direction:column;gap:6px">
+      <input id="qr-manual-chiban" type="text" placeholder="地番を手入力（例：694）"
+        style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit">
+      <input id="qr-manual-owner" type="text" placeholder="所有者名（任意）"
+        style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit">
+      <button onclick="applyManual()" class="btn btn-green btn-sm">この地番を設定</button>
+    </div>
+    <button onclick="toggleManual()" style="font-size:11px;color:#185FA5;background:none;border:none;cursor:pointer;padding:6px;width:100%">手動入力に切り替え</button>
+    <button class="modal-cancel" onclick="closeQrModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- 樹種手入力モーダル -->
+<div class="modal" id="custom-modal" onclick="if(event.target===this)closeCustom()">
+  <div class="modal-sheet">
+    <h3>樹種を入力</h3>
+    <div class="field">
+      <input id="custom-species-input" type="text" placeholder="樹種名（例：ナラ、クヌギ）">
+    </div>
+    <button class="btn btn-green" onclick="applyCustomSpecies()">決定</button>
+    <button class="modal-cancel" onclick="closeCustom()">キャンセル</button>
+  </div>
+</div>
+
+<!-- ファイル入力（非表示） -->
+<input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="addPhotos(this)">
+
+<script>
+// ===== データ管理 =====
+let trees = JSON.parse(localStorage.getItem('tatechikumoku_trees') || '[]');
+let currentSpecies = null;
+let currentCategory = null;
+let currentPhotos = []; // {url, file}
+let activeChiban = null; // {chiban, owner, chimo}
+let voiceRecog = null;
+let isRecording = false;
+let html5Qr = null;
+
+// ===== 樹種マスター =====
+const SPECIES_MASTER = {
+  needle: {
+    label: '針葉樹', color: '#085041', bg: '#E1F5EE', borderColor: '#1D9E75',
+    fields: [
+      {key:'dbh',    label:'胸高直径', unit:'cm', required:true,  type:'number', voice:'胸高'},
+      {key:'height', label:'樹高',     unit:'m',  required:true,  type:'number', voice:'樹高'},
+      {key:'count',  label:'本数',     unit:'本', required:true,  type:'number', voice:'本数', default:1},
+      {key:'age',    label:'樹齢',     unit:'年', required:false, type:'number', voice:'樹齢'},
+    ]
+  },
+  bamboo: {
+    label: '竹類', color: '#27500A', bg: '#EAF3DE', borderColor: '#3B6D11',
+    fields: [
+      {key:'count',  label:'本数（概算）', unit:'本', required:true,  type:'number', voice:'本数'},
+      {key:'area',   label:'面積',         unit:'㎡', required:true,  type:'number', voice:'面積'},
+      {key:'height', label:'稈高',         unit:'m',  required:true,  type:'number', voice:'稈高'},
+      {key:'cond',   label:'管理状態',     unit:'',   required:false, type:'select',
+       options:['','管理中','半放置','放置','密生']},
+    ]
+  },
+  fruit: {
+    label: '果樹・有用樹', color: '#633806', bg: '#FAEEDA', borderColor: '#854F0B',
+    fields: [
+      {key:'dbh',    label:'胸高直径', unit:'cm', required:true,  type:'number', voice:'胸高'},
+      {key:'age',    label:'樹齢',     unit:'年', required:true,  type:'number', voice:'樹齢'},
+      {key:'count',  label:'本数',     unit:'本', required:true,  type:'number', voice:'本数', default:1},
+      {key:'cond',   label:'管理状態', unit:'',   required:true,  type:'select',
+       options:['','管理中','半放置','放置']},
+      {key:'height', label:'樹高',     unit:'m',  required:false, type:'number', voice:'樹高'},
+    ]
+  },
+  garden: {
+    label: '庭木・景観樹', color: '#0C447C', bg: '#E6F1FB', borderColor: '#185FA5',
+    fields: [
+      {key:'dbh',    label:'胸高直径', unit:'cm', required:true,  type:'number', voice:'胸高'},
+      {key:'height', label:'樹高',     unit:'m',  required:true,  type:'number', voice:'樹高'},
+      {key:'spread', label:'枝張り',   unit:'m',  required:true,  type:'number', voice:'枝張り'},
+      {key:'count',  label:'本数',     unit:'本', required:true,  type:'number', voice:'本数', default:1},
+      {key:'age',    label:'樹齢',     unit:'年', required:false, type:'number', voice:'樹齢'},
+    ]
+  },
+  other: {
+    label: 'その他・不明', color: '#444', bg: '#F1EFE8', borderColor: '#888',
+    fields: [
+      {key:'dbh',    label:'胸高直径（測定できた場合）', unit:'cm', required:false, type:'number'},
+      {key:'count',  label:'本数',     unit:'本', required:true,  type:'number', default:1},
+      {key:'biko2',  label:'外見の特徴', unit:'',  required:false, type:'text', placeholder:'葉の形・樹皮など'},
+    ]
+  }
+};
+
+// ===== タブ切替 =====
+function showTab(name) {
+  ['input','list','summary','export'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===name ? '' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('act', ['input','list','summary','export'][i] === name);
+  });
+  if(name==='list') renderList();
+  if(name==='summary') renderSummary();
+}
+
+// ===== 樹種選択 =====
+function selectSpecies(name, cat) {
+  currentSpecies = name;
+  currentCategory = cat;
+  document.querySelectorAll('.sp-btn').forEach(el => el.classList.remove('sel'));
+  event.currentTarget.classList.add('sel');
+  document.getElementById('species-selected').textContent = '選択中：' + name;
+  document.getElementById('species-selected').style.color = '#0F6E56';
+  renderDynamicFields();
+  setStatus('樹種「' + name + '」を選択。計測値を入力してください。');
+}
+
+function openCustomSpecies() {
+  document.getElementById('custom-modal').classList.add('open');
+  setTimeout(() => document.getElementById('custom-species-input').focus(), 300);
+}
+
+function closeCustom() { document.getElementById('custom-modal').classList.remove('open'); }
+
+function applyCustomSpecies() {
+  const v = document.getElementById('custom-species-input').value.trim();
+  if (!v) return;
+  currentSpecies = v;
+  currentCategory = 'other';
+  document.getElementById('species-selected').textContent = '選択中：' + v;
+  document.getElementById('species-selected').style.color = '#0F6E56';
+  document.getElementById('custom-species-input').value = '';
+  closeCustom();
+  renderDynamicFields();
+}
+
+// ===== 動的フォーム生成 =====
+function renderDynamicFields() {
+  const cat = currentCategory || 'other';
+  const master = SPECIES_MASTER[cat];
+  const container = document.getElementById('dynamic-fields');
+  container.innerHTML = '';
+  master.fields.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'field' + (f.required ? ' required' : '');
+    div.style.marginBottom = '10px';
+    const lbl = document.createElement('label');
+    lbl.innerHTML = f.label + (f.unit ? '（' + f.unit + '）' : '') +
+      (f.required ? '<span class="badge badge-req">必須</span>' : '<span class="badge badge-opt">任意</span>');
+    div.appendChild(lbl);
+    let inp;
+    if (f.type === 'select') {
+      inp = document.createElement('select');
+      (f.options || []).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o || '-- 選択 --';
+        inp.appendChild(opt);
+      });
+    } else if (f.type === 'text') {
+      inp = document.createElement('input');
+      inp.type = 'text';
+      inp.placeholder = f.placeholder || '';
+    } else {
+      inp = document.createElement('input');
+      inp.type = 'number';
+      inp.inputMode = 'decimal';
+      inp.step = 'any';
+      inp.placeholder = f.default !== undefined ? String(f.default) : '数値を入力';
+      if (f.default !== undefined) inp.value = f.default;
+    }
+    inp.id = 'df-' + f.key;
+    div.appendChild(inp);
+    container.appendChild(div);
+  });
+}
+
+// ===== 音声入力 =====
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    setStatus('このブラウザは音声認識に対応していません。手動で入力してください。');
+    return;
+  }
+  if (isRecording) {
+    stopVoice(); return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceRecog = new SR();
+  voiceRecog.lang = 'ja-JP';
+  voiceRecog.continuous = false;
+  voiceRecog.interimResults = true;
+  voiceRecog.onstart = () => {
+    isRecording = true;
+    document.getElementById('voice-btn').classList.add('rec');
+    document.getElementById('voice-btn').textContent = '⏹';
+    document.getElementById('voice-text').textContent = '🎤 話してください...';
+  };
+  voiceRecog.onresult = (e) => {
+    const txt = Array.from(e.results).map(r => r[0].transcript).join('');
+    document.getElementById('voice-text').textContent = txt;
+    if (e.results[e.results.length-1].isFinal) {
+      parseVoiceInput(txt);
+    }
+  };
+  voiceRecog.onerror = () => { stopVoice(); setStatus('音声認識エラー。もう一度お試しください。'); };
+  voiceRecog.onend = () => { stopVoice(); };
+  voiceRecog.start();
+}
+
+function stopVoice() {
+  isRecording = false;
+  document.getElementById('voice-btn').classList.remove('rec');
+  document.getElementById('voice-btn').textContent = '🎤';
+  if (voiceRecog) { try { voiceRecog.stop(); } catch(e){} }
+}
+
+function parseVoiceInput(txt) {
+  // 樹種の自動検出
+  const spMap = [
+    {keys:['スギ','すぎ','杉'],          name:'スギ',   cat:'needle'},
+    {keys:['ヒノキ','ひのき','檜','桧'], name:'ヒノキ', cat:'needle'},
+    {keys:['マツ','まつ','松'],          name:'マツ',   cat:'needle'},
+    {keys:['竹','タケ','たけ','ちく'],   name:'竹',     cat:'bamboo'},
+    {keys:['クリ','くり','栗'],          name:'クリ',   cat:'fruit'},
+    {keys:['ウメ','うめ','梅'],          name:'ウメ',   cat:'fruit'},
+    {keys:['カキ','かき','柿'],          name:'カキ',   cat:'fruit'},
+    {keys:['サクラ','さくら','桜'],      name:'サクラ', cat:'garden'},
+  ];
+  for (const sp of spMap) {
+    if (sp.keys.some(k => txt.includes(k))) {
+      currentSpecies = sp.name;
+      currentCategory = sp.cat;
+      document.getElementById('species-selected').textContent = '選択中：' + sp.name;
+      document.getElementById('species-selected').style.color = '#0F6E56';
+      // ボタンのハイライトも更新
+      document.querySelectorAll('.sp-btn').forEach(el => {
+        el.classList.toggle('sel', el.textContent.includes(sp.name));
+      });
+      renderDynamicFields();
+      break;
+    }
+  }
+
+  // 数値の抽出（「胸高30」「樹高12」「本数2」「樹齢40」「面積200」「稈高8」「枝張り4」）
+  const patterns = [
+    {keys:['dbh'],    pattern:/胸高[\s:：]?(\d+(\.\d+)?)/},
+    {keys:['height'], pattern:/樹高[\s:：]?(\d+(\.\d+)?)/},
+    {keys:['height'], pattern:/稈高[\s:：]?(\d+(\.\d+)?)/},
+    {keys:['count'],  pattern:/本数[\s:：]?(\d+)/},
+    {keys:['age'],    pattern:/樹齢[\s:：]?(\d+)/},
+    {keys:['area'],   pattern:/面積[\s:：]?(\d+(\.\d+)?)/},
+    {keys:['spread'], pattern:/枝張り[\s:：]?(\d+(\.\d+)?)/},
+  ];
+  const matched = [];
+  patterns.forEach(p => {
+    const m = txt.match(p.pattern);
+    if (m) {
+      p.keys.forEach(k => {
+        const el = document.getElementById('df-' + k);
+        if (el) { el.value = m[1]; matched.push(k); }
+      });
+    }
+  });
+
+  // 単独数字の場合（「30 12」など）→ 最初の数字を胸高に
+  if (!matched.length) {
+    const nums = txt.match(/\d+(\.\d+)?/g);
+    if (nums) {
+      const fields = ['dbh','height','count'];
+      nums.slice(0, fields.length).forEach((n, i) => {
+        const el = document.getElementById('df-' + fields[i]);
+        if (el) el.value = n;
+      });
+    }
+  }
+
+  setStatus('音声認識完了。入力内容を確認してください。');
+}
+
+// ===== QR =====
+function openQrModal() {
+  document.getElementById('qr-modal').classList.add('open');
+  document.getElementById('qr-result-text').textContent = 'カメラをQRコードに向けてください';
+  setTimeout(() => {
+    try {
+      html5Qr = new Html5Qrcode('qr-reader');
+      html5Qr.start(
+        {facingMode:'environment'},
+        {fps:10, qrbox:{width:220, height:220}},
+        onQrSuccess,
+        () => {}
+      ).catch(() => {
+        document.getElementById('qr-result-text').textContent = 'カメラを起動できません。手動入力をご利用ください。';
+        document.getElementById('qr-manual').style.display = 'flex';
+      });
+    } catch(e) {
+      document.getElementById('qr-result-text').textContent = '手動入力をご利用ください。';
+      document.getElementById('qr-manual').style.display = 'flex';
+    }
+  }, 300);
+}
+
+function onQrSuccess(text) {
+  let info = {chiban: text, owner: '', chimo: ''};
+  try {
+    const j = JSON.parse(text);
+    info.chiban = j.chiban || j.地番 || text;
+    info.owner  = j.owner  || j.名義人 || j.所有者 || '';
+    info.chimo  = j.chimo  || j.地目 || '';
+  } catch(e) {}
+  applyChiban(info);
+  stopQrScanner();
+  document.getElementById('qr-result-text').textContent = '✅ ' + info.chiban + (info.owner ? ' / ' + info.owner : '');
+  setTimeout(closeQrModal, 1000);
+}
+
+function applyChiban(info) {
+  activeChiban = info;
+  document.getElementById('f-chiban').value = info.chiban || '';
+  document.getElementById('f-owner').value  = info.owner  || '';
+  if (info.chimo) document.getElementById('f-chimo').value = info.chimo;
+  const badge = document.getElementById('chiban-badge');
+  document.getElementById('chiban-text').textContent = info.chiban + (info.owner ? ' / ' + info.owner : '');
+  badge.classList.add('show');
+  setStatus('地番「' + info.chiban + '」を設定しました。');
+}
+
+function stopQrScanner() {
+  if (html5Qr) { html5Qr.stop().catch(() => {}); html5Qr = null; }
+}
+
+function closeQrModal() {
+  stopQrScanner();
+  document.getElementById('qr-modal').classList.remove('open');
+  document.getElementById('qr-reader').innerHTML = '';
+  document.getElementById('qr-manual').style.display = 'none';
+}
+
+function toggleManual() {
+  const m = document.getElementById('qr-manual');
+  m.style.display = m.style.display === 'none' ? 'flex' : 'none';
+}
+
+function applyManual() {
+  const chiban = document.getElementById('qr-manual-chiban').value.trim();
+  const owner  = document.getElementById('qr-manual-owner').value.trim();
+  if (!chiban) { alert('地番を入力してください'); return; }
+  applyChiban({chiban, owner, chimo: ''});
+  closeQrModal();
+}
+
+// ===== 写真 =====
+function triggerPhoto() { document.getElementById('photo-input').click(); }
+
+function addPhotos(input) {
+  Array.from(input.files).forEach(f => {
+    const url = URL.createObjectURL(f);
+    currentPhotos.push({url, name: f.name});
+    const img = document.createElement('img');
+    img.className = 'ph-thumb';
+    img.src = url;
+    img.onclick = () => { if(confirm('この写真を削除しますか？')) { currentPhotos = currentPhotos.filter(p=>p.url!==url); URL.revokeObjectURL(url); img.remove(); }};
+    const area = document.getElementById('photo-area');
+    area.insertBefore(img, area.firstChild);
+  });
+  input.value = '';
+}
+
+// ===== 登録 =====
+function registerTree() {
+  const chiban = document.getElementById('f-chiban').value.trim();
+  const owner  = document.getElementById('f-owner').value.trim();
+  const chimo  = document.getElementById('f-chimo').value;
+  const biko   = document.getElementById('f-biko').value.trim();
+
+  if (!currentSpecies) { alert('樹種を選択してください'); return; }
+
+  // 動的フィールドの値を収集
+  const cat = currentCategory || 'other';
+  const master = SPECIES_MASTER[cat];
+  const values = {};
+  let missingReq = [];
+  master.fields.forEach(f => {
+    const el = document.getElementById('df-' + f.key);
+    if (!el) return;
+    const v = el.value.trim();
+    if (f.required && !v) { missingReq.push(f.label); }
+    if (v) values[f.key] = f.type === 'number' ? parseFloat(v) : v;
+  });
+
+  if (missingReq.length) {
+    alert('必須項目が未入力です：\n' + missingReq.join('、'));
+    return;
+  }
+
+  const tree = {
+    id: Date.now(),
+    no: trees.length + 1,
+    chiban: chiban || '未設定',
+    owner, chimo,
+    species: currentSpecies,
+    category: currentCategory,
+    values,
+    biko,
+    photos: currentPhotos.map(p => p.name),
+    gps: null,
+    registeredAt: new Date().toISOString(),
+  };
+
+  // GPS取得を試みる
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      tree.gps = {lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy};
+      saveAndRefresh(tree);
+    }, () => saveAndRefresh(tree), {timeout: 5000, maximumAge: 10000});
+  } else {
+    saveAndRefresh(tree);
+  }
+}
+
+function saveAndRefresh(tree) {
+  trees.push(tree);
+  localStorage.setItem('tatechikumoku_trees', JSON.stringify(trees));
+  setStatus('No.' + tree.no + ' 「' + tree.species + '」を登録しました。（累計：' + trees.length + '本）');
+  clearFormAfterRegister();
+}
+
+function clearFormAfterRegister() {
+  // 地番はそのまま維持（同一地番で複数登録するため）
+  currentSpecies = null;
+  currentCategory = null;
+  currentPhotos = [];
+  document.querySelectorAll('.sp-btn').forEach(el => el.classList.remove('sel'));
+  document.getElementById('species-selected').textContent = '樹種を選択してください';
+  document.getElementById('species-selected').style.color = '#888';
+  document.getElementById('dynamic-fields').innerHTML = '';
+  document.getElementById('f-biko').value = '';
+  document.getElementById('voice-text').innerHTML = 'マイクボタンを押して話してください<br><span style="font-size:11px;color:#aaa">例：「胸高30 樹高12 本数2」</span>';
+  // 写真エリアリセット
+  const pa = document.getElementById('photo-area');
+  pa.innerHTML = '<div class="ph-add" onclick="triggerPhoto()">📷</div>';
+  window.scrollTo(0, 0);
+}
+
+function clearForm() {
+  if (trees.length && !confirm('入力中の内容をクリアしますか？')) return;
+  currentSpecies = null; currentCategory = null; currentPhotos = [];
+  activeChiban = null;
+  document.getElementById('f-chiban').value = '';
+  document.getElementById('f-owner').value = '';
+  document.getElementById('f-chimo').value = '';
+  document.getElementById('f-biko').value = '';
+  document.getElementById('chiban-badge').classList.remove('show');
+  document.querySelectorAll('.sp-btn').forEach(el => el.classList.remove('sel'));
+  document.getElementById('species-selected').textContent = '樹種を選択してください';
+  document.getElementById('species-selected').style.color = '#888';
+  document.getElementById('dynamic-fields').innerHTML = '';
+  const pa = document.getElementById('photo-area');
+  pa.innerHTML = '<div class="ph-add" onclick="triggerPhoto()">📷</div>';
+}
+
+function clearAll() {
+  if (!confirm('登録した全データを削除しますか？')) return;
+  trees = [];
+  localStorage.removeItem('tatechikumoku_trees');
+  renderList();
+  setStatus('全データを削除しました。');
+}
+
+// ===== リスト表示 =====
+function renderList() {
+  const container = document.getElementById('tree-list');
+  document.getElementById('list-count').textContent = trees.length;
+  if (!trees.length) {
+    container.innerHTML = '<div class="empty">まだ登録がありません<br>入力タブから登録してください</div>';
+    return;
+  }
+  container.innerHTML = '';
+  [...trees].reverse().forEach(t => {
+    const cat = t.category || 'other';
+    const div = document.createElement('div');
+    div.className = 'tree-item ' + (cat === 'bamboo' ? 'bamboo' : cat === 'fruit' ? 'fruit' : cat === 'garden' ? 'garden' : '');
+    const details = Object.entries(t.values).map(([k, v]) => {
+      const master = SPECIES_MASTER[t.category || 'other'];
+      const f = master?.fields.find(f => f.key === k);
+      return (f ? f.label : k) + '：' + v + (f?.unit || '');
+    }).join('　');
+    div.innerHTML = `
+      <div class="tree-num">No.${t.no} | ${t.registeredAt.slice(0,10)}</div>
+      <div class="tree-species">${t.species}</div>
+      <div class="tree-detail">${details}</div>
+      ${t.biko ? '<div class="tree-detail" style="color:#888">備考：' + t.biko + '</div>' : ''}
+      ${t.gps ? '<div class="tree-detail" style="color:#1D9E75;font-size:10px">📍 GPS: ' + t.gps.lat.toFixed(5) + ', ' + t.gps.lng.toFixed(5) + '</div>' : ''}
+      <div>
+        ${t.chiban !== '未設定' ? '<span class="tree-chiban">📋 ' + t.chiban + (t.owner ? ' / ' + t.owner : '') + '</span>' : '<span class="tree-chiban" style="background:#f0f0ea;color:#888">地番未設定（後付け可）</span>'}
+      </div>
+      <button onclick="deleteTree(${t.id})" style="margin-top:6px;font-size:11px;color:#E24B4A;background:none;border:none;cursor:pointer;padding:0">削除</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function deleteTree(id) {
+  if (!confirm('この記録を削除しますか？')) return;
+  trees = trees.filter(t => t.id !== id);
+  trees.forEach((t, i) => t.no = i + 1);
+  localStorage.setItem('tatechikumoku_trees', JSON.stringify(trees));
+  renderList();
+}
+
+// ===== 集計 =====
+function renderSummary() {
+  // 樹種別
+  const bySpecies = {};
+  trees.forEach(t => {
+    if (!bySpecies[t.species]) bySpecies[t.species] = {count: 0, totalDbh: 0, dbhCount: 0};
+    bySpecies[t.species].count += t.values.count || 1;
+    if (t.values.dbh) { bySpecies[t.species].totalDbh += t.values.dbh; bySpecies[t.species].dbhCount++; }
+  });
+  const sc = document.getElementById('summary-content');
+  if (!Object.keys(bySpecies).length) { sc.innerHTML = '<div class="empty">データがありません</div>'; }
+  else {
+    sc.innerHTML = Object.entries(bySpecies).map(([sp, d]) =>
+      `<div class="summary-row"><span>${sp}</span><span class="summary-val">${d.count}本${d.dbhCount ? '　平均胸高：' + (d.totalDbh/d.dbhCount).toFixed(1) + 'cm' : ''}</span></div>`
+    ).join('') + `<div class="summary-row" style="font-weight:600"><span>合計</span><span class="summary-val">${trees.reduce((s,t)=>s+(t.values.count||1),0)}本</span></div>`;
+  }
+  // 地番別
+  const byChiban = {};
+  trees.forEach(t => {
+    const key = t.chiban + (t.owner ? '（' + t.owner + '）' : '');
+    if (!byChiban[key]) byChiban[key] = [];
+    byChiban[key].push(t);
+  });
+  const cc = document.getElementById('chiban-summary');
+  if (!Object.keys(byChiban).length) { cc.innerHTML = '<div class="empty">データがありません</div>'; }
+  else {
+    cc.innerHTML = Object.entries(byChiban).map(([ch, ts]) =>
+      `<div class="summary-row"><span>${ch}</span><span class="summary-val">${ts.length}件　${ts.reduce((s,t)=>s+(t.values.count||1),0)}本</span></div>`
+    ).join('');
+  }
+}
+
+// ===== 出力 =====
+function exportCSV() {
+  if (!trees.length) { alert('データがありません'); return; }
+  const headers = ['No','樹種','地番','所有者','地目','胸高直径(cm)','樹高(m)','本数','樹齢(年)','面積(㎡)','稈高(m)','枝張り(m)','管理状態','備考','GPS緯度','GPS経度','登録日時'];
+  const rows = trees.map(t => [
+    t.no, t.species, t.chiban, t.owner, t.chimo,
+    t.values.dbh || '', t.values.height || '', t.values.count || 1,
+    t.values.age || '', t.values.area || '', t.values.spread || '',
+    t.values.cond || '', t.biko,
+    t.gps ? t.gps.lat.toFixed(6) : '', t.gps ? t.gps.lng.toFixed(6) : '',
+    t.registeredAt.slice(0,19).replace('T',' ')
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',')).join('\r\n');
+  const now = new Date();
+  const fname = '毎木調査_' + now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '.csv';
+  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click();
+  setStatus('CSVを保存しました：' + fname);
+}
+
+function exportJSON() {
+  if (!trees.length) { alert('データがありません'); return; }
+  const now = new Date();
+  const fname = '毎木調査_' + now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '.json';
+  const blob = new Blob([JSON.stringify(trees, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click();
+  setStatus('JSONを保存しました：' + fname);
+}
+
+function exportPrint() { window.print(); }
+
+function triggerImport() { document.getElementById('import-input').click(); }
+
+function importJSON(input) {
+  const f = input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('形式が違います');
+      if (!confirm(data.length + '件のデータを読み込みます。現在のデータに追加しますか？')) return;
+      const offset = trees.length;
+      data.forEach((t, i) => { t.no = offset + i + 1; trees.push(t); });
+      localStorage.setItem('tatechikumoku_trees', JSON.stringify(trees));
+      showTab('list');
+      setStatus(data.length + '件を読み込みました。');
+    } catch(e) { alert('読み込みエラー：' + e.message); }
+  };
+  reader.readAsText(f);
+  input.value = '';
+}
+
+function setStatus(msg) { document.getElementById('statusbar').textContent = msg; }
+</script>
+</body>
+</html>
