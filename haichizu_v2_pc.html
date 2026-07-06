@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用地調査 写真配置図（PC版）</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- GeoTIFF/オルソ対応 -->
+<script src="https://unpkg.com/georaster@1.6.0/dist/georaster.browser.bundle.min.js"></script>
+<script src="https://unpkg.com/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js"></script>
+<!-- DXF対応 -->
+<script src="https://cdn.jsdelivr.net/npm/dxf@3.3.5/dist/dxf.min.js"></script>
+<!-- QRスキャン対応 -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<!-- パノラマ(360°)ビューア -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css">
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+#toolbar{display:flex;align-items:center;gap:5px;padding:7px 8px;background:#fff;border-bottom:1px solid #e5e5e0;flex-wrap:wrap;flex-shrink:0}
+.tb-btn{display:flex;align-items:center;gap:4px;padding:7px 10px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;color:#333;white-space:nowrap;touch-action:manipulation}
+.tb-btn:active{background:#f0f0ea}
+.tb-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.tb-sel{padding:6px 6px;border:1px solid #d0d0c8;border-radius:8px;background:#fff;font-size:11px;color:#333;max-width:130px}
+.tb-sep{width:1px;height:20px;background:#e0e0d8;flex-shrink:0}
+.mode-on{background:#E6F1FB!important;border-color:#185FA5!important;color:#185FA5!important}
+.btn-danger{border-color:#f5c6cb!important;color:#c0392b!important}
+.btn-danger:active{background:#fff3f3!important}
+.btn-qr{background:#E1F5EE!important;border-color:#1D9E75!important;color:#085041!important}
+#main{display:flex;flex:1;min-height:0;position:relative}
+#map-wrap{flex:1;min-width:0;position:relative;overflow:hidden}
+#map{position:absolute;top:0;left:0;width:100%;height:100%}
+#side{width:220px;border-left:1px solid #e5e5e0;background:#fff;display:flex;flex-direction:column;z-index:2;flex-shrink:0}
+#side-hd{padding:6px;font-size:10px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e0;text-align:center;display:flex;align-items:center;justify-content:space-between;gap:4px}
+#btn-clear{font-size:9px;padding:2px 5px;border:1px solid #f5c6cb;border-radius:4px;color:#c0392b;background:#fff;cursor:pointer;white-space:nowrap}
+#photo-list{flex:1;overflow-y:auto;padding:6px;display:grid;grid-template-columns:1fr 1fr;gap:6px;align-content:start}
+.ph-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 3px;border-radius:8px;cursor:pointer;border:1.5px solid transparent;margin-bottom:0;position:relative}
+.ph-item.sel{border-color:#185FA5;background:#EDF5FC}
+.ph-item.placed .ph-tw::after{content:'✓';position:absolute;bottom:1px;right:1px;background:#1D9E75;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;display:flex;align-items:center;justify-content:center;line-height:1}
+.ph-item .ph-x{position:absolute;top:2px;right:2px;width:16px;height:16px;background:#E24B4A;color:#fff;border-radius:50%;font-size:11px;display:none;align-items:center;justify-content:center;line-height:1;cursor:pointer;border:none;z-index:3}
+.ph-item:hover .ph-x{display:flex}
+.ph-tw{position:relative;width:90px;height:68px}
+.ph-thumb{width:100%;height:100%;object-fit:cover;border-radius:4px;display:block}
+.ph-name{font-size:9px;color:#555;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 地番バッジ */
+.ph-chiban{font-size:8px;color:#085041;background:#E1F5EE;border-radius:3px;padding:1px 3px;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:none}
+.ph-chiban.show{display:block}
+#statusbar{padding:4px 10px;font-size:11px;color:#666;background:#f5f5f0;border-top:1px solid #e5e5e0;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#empty-hint{padding:12px 6px;font-size:10px;color:#aaa;text-align:center;line-height:1.9}
+.leaflet-popup-content-wrapper{border-radius:12px!important;padding:0!important;overflow:hidden}
+.leaflet-popup-content{margin:0!important}
+.ph-popup{text-align:center}
+.ph-popup img{display:block;width:100%;max-width:220px;max-height:150px;object-fit:contain;cursor:pointer}
+.ph-popup-name{font-size:11px;color:#555;padding:4px 10px}
+.ph-popup-chiban{font-size:11px;color:#085041;background:#E1F5EE;padding:3px 10px;font-weight:500}
+.ph-popup-del{display:block;width:100%;padding:7px;background:#fff3f3;color:#c0392b;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#modal.open{display:flex}
+#modal img{max-width:92vw;max-height:75vh;object-fit:contain;border-radius:8px}
+#modal-name{color:#fff;font-size:13px}
+#modal-close{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer;font-family:inherit}
+#modal-actions{display:flex;gap:10px}
+#modal-dl{background:#185FA5;color:#fff;border:1px solid #185FA5;border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer;font-family:inherit}
+/* サイドサムネイル：拡大・DLボタン */
+.ph-tw{overflow:visible}
+.ph-tools{position:absolute;bottom:2px;right:2px;display:none;gap:2px;z-index:4}
+.ph-item:hover .ph-tools{display:flex}
+.ph-tool-btn{width:20px;height:20px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1}
+.ph-tool-btn:hover{background:#185FA5}
+.ph-kind-badge{position:absolute;top:1px;right:1px;background:rgba(0,0,0,.65);color:#fff;font-size:8px;font-weight:700;padding:1px 3px;border-radius:3px;line-height:1.3;pointer-events:none;z-index:2}
+/* マーカー引き出し線（重なり回避・元GPS位置は独立レイヤーで表示） */
+.leaflet-interactive{cursor:pointer}
+.ph-popup-restore{display:block;width:100%;padding:7px;background:#EDF5FC;color:#185FA5;border:none;border-top:1px solid #eee;font-size:11.5px;cursor:pointer;font-family:inherit}
+.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}
+.ph-mw img{display:block;border-radius:3px;object-fit:cover}
+.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}
+.ph-mk{position:absolute;top:-6px;right:-6px;background:#000;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:8px;line-height:1.4;border:1.5px solid #fff}
+/* 地番付きマーカーは緑枠 */
+.ph-mw.has-chiban{border-color:#1D9E75!important}
+#add-modal,#save-modal,#qr-modal,#layer-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;align-items:flex-end;justify-content:center}
+#add-modal.open,#save-modal.open,#qr-modal.open,#layer-modal.open{display:flex}
+.sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;padding:20px 16px 32px;display:flex;flex-direction:column;gap:10px}
+.sheet h3{font-size:15px;font-weight:600;color:#333;text-align:center}
+.sheet-opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #e0e0d8;border-radius:12px;cursor:pointer;font-size:14px;color:#333;background:#fff;width:100%;text-align:left;font-family:inherit;touch-action:manipulation}
+.sheet-opt:active{background:#f5f5f0}
+.sheet-opt svg{width:22px;height:22px;stroke:#378ADD;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sheet-sub{font-size:11px;color:#888;display:block;margin-top:2px}
+.sheet-cancel{background:none;border:none;color:#888;font-size:14px;padding:8px;cursor:pointer;width:100%;font-family:inherit}
+#save-info{font-size:12px;color:#666;text-align:center;line-height:1.6;padding:4px 0}
+/* QRスキャナ */
+#qr-reader{width:100%;border-radius:8px;overflow:hidden}
+#qr-result{padding:10px;background:#E1F5EE;border-radius:8px;font-size:12px;color:#085041;text-align:center;min-height:36px}
+/* オーバーレイ凡例 */
+#layer-legend{position:absolute;bottom:28px;left:8px;z-index:1000;background:rgba(255,255,255,.92);border-radius:8px;padding:6px 10px;font-size:10px;color:#444;border:0.5px solid #ccc;max-width:200px;display:none}
+#layer-legend.show{display:block}
+.leg-item{display:flex;align-items:center;gap:5px;margin-bottom:2px}
+.leg-dot{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <!-- 地図選択 -->
+    <select class="tb-sel" id="map-sel" onchange="changeLayer(this.value)">
+      <option value="osm">🗺 OpenStreetMap</option>
+      <option value="gsi">📍 地理院標準</option>
+      <option value="gsip">🗾 地理院航空</option>
+      <option value="gsil">📋 地理院淡色</option>
+      <option value="gmap">🌐 Googleマップ</option>
+      <option value="gsat">🛰 Google航空</option>
+    </select>
+    <div class="tb-sep"></div>
+    <!-- オーバーレイ追加（新機能） -->
+    <button class="tb-btn" onclick="openLayerModal()">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      重畳レイヤ
+    </button>
+    <div class="tb-sep"></div>
+    <!-- QRスキャン（新機能） -->
+    <button class="tb-btn btn-qr" onclick="openQrModal()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/></svg>
+      地番QR
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" onclick="openAddModal()">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      写真追加
+    </button>
+    <button class="tb-btn" id="btn-mode" onclick="toggleMode()">
+      <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span id="mode-txt">配置モード</span>
+    </button>
+    <button class="tb-btn" id="btn-vis" onclick="toggleMarkersVisible()">
+      <svg id="vis-icon-show" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg id="vis-icon-dot" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg>
+      <svg id="vis-icon-hide" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      <span id="vis-txt">写真:表示中</span>
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" onclick="openSaveModal()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      保存・提出
+    </button>
+    <button class="tb-btn" onclick="exportPrint()">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      印刷
+    </button>
+  </div>
+  <div id="main">
+    <div id="map-wrap">
+      <div id="map"></div>
+      <!-- レイヤ凡例 -->
+      <div id="layer-legend"></div>
+    </div>
+    <div id="side">
+      <div id="side-hd">
+        <span>写真リスト</span>
+        <button id="btn-clear" onclick="clearAll()">全削除</button>
+      </div>
+      <div id="photo-list"><div id="empty-hint">①地番QRスキャン<br>②写真追加<br>③配置モードON<br>④地図をタップ</div></div>
+    </div>
+  </div>
+  <div id="statusbar">地図を読み込み中...</div>
+</div>
+
+<!-- 写真追加モーダル -->
+<div id="add-modal" onclick="if(event.target===this)closeAddModal()">
+  <div class="sheet">
+    <h3>写真・動画を追加</h3>
+    <button class="sheet-opt" onclick="triggerGallery()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <div><span>ファイルを選択</span><span class="sheet-sub">写真・動画を複数選択（Ctrl/Shiftで複数選択可）</span></div>
+    </button>
+    <button class="sheet-opt" onclick="triggerFolder()">
+      <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      <div><span>フォルダごと一括読込</span><span class="sheet-sub">USBコピー後のフォルダを丸ごと取込（写真・動画とも対応）</span></div>
+    </button>
+    <div style="font-size:10.5px;color:#999;text-align:center;padding:2px 4px 0;line-height:1.6">
+      またはこの画面外の地図・写真リストへ<br>直接ファイル/フォルダをドラッグ＆ドロップでも追加できます<br>
+      ※360°パノラマは自動判定、動画はGPSが読めないため手動配置になります
+    </div>
+    <button class="sheet-cancel" onclick="closeAddModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- 保存・提出モーダル -->
+<div id="save-modal" onclick="if(event.target===this)closeSaveModal()">
+  <div class="sheet">
+    <h3>保存・提出形式を選択</h3>
+    <div id="save-info">配置済み写真: <span id="save-count">0</span>枚</div>
+    <button class="sheet-opt" onclick="exportHTML()">
+      <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      <div><span>HTMLファイルで保存</span><span class="sheet-sub">写真埋め込み・オフラインで開ける・提出可</span></div>
+    </button>
+    <button class="sheet-opt" onclick="exportCSV()">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+      <div><span>CSVで保存</span><span class="sheet-sub">地番・GPS・写真名の一覧（Excel取込可）</span></div>
+    </button>
+    <button class="sheet-opt" onclick="exportPrint();closeSaveModal()">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      <div><span>PDF印刷・保存</span><span class="sheet-sub">印刷またはPDF出力（地図+マーカー）</span></div>
+    </button>
+    <button class="sheet-cancel" onclick="closeSaveModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- 重畳レイヤ追加モーダル（新機能） -->
+<div id="layer-modal" onclick="if(event.target===this)closeLayerModal()">
+  <div class="sheet">
+    <h3>重畳レイヤを追加</h3>
+    <button class="sheet-opt" onclick="triggerOrtho()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <div><span>オルソ画像（GeoTIFF）</span><span class="sheet-sub">ドローン撮影の正射影像を背景に重畳</span></div>
+    </button>
+    <button class="sheet-opt" onclick="triggerDxf()">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 2 7 6"/><polyline points="17 6 19 2 21 6"/><path d="M21 10H3"/><path d="M3 18l9-8 9 8"/></svg>
+      <div><span>用地CADデータ（DXF）</span><span class="sheet-sub">用地境界・路線データを重畳</span></div>
+    </button>
+    <button class="sheet-opt" onclick="triggerGeoPdf()">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div><span>位置情報付きPDF（GeoPDF）</span><span class="sheet-sub">QGISエクスポートのGeoPDFを背景に使用</span></div>
+    </button>
+    <div id="layer-status" style="font-size:11px;color:#888;text-align:center;padding:4px 0;min-height:18px"></div>
+    <button class="sheet-opt" onclick="clearOverlays()" style="border-color:#f5c6cb;color:#c0392b">
+      <svg viewBox="0 0 24 24" style="stroke:#c0392b"><polyline points="3 6 5 2 7 6"/><polyline points="17 6 19 2 21 6"/><path d="M21 10H3"/></svg>
+      <div><span>重畳レイヤをすべて削除</span><span class="sheet-sub">背景図・CADデータを除去</span></div>
+    </button>
+    <button class="sheet-cancel" onclick="closeLayerModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- QRスキャンモーダル（新機能） -->
+<div id="qr-modal" onclick="if(event.target===this)closeQrModal()">
+  <div class="sheet">
+    <h3>🏷️ 地番QRスキャン</h3>
+    <div style="font-size:11px;color:#666;text-align:center;line-height:1.6">
+      QRをスキャンすると地番・地権者が自動入力されます<br>次に追加する写真に自動紐付けされます
+    </div>
+    <div id="qr-reader"></div>
+    <div id="qr-result">カメラを起動してQRコードに向けてください</div>
+    <div id="qr-manual-area" style="display:none;flex-direction:column;gap:6px">
+      <div style="font-size:11px;color:#888;text-align:center">— または手動入力 —</div>
+      <input id="qr-chiban-input" type="text" placeholder="地番を入力（例：日田市〇〇 123番4）"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit">
+      <input id="qr-owner-input" type="text" placeholder="地権者名（任意）"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="applyManualChiban()" style="padding:10px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">
+        この地番を設定
+      </button>
+    </div>
+    <button onclick="toggleManualInput()" style="font-size:11px;color:#185FA5;background:none;border:none;cursor:pointer;padding:4px">
+      手動入力に切り替え
+    </button>
+    <button class="sheet-cancel" onclick="closeQrModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- 拡大モーダル -->
+<div id="modal" onclick="closeModal()">
+  <img id="modal-img" src="" alt="">
+  <video id="modal-video" controls style="display:none;max-width:92vw;max-height:75vh"></video>
+  <div id="modal-pano" style="display:none;width:92vw;height:75vh;max-width:1100px"></div>
+  <div id="modal-name"></div>
+  <div id="modal-actions">
+    <button id="modal-dl" onclick="event.stopPropagation();downloadCurrentModalPhoto()">⬇ ダウンロード</button>
+    <button id="modal-close" onclick="event.stopPropagation();closeModal()">閉じる</button>
+  </div>
+</div>
+
+<!-- ファイル入力（非表示） -->
+<input type="file" id="ortho-input" accept=".tif,.tiff" style="display:none" onchange="loadOrtho(this)">
+<input type="file" id="dxf-input" accept=".dxf" style="display:none" onchange="loadDxf(this)">
+<input type="file" id="geopdf-input" accept=".pdf" style="display:none" onchange="loadGeoPdf(this)">
+<input type="file" id="folder-input" webkitdirectory directory multiple style="display:none" onchange="handleFolderInput(this)">
+
+<!-- ドラッグ&ドロップ用オーバーレイ -->
+<div id="drop-overlay" style="display:none;position:fixed;inset:0;background:rgba(24,95,165,.12);border:4px dashed #185FA5;z-index:9998;align-items:center;justify-content:center;pointer-events:none">
+  <div style="background:#fff;padding:18px 28px;border-radius:12px;font-size:16px;color:#185FA5;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.15)">ここに写真をドロップして追加</div>
+</div>
+
+<script>
+// ===== タイル定義 =====
+const TILES={
+  osm:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap',max:19},
+  gsi:{url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',attr:'© 国土地理院',max:18},
+  gsip:{url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',attr:'© 国土地理院',max:18},
+  gsil:{url:'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',attr:'© 国土地理院',max:18},
+  gmap:{url:'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',attr:'© Google',max:20},
+  gsat:{url:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',attr:'© Google',max:20},
+};
+
+// ===== 地図初期化 =====
+const mapWrap=document.getElementById('map-wrap');
+const mapEl=document.getElementById('map');
+const map=L.map('map',{zoomControl:true}).setView([33.3206,130.8994],14);
+const markerLayer=L.layerGroup().addTo(map); // 写真バブル＋引き出し線
+const dotLayer=L.layerGroup().addTo(map);    // 元GPS位置の青い点
+const photoLayer=markerLayer; // 旧名との互換用エイリアス
+// 表示段階：0=すべて表示 / 1=点のみ表示 / 2=すべて非表示
+const VIS_STATES=[
+  {marker:true, dot:true, label:'写真:表示中', icon:'show'},
+  {marker:false,dot:true, label:'点のみ表示',  icon:'dot'},
+  {marker:false,dot:false,label:'写真:非表示中',icon:'hide'}
+];
+let visState=0;
+function applyVisState(){
+  const s=VIS_STATES[visState];
+  if(s.marker){markerLayer.addTo(map);}else{map.removeLayer(markerLayer);}
+  if(s.dot){dotLayer.addTo(map);}else{map.removeLayer(dotLayer);}
+  document.getElementById('vis-icon-show').style.display=s.icon==='show'?'':'none';
+  document.getElementById('vis-icon-dot').style.display=s.icon==='dot'?'':'none';
+  document.getElementById('vis-icon-hide').style.display=s.icon==='hide'?'':'none';
+  document.getElementById('vis-txt').textContent=s.label;
+  document.getElementById('btn-vis').classList.toggle('mode-on',s.icon!=='show');
+}
+function toggleMarkersVisible(){
+  visState=(visState+1)%VIS_STATES.length;
+  applyVisState();
+  const msgs=['写真マーカーを表示しました','写真は非表示、元GPS位置の青い点のみ表示します','写真マーカー・点ともに非表示にしました（地図・重畳レイヤは操作可能です）'];
+  setStatus(msgs[visState]);
+}
+let curLayer=L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:19}).addTo(map);
+
+function fixMapSize(){
+  const w=mapWrap.offsetWidth,h=mapWrap.offsetHeight;
+  if(w>0&&h>0){mapEl.style.width=w+'px';mapEl.style.height=h+'px';map.invalidateSize(true);}
+}
+function fixRep(){fixMapSize();[200,500,1000,2000].forEach(t=>setTimeout(fixMapSize,t));}
+
+function changeLayer(k){
+  const t=TILES[k];if(!t)return;
+  map.removeLayer(curLayer);
+  curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:t.max}).addTo(map);
+  fixRep();
+}
+
+// ===== 写真・状態管理 =====
+const photos=[];let placeMode=false;let selId=null;
+
+// 現在アクティブな地番情報（QRスキャン後に保持）
+let activeChibanInfo=null; // {chiban, owner, chibanShort}
+
+// ===== QR機能 =====
+let html5QrScanner=null;
+
+function openQrModal(){
+  document.getElementById('qr-modal').classList.add('open');
+  document.getElementById('qr-result').textContent='カメラを起動してQRコードに向けてください';
+  setTimeout(()=>{
+    try{
+      html5QrScanner=new Html5Qrcode('qr-reader');
+      html5QrScanner.start(
+        {facingMode:'environment'},
+        {fps:10,qrbox:{width:220,height:220}},
+        onQrSuccess,
+        ()=>{}
+      ).catch(err=>{
+        document.getElementById('qr-result').textContent='カメラを起動できません。手動入力をご利用ください。';
+        document.getElementById('qr-manual-area').style.display='flex';
+      });
+    }catch(e){
+      document.getElementById('qr-result').textContent='QRスキャン非対応です。手動入力をご利用ください。';
+      document.getElementById('qr-manual-area').style.display='flex';
+    }
+  },300);
+}
+
+function onQrSuccess(text){
+  // QRからの情報をパース（JSON形式 or テキスト形式に対応）
+  let info={chiban:text,owner:'',chibanShort:text};
+  try{
+    const j=JSON.parse(text);
+    info.chiban=j.chiban||j.地番||text;
+    info.owner=j.owner||j.名義人||j.地権者||'';
+    info.chibanShort=(info.chiban).slice(-8); // 表示用短縮
+  }catch(e){
+    // テキストそのままを地番として使用
+    info.chibanShort=text.length>10?text.slice(-10):text;
+  }
+  activeChibanInfo=info;
+  document.getElementById('qr-result').textContent=
+    '✅ 地番：'+info.chiban+(info.owner?' / '+info.owner:'');
+  setStatus('地番QR設定：'+info.chiban+' → 次の写真に自動紐付けされます');
+  stopQrScanner();
+  setTimeout(closeQrModal,1200);
+}
+
+function stopQrScanner(){
+  if(html5QrScanner){
+    html5QrScanner.stop().catch(()=>{});
+    html5QrScanner=null;
+  }
+}
+
+function closeQrModal(){
+  stopQrScanner();
+  document.getElementById('qr-modal').classList.remove('open');
+  document.getElementById('qr-reader').innerHTML='';
+  document.getElementById('qr-manual-area').style.display='none';
+}
+
+function toggleManualInput(){
+  const area=document.getElementById('qr-manual-area');
+  area.style.display=area.style.display==='none'?'flex':'none';
+}
+
+function applyManualChiban(){
+  const chiban=document.getElementById('qr-chiban-input').value.trim();
+  const owner=document.getElementById('qr-owner-input').value.trim();
+  if(!chiban){alert('地番を入力してください');return;}
+  activeChibanInfo={chiban,owner,chibanShort:chiban.length>10?chiban.slice(-10):chiban};
+  setStatus('地番設定：'+chiban+' → 次の写真に自動紐付けされます');
+  closeQrModal();
+}
+
+// ===== 重畳レイヤ機能 =====
+let overlayLayers=[];
+
+function openLayerModal(){document.getElementById('layer-modal').classList.add('open');}
+function closeLayerModal(){document.getElementById('layer-modal').classList.remove('open');}
+function triggerOrtho(){closeLayerModal();document.getElementById('ortho-input').click();}
+function triggerDxf(){closeLayerModal();document.getElementById('dxf-input').click();}
+function triggerGeoPdf(){closeLayerModal();alert('GeoPDF対応：QGISでGeoTIFF形式に変換してからオルソ画像として読み込んでください。\n\nQGIS操作：\nラスタ → 変換 → 変換（format）→ GeoTIFF選択');closeLayerModal();}
+
+function loadOrtho(input){
+  const f=input.files[0];if(!f)return;
+  setStatus('オルソ画像を読み込み中: '+f.name+' ...');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      parseGeoraster(e.target.result).then(georaster=>{
+        const layer=new GeoRasterLayer({georaster,opacity:0.75,resolution:256});
+        layer.addTo(map);
+        overlayLayers.push({type:'ortho',name:f.name,layer});
+        map.fitBounds(layer.getBounds());
+        updateLegend();
+        setStatus('オルソ画像を追加しました: '+f.name);
+      }).catch(err=>{setStatus('GeoTIFF読み込みエラー: 座標情報付きのGeoTIFF(.tif)を使用してください');});
+    }catch(err){setStatus('GeoTIFF読み込みエラー: '+err.message);}
+  };
+  reader.readAsArrayBuffer(f);
+  input.value='';
+}
+
+function loadDxf(input){
+  const f=input.files[0];if(!f)return;
+  setStatus('DXFファイルを読み込み中: '+f.name+' ...');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      // DXFをGeoJSONに変換してLeafletに追加
+      const parser=new DxfParser();
+      const dxf=parser.parseSync(e.target.result);
+      const geojsonLayer=dxfToLeaflet(dxf,f.name);
+      if(geojsonLayer){
+        geojsonLayer.addTo(map);
+        overlayLayers.push({type:'dxf',name:f.name,layer:geojsonLayer});
+        try{map.fitBounds(geojsonLayer.getBounds());}catch(e){}
+        updateLegend();
+        setStatus('DXFを追加しました: '+f.name);
+      }
+    }catch(err){
+      setStatus('DXF読み込みエラー: '+err.message+' ／ SXF→DXF変換後に再試行してください');
+    }
+  };
+  reader.readAsText(f,'Shift-JIS');
+  input.value='';
+}
+
+function dxfToLeaflet(dxf,fname){
+  // DXFのエンティティをLeafletのGeoJSONレイヤに変換
+  const lines=[];
+  if(!dxf||!dxf.entities)return null;
+  dxf.entities.forEach(e=>{
+    try{
+      if(e.type==='LINE'&&e.vertices&&e.vertices.length>=2){
+        // 平面直角座標→経緯度変換（簡易：EPSG:6670/6678想定）
+        const p1=xyToLatLng(e.vertices[0].x,e.vertices[0].y);
+        const p2=xyToLatLng(e.vertices[1].x,e.vertices[1].y);
+        if(p1&&p2)lines.push([[p1.lat,p1.lng],[p2.lat,p2.lng]]);
+      }else if(e.type==='LWPOLYLINE'&&e.vertices){
+        const pts=e.vertices.map(v=>xyToLatLng(v.x,v.y)).filter(Boolean);
+        if(pts.length>1)lines.push(pts.map(p=>[p.lat,p.lng]));
+      }
+    }catch(err){}
+  });
+  if(!lines.length){
+    setStatus('DXF: 表示できるラインデータが見つかりませんでした');
+    return null;
+  }
+  return L.polyline(lines,{color:'#E24B4A',weight:1.5,opacity:0.85});
+}
+
+// 平面直角座標→WGS84（大分県：9系 EPSG:6678 簡易変換）
+function xyToLatLng(x,y){
+  // 9系原点：北緯36度 東経139度50分
+  // 簡易変換（精度約1m程度）
+  const lat0=36.0,lng0=139+50/60;
+  const lat=lat0+x/111000;
+  const lng=lng0+y/(111000*Math.cos(lat0*Math.PI/180));
+  if(lat<20||lat>50||lng<120||lng>150)return null; // 日本範囲外は除外
+  return{lat,lng};
+}
+
+function clearOverlays(){
+  overlayLayers.forEach(o=>map.removeLayer(o.layer));
+  overlayLayers.length=0;
+  updateLegend();
+  closeLayerModal();
+  setStatus('重畳レイヤをすべて削除しました');
+}
+
+function updateLegend(){
+  const leg=document.getElementById('layer-legend');
+  if(!overlayLayers.length){leg.classList.remove('show');return;}
+  leg.classList.add('show');
+  leg.innerHTML='<div style="font-size:10px;font-weight:600;margin-bottom:4px;color:#555">重畳レイヤ</div>'+
+    overlayLayers.map(o=>`<div class="leg-item">
+      <div class="leg-dot" style="background:${o.type==='dxf'?'#E24B4A':'#378ADD'}"></div>
+      <span style="font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">${o.type==='ortho'?'🛰':'📐'} ${o.name}</span>
+    </div>`).join('');
+}
+
+// ===== 写真追加モーダル =====
+function openAddModal(){document.getElementById('add-modal').classList.add('open');}
+function closeAddModal(){document.getElementById('add-modal').classList.remove('open');fixRep();}
+function openSaveModal(){
+  const n=photos.filter(p=>p.latlng).length;
+  document.getElementById('save-count').textContent=n;
+  document.getElementById('save-modal').classList.add('open');
+}
+function closeSaveModal(){document.getElementById('save-modal').classList.remove('open');}
+
+function isMediaFile(f){return f.type.startsWith('image/')||f.type.startsWith('video/');}
+
+function triggerGallery(){
+  closeAddModal();
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*,video/*';inp.multiple=true;inp.style.display='none';
+  inp.onchange=e=>{Array.from(e.target.files).filter(isMediaFile).forEach(addMedia);document.body.removeChild(inp);};
+  document.body.appendChild(inp);inp.click();
+}
+function triggerFolder(){
+  closeAddModal();
+  document.getElementById('folder-input').value='';
+  document.getElementById('folder-input').click();
+}
+function handleFolderInput(inp){
+  const files=Array.from(inp.files).filter(isMediaFile);
+  if(files.length===0){setStatus('フォルダ内に画像・動画ファイルが見つかりませんでした');return;}
+  files.forEach(addMedia);
+  setStatus(files.length+'件をフォルダから読み込みました');
+}
+
+// ===== ドラッグ&ドロップ対応（PC版） =====
+let dragCounter=0;
+function collectFilesFromEntry(entry,out){
+  return new Promise(resolve=>{
+    if(entry.isFile){
+      entry.file(f=>{if(isMediaFile(f))out.push(f);resolve();},()=>resolve());
+    }else if(entry.isDirectory){
+      const reader=entry.createReader();
+      const readBatch=()=>{
+        reader.readEntries(async entries=>{
+          if(!entries.length){resolve();return;}
+          for(const en of entries){await collectFilesFromEntry(en,out);}
+          readBatch();
+        },()=>resolve());
+      };
+      readBatch();
+    }else resolve();
+  });
+}
+window.addEventListener('dragenter',e=>{
+  if(e.dataTransfer&&e.dataTransfer.types&&e.dataTransfer.types.includes('Files')){
+    e.preventDefault();dragCounter++;
+    document.getElementById('drop-overlay').style.display='flex';
+  }
+});
+window.addEventListener('dragover',e=>{
+  if(e.dataTransfer&&e.dataTransfer.types&&e.dataTransfer.types.includes('Files'))e.preventDefault();
+});
+window.addEventListener('dragleave',e=>{
+  dragCounter--;
+  if(dragCounter<=0){dragCounter=0;document.getElementById('drop-overlay').style.display='none';}
+});
+window.addEventListener('drop',async e=>{
+  e.preventDefault();
+  dragCounter=0;
+  document.getElementById('drop-overlay').style.display='none';
+  const items=e.dataTransfer.items;
+  const out=[];
+  if(items&&items.length&&items[0].webkitGetAsEntry){
+    const entries=Array.from(items).map(it=>it.webkitGetAsEntry()).filter(Boolean);
+    for(const en of entries){await collectFilesFromEntry(en,out);}
+  }else{
+    Array.from(e.dataTransfer.files).forEach(f=>{if(isMediaFile(f))out.push(f);});
+  }
+  if(out.length===0){setStatus('ドロップした中に画像・動画が見つかりませんでした');return;}
+  out.forEach(addMedia);
+  setStatus(out.length+'件をドラッグ&ドロップで読み込みました');
+});
+
+function addMedia(f){
+  if(f.type.startsWith('video/')){addVideo(f);}else{addPhoto(f);}
+}
+
+// ===== 動画追加（GPSは自動取得不可のため手動配置） =====
+function addVideo(f){
+  const id='p'+Date.now()+Math.random().toString(36).slice(2,5);
+  const url=URL.createObjectURL(f);
+  const name=f.name.replace(/\.[^.]+$/,'');
+  const num=photos.length+1;
+  const chibanInfo=activeChibanInfo?{...activeChibanInfo}:null;
+  const ph={id,url,name,num,marker:null,latlng:null,file:f,chibanInfo,kind:'video',thumbUrl:null};
+  photos.push(ph);
+  if(!selId)selId=id;
+  renderSide();
+  setStatus('No.'+num+' 動画を追加 → 配置モードONで地図をタップ'+(chibanInfo?' [地番:'+chibanInfo.chibanShort+']':''));
+  // 先頭フレームをサムネイルとして抽出
+  captureVideoThumb(f).then(thumb=>{
+    ph.thumbUrl=thumb;
+    renderSide();
+    if(ph.marker)updateMarkerVisual(ph);
+  }).catch(()=>{});
+}
+function captureVideoThumb(file){
+  return new Promise((resolve,reject)=>{
+    const vurl=URL.createObjectURL(file);
+    const v=document.createElement('video');
+    v.src=vurl;v.muted=true;v.playsInline=true;v.preload='metadata';
+    v.onloadeddata=()=>{
+      try{
+        v.currentTime=Math.min(0.3,(v.duration||1)/4);
+      }catch(e){}
+    };
+    v.onseeked=()=>{
+      try{
+        const cv=document.createElement('canvas');
+        cv.width=v.videoWidth||320;cv.height=v.videoHeight||240;
+        cv.getContext('2d').drawImage(v,0,0,cv.width,cv.height);
+        resolve(cv.toDataURL('image/jpeg',0.7));
+      }catch(e){reject(e);}
+      URL.revokeObjectURL(vurl);
+    };
+    v.onerror=()=>{URL.revokeObjectURL(vurl);reject('video load error');};
+  });
+}
+
+
+
+function addPhoto(f){
+  const id='p'+Date.now()+Math.random().toString(36).slice(2,5);
+  const url=URL.createObjectURL(f);
+  const name=f.name.replace(/\.[^.]+$/,'');
+  const num=photos.length+1;
+  // QRで設定した地番情報を自動紐付け
+  const chibanInfo=activeChibanInfo?{...activeChibanInfo}:null;
+  const ph={id,url,name,num,marker:null,latlng:null,file:f,chibanInfo,kind:'photo'};
+  photos.push(ph);
+  if(!selId)selId=id;
+  renderSide();
+  if(chibanInfo){
+    setStatus('No.'+num+' 地番紐付け済：'+chibanInfo.chiban);
+  }
+  // 2:1前後のアスペクト比なら360°パノラマとして扱う
+  const probe=new Image();
+  probe.onload=()=>{
+    const ratio=probe.naturalWidth/probe.naturalHeight;
+    if(ratio>1.85&&ratio<2.2){ph.kind='pano';if(ph.marker)updateMarkerVisual(ph);renderSide();}
+  };
+  probe.src=url;
+  readExifGPS(f).then(coords=>{
+    if(coords){ph.latlng=coords;placeMarker(ph);map.setView(coords,16);
+      setStatus('No.'+num+' GPS自動配置'+(chibanInfo?' / 地番:'+chibanInfo.chibanShort:''));
+    }else{
+      setStatus('No.'+num+' 追加 → 配置モードONで地図をタップ'+(chibanInfo?' [地番:'+chibanInfo.chibanShort+']':''));
+    }
+    renderSide();fixRep();
+  });
+}
+
+
+// ===== EXIF GPS読み取り（元のままを維持） =====
+function readExifGPS(file){
+  return new Promise(res=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const buf=e.target.result,dv=new DataView(buf);
+        if(dv.getUint16(0)!==0xFFD8){res(null);return;}
+        let off=2;
+        while(off<buf.byteLength-2){
+          const mk=dv.getUint16(off);
+          if(mk===0xFFE1){
+            // ts = TIFFヘッダの絶対開始位置
+            const ts=off+10;
+            const le=dv.getUint16(ts)===0x4949; // II=LE(Android), MM=BE(iPhone)
+            // ru16/ru32 はTIFF相対オフセットで読む
+            const ru16=(o)=>dv.getUint16(ts+o,le);
+            const ru32=(o)=>dv.getUint32(ts+o,le);
+
+            // IFD0からGPS IFDオフセットを取得
+            const ifd0=ru32(4),n=ru16(ifd0);
+            let gp=null;
+            for(let i=0;i<n;i++){
+              if(ru16(ifd0+2+i*12)===0x8825){gp=ru32(ifd0+2+i*12+8);break;}
+            }
+            if(!gp){res(null);return;}
+
+            // GPS IFDを読む（gp=TIFF相対オフセット）
+            const gn=ru16(gp);
+            let lr='N',mr='E',la=null,lo=null;
+
+            for(let i=0;i<gn;i++){
+              const b=gp+2+i*12; // エントリのTIFF相対位置
+              const tg=ru16(b);
+              const vo=ru32(b+8); // 値のTIFF相対オフセット
+
+              // RATIONAL型(型5)の度分秒計算
+              // vo はTIFF相対 → 絶対位置は ts+vo
+              const dms=()=>{
+                const g=(o)=>dv.getUint32(ts+vo+o,le);
+                const d=g(0)/g(4);
+                const m=g(8)/g(12);
+                const sd=g(20);
+                return d+m/60+(sd?g(16)/sd:0)/3600;
+              };
+
+              if(tg===1){
+                // GPSLatitudeRef: ASCII 'N' or 'S'
+                // cnt=2(文字+null)でvo値フィールドに直接格納(iPhone/Android共通)
+                // b+8 はTIFF相対 → 絶対位置 ts+b+8
+                lr=String.fromCharCode(dv.getUint8(ts+b+8));
+              }else if(tg===3){
+                // GPSLongitudeRef: ASCII 'E' or 'W'
+                mr=String.fromCharCode(dv.getUint8(ts+b+8));
+              }else if(tg===2){
+                la=dms();
+              }else if(tg===4){
+                lo=dms();
+              }
+            }
+            if(la&&lo){
+              res({lat:lr==='S'?-la:la,lng:mr==='W'?-lo:lo});return;
+            }
+            res(null);return;
+          }
+          if((mk&0xFF00)!==0xFF00)break;
+          off+=2+dv.getUint16(off+2,false);
+        }
+        res(null);
+      }catch(ex){res(null);}
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function buildMarkerIcon(ph){
+  const sz=68;
+  const hasCh=ph.chibanInfo&&ph.chibanInfo.chiban;
+  const borderColor=ph.kind==='video'?'#E24B4A':(ph.kind==='pano'?'#8B5CF6':(hasCh?'#1D9E75':'#378ADD'));
+  const label=hasCh?ph.chibanInfo.chibanShort:ph.name;
+  const thumbSrc=ph.kind==='video'?(ph.thumbUrl||''):ph.url;
+  const imgTag=thumbSrc?`<img src="${thumbSrc}" style="width:${sz}px;height:${Math.round(sz*3/4)}px">`:`<div style="width:${sz}px;height:${Math.round(sz*3/4)}px;background:#333"></div>`;
+  const kindBadge=ph.kind==='video'?'<div class="ph-mk">▶</div>':(ph.kind==='pano'?'<div class="ph-mk">360°</div>':'');
+  const html=`<div class="ph-mw${hasCh?' has-chiban':''}" style="width:${sz}px;border-color:${borderColor}"><div class="ph-mn">${ph.num}</div>${imgTag}${kindBadge}<div class="ph-ml">${label}</div></div>`;
+  return{html,iconSize:[sz+4,Math.round(sz*3/4)+20],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+10]};
+}
+
+// マーカー位置は変えずアイコン表示だけ更新（サムネ確定・種別確定時など）
+function updateMarkerVisual(ph){
+  if(!ph.marker)return;
+  const{html,iconSize,iconAnchor}=buildMarkerIcon(ph);
+  ph.marker.setIcon(L.divIcon({className:'',html,iconSize,iconAnchor}));
+}
+
+// pos: 配置位置。isManual=trueはユーザーの明示配置（タップ/ドラッグ）
+function placeMarker(ph,latlng){
+  const pos=latlng||ph.latlng;if(!pos)return;
+  // 元の座標（origLatlng）は最初の配置時のみ記録し、以後は上書きしない
+  if(!ph.origLatlng){ph.origLatlng={lat:pos.lat,lng:pos.lng};}
+  ph.latlng=pos;
+  if(ph.marker)photoLayer.removeLayer(ph.marker);
+  const{html,iconSize,iconAnchor}=buildMarkerIcon(ph);
+  const icon=L.divIcon({className:'',html,iconSize,iconAnchor});
+  ph.marker=L.marker(pos,{icon,draggable:true}).addTo(photoLayer);
+  ph.marker.on('click',()=>{selId=ph.id;renderSide();showPopup(ph);});
+  ph.marker.on('dragend',e=>{
+    ph.latlng=e.target.getLatLng();
+    ph.manuallyMoved=true;
+    setStatus('No.'+ph.num+' 移動完了（元のGPS位置は記憶されています）');
+    updateLeaderVisual(ph);
+    scheduleDeclutter();
+  });
+  updateLeaderVisual(ph);
+  renderSide();
+  scheduleDeclutter();
+}
+
+// 元のGPS地点に戻す
+function restoreOriginal(ph){
+  if(!ph.origLatlng)return;
+  const pos=L.latLng(ph.origLatlng.lat,ph.origLatlng.lng);
+  ph.latlng=pos;ph.manuallyMoved=false;
+  if(ph.marker)ph.marker.setLatLng(pos);
+  updateLeaderVisual(ph);
+  renderSide();
+  setStatus('No.'+ph.num+' 元のGPS位置に戻しました');
+  scheduleDeclutter();
+}
+
+// 元座標と現在位置が異なる場合、点＋引き出し線を実レイヤーとして表示
+const LATLNG_EPS=1e-8;
+function updateLeaderVisual(ph){
+  const differs=ph.origLatlng&&ph.latlng&&
+    (Math.abs(ph.origLatlng.lat-ph.latlng.lat)>LATLNG_EPS||Math.abs(ph.origLatlng.lng-ph.latlng.lng)>LATLNG_EPS);
+  if(!differs){
+    if(ph.leaderLine){photoLayer.removeLayer(ph.leaderLine);ph.leaderLine=null;}
+    if(ph.anchorDot){dotLayer.removeLayer(ph.anchorDot);ph.anchorDot=null;}
+    return;
+  }
+  const o=L.latLng(ph.origLatlng.lat,ph.origLatlng.lng);
+  if(!ph.leaderLine){
+    ph.leaderLine=L.polyline([o,ph.latlng],{color:'#185FA5',weight:2,opacity:.75,dashArray:ph.manuallyMoved?'4,4':null}).addTo(photoLayer);
+  }else{
+    ph.leaderLine.setLatLngs([o,ph.latlng]);
+    ph.leaderLine.setStyle({dashArray:ph.manuallyMoved?'4,4':null});
+  }
+  if(!ph.anchorDot){
+    ph.anchorDot=L.circleMarker(o,{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(dotLayer);
+  }else{
+    ph.anchorDot.setLatLng(o);
+  }
+}
+
+// ===== 重なりマーカーの自動振り分け（元座標は変えず、表示位置のみ調整） =====
+let declutterTimer=null;
+function scheduleDeclutter(){clearTimeout(declutterTimer);declutterTimer=setTimeout(declutterMarkers,60);}
+function declutterMarkers(){
+  const items=photos.filter(p=>p.latlng&&p.marker&&p.origLatlng);
+  if(!items.length)return;
+  const THRESH=54;
+  // グルーピングは「元座標(origLatlng)」の画面上距離で行う（現在位置に依存しない＝安定）
+  const pts=items.map(p=>({p,pt:map.latLngToLayerPoint(L.latLng(p.origLatlng.lat,p.origLatlng.lng))}));
+  const used=new Array(pts.length).fill(false);
+  const groups=[];
+  for(let i=0;i<pts.length;i++){
+    if(used[i])continue;
+    const group=[pts[i]];used[i]=true;
+    for(let j=i+1;j<pts.length;j++){
+      if(used[j])continue;
+      if(pts[i].pt.distanceTo(pts[j].pt)<THRESH){group.push(pts[j]);used[j]=true;}
+    }
+    groups.push(group);
+  }
+  groups.forEach(group=>{
+    if(group.length===1){
+      const p=group[0].p;
+      if(!p.manuallyMoved){
+        // 単独なら元座標に戻す
+        const o=L.latLng(p.origLatlng.lat,p.origLatlng.lng);
+        if(p.latlng.lat!==o.lat||p.latlng.lng!==o.lng){
+          p.latlng=o;p.marker.setLatLng(o);updateLeaderVisual(p);
+        }
+      }
+    }else{
+      const n=group.length;
+      const radius=58+Math.min(n,6)*10;
+      const spread=Math.min(300,40*n);
+      const start=-90-spread/2;
+      group.forEach((g,idx)=>{
+        const p=g.p;
+        if(p.manuallyMoved)return; // ユーザーが手動で動かした位置はそのまま尊重
+        const angleDeg=start+(n>1?(spread/(n-1))*idx:0);
+        const rad=angleDeg*Math.PI/180;
+        const offPt=L.point(g.pt.x+radius*Math.cos(rad),g.pt.y+radius*Math.sin(rad));
+        const newLatLng=map.layerPointToLatLng(offPt);
+        p.latlng=newLatLng;p.marker.setLatLng(newLatLng);updateLeaderVisual(p);
+      });
+    }
+  });
+}
+map.on('zoomend',scheduleDeclutter);
+map.on('moveend',scheduleDeclutter);
+
+function showPopup(ph){
+  const c=document.createElement('div');c.className='ph-popup';
+  const img=document.createElement('img');
+  img.src=ph.kind==='video'?(ph.thumbUrl||''):ph.url;
+  img.onclick=()=>openModal(ph);
+  c.appendChild(img);
+  if(ph.kind==='video'||ph.kind==='pano'){
+    const kb=document.createElement('div');
+    kb.style.cssText='font-size:10px;color:#185FA5;text-align:center;padding:2px 0;font-weight:600';
+    kb.textContent=ph.kind==='video'?'▶ 動画（クリックで再生）':'🌐 360°パノラマ（クリックで表示）';
+    c.appendChild(kb);
+  }
+  const nd=document.createElement('div');nd.className='ph-popup-name';nd.textContent='No.'+ph.num+' '+ph.name;
+  c.appendChild(nd);
+  // 地番情報があれば表示
+  if(ph.chibanInfo&&ph.chibanInfo.chiban){
+    const cd=document.createElement('div');cd.className='ph-popup-chiban';
+    cd.textContent='📍 '+ph.chibanInfo.chiban+(ph.chibanInfo.owner?' / '+ph.chibanInfo.owner:'');
+    c.appendChild(cd);
+  }
+  // 元のGPS位置からずれている場合は復元ボタンを表示
+  const differs=ph.origLatlng&&ph.latlng&&
+    (Math.abs(ph.origLatlng.lat-ph.latlng.lat)>LATLNG_EPS||Math.abs(ph.origLatlng.lng-ph.latlng.lng)>LATLNG_EPS);
+  if(differs){
+    const rb=document.createElement('button');rb.className='ph-popup-restore';
+    rb.textContent=ph.manuallyMoved?'📍 元のGPS位置に戻す':'📍 元のGPS位置に戻す（重なり回避で自動移動中）';
+    rb.onclick=()=>{restoreOriginal(ph);map.closePopup();};
+    c.appendChild(rb);
+  }
+  const db=document.createElement('button');db.className='ph-popup-del';db.textContent='このマーカーを削除';
+  db.onclick=()=>removePhoto(ph.id);
+  c.appendChild(db);
+  L.popup({maxWidth:260}).setLatLng(ph.latlng).setContent(c).openOn(map);
+}
+
+function removePhoto(id){
+  const idx=photos.findIndex(p=>p.id===id);if(idx<0)return;
+  const p=photos[idx];
+  if(p.marker)photoLayer.removeLayer(p.marker);
+  if(p.leaderLine)photoLayer.removeLayer(p.leaderLine);
+  if(p.anchorDot)dotLayer.removeLayer(p.anchorDot);
+  map.closePopup();photos.splice(idx,1);
+  if(selId===id)selId=photos.length?photos[0].id:null;
+  renderSide();setStatus('削除しました');scheduleDeclutter();
+}
+
+function clearAll(){
+  if(!photos.length)return;
+  if(!confirm('全ての写真とマーカーを削除しますか？'))return;
+  photos.forEach(p=>{
+    if(p.marker)photoLayer.removeLayer(p.marker);
+    if(p.leaderLine)photoLayer.removeLayer(p.leaderLine);
+    if(p.anchorDot)dotLayer.removeLayer(p.anchorDot);
+  });
+  photos.length=0;selId=null;activeChibanInfo=null;map.closePopup();
+  renderSide();setStatus('全削除しました');
+}
+
+function toggleMode(){
+  placeMode=!placeMode;
+  document.getElementById('btn-mode').classList.toggle('mode-on',placeMode);
+  document.getElementById('mode-txt').textContent=placeMode?'配置中...':'配置モード';
+  map.getContainer().style.cursor=placeMode?'crosshair':'';
+  setStatus(placeMode?'配置モードON — 地図をタップして写真を配置':'配置モードOFF');
+}
+
+map.on('click',e=>{
+  if(!placeMode)return;
+  if(!selId){setStatus('写真リストから写真を選んでください');return;}
+  const ph=photos.find(p=>p.id===selId);if(!ph)return;
+  placeMarker(ph,e.latlng);
+  setStatus('No.'+ph.num+' 配置完了（ドラッグで移動可）');
+  const next=photos.find(p=>!p.latlng&&p.id!==selId);
+  if(next){selId=next.id;renderSide();}
+});
+
+function renderSide(){
+  const list=document.getElementById('photo-list');
+  if(!photos.length){list.innerHTML='<div id="empty-hint">①地番QRスキャン<br>②写真追加<br>③配置モードON<br>④地図をタップ</div>';return;}
+  list.innerHTML='';
+  photos.forEach(ph=>{
+    const d=document.createElement('div');
+    d.className='ph-item'+(ph.latlng?' placed':'')+(selId===ph.id?' sel':'');
+    d.onclick=()=>{selId=ph.id;renderSide();if(ph.latlng){map.setView(ph.latlng,16);showPopup(ph);}};
+    const xb=document.createElement('button');xb.className='ph-x';xb.textContent='×';
+    xb.onclick=ev=>{ev.stopPropagation();removePhoto(ph.id);};
+    const tw=document.createElement('div');tw.className='ph-tw';
+    const img=document.createElement('img');img.className='ph-thumb';
+    img.src=ph.kind==='video'?(ph.thumbUrl||''):ph.url;
+    img.onclick=ev=>{ev.stopPropagation();openModal(ph);};
+    tw.appendChild(img);
+    if(ph.kind==='video'){
+      const pb=document.createElement('div');pb.className='ph-kind-badge';pb.textContent='▶';tw.appendChild(pb);
+    }else if(ph.kind==='pano'){
+      const pb=document.createElement('div');pb.className='ph-kind-badge';pb.textContent='360°';tw.appendChild(pb);
+    }
+    // ホバー時：拡大・DLボタン
+    const tools=document.createElement('div');tools.className='ph-tools';
+    const zb=document.createElement('button');zb.className='ph-tool-btn';zb.title='拡大';zb.textContent='🔍';
+    zb.onclick=ev=>{ev.stopPropagation();openModal(ph);};
+    const db=document.createElement('button');db.className='ph-tool-btn';db.title='ダウンロード';db.textContent='⬇';
+    db.onclick=ev=>{ev.stopPropagation();downloadPhoto(ph);};
+    tools.appendChild(zb);tools.appendChild(db);tw.appendChild(tools);
+    const nm=document.createElement('div');nm.className='ph-name';nm.textContent='No.'+ph.num;
+    // 地番バッジ
+    const cb=document.createElement('div');
+    cb.className='ph-chiban'+(ph.chibanInfo?' show':'');
+    cb.textContent=ph.chibanInfo?ph.chibanInfo.chibanShort:'';
+    d.appendChild(xb);d.appendChild(tw);d.appendChild(nm);d.appendChild(cb);list.appendChild(d);
+  });
+}
+
+let modalPh=null;
+let panoViewer=null;
+function openModal(ph){
+  modalPh=ph;
+  const imgEl=document.getElementById('modal-img');
+  const vidEl=document.getElementById('modal-video');
+  const panoEl=document.getElementById('modal-pano');
+  imgEl.style.display='none';vidEl.style.display='none';panoEl.style.display='none';
+  vidEl.pause&&vidEl.pause();vidEl.src='';
+  if(panoViewer){try{panoViewer.destroy();}catch(e){}panoViewer=null;}
+  if(ph.kind==='video'){
+    vidEl.src=ph.url;vidEl.style.display='block';
+  }else if(ph.kind==='pano'){
+    panoEl.style.display='block';
+    panoViewer=pannellum.viewer(panoEl,{type:'equirectangular',panorama:ph.url,autoLoad:true,compass:false});
+  }else{
+    imgEl.src=ph.url;imgEl.style.display='block';
+  }
+  document.getElementById('modal-name').textContent='No.'+ph.num+' '+ph.name+(ph.chibanInfo?' ['+ph.chibanInfo.chibanShort+']':'');
+  document.getElementById('modal').classList.add('open');
+}
+function downloadPhoto(ph){
+  const a=document.createElement('a');
+  a.href=ph.url;
+  a.download=(ph.file&&ph.file.name)?ph.file.name:(ph.name+'.jpg');
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function downloadCurrentModalPhoto(){if(modalPh)downloadPhoto(modalPh);}
+function closeModal(){
+  document.getElementById('modal').classList.remove('open');
+  const vidEl=document.getElementById('modal-video');
+  vidEl.pause&&vidEl.pause();
+  if(panoViewer){try{panoViewer.destroy();}catch(e){}panoViewer=null;}
+}
+
+
+// ===== CSV出力（新機能） =====
+function exportCSV(){
+  const placed=photos.filter(p=>p.latlng);
+  if(!placed.length){alert('写真を配置してから保存してください');return;}
+  closeSaveModal();
+  const rows=[['No','ファイル名','地番','地権者','緯度','経度','備考']];
+  placed.forEach(p=>{
+    rows.push([
+      p.num,p.name,
+      p.chibanInfo?p.chibanInfo.chiban:'',
+      p.chibanInfo?p.chibanInfo.owner:'',
+      p.latlng.lat.toFixed(7),
+      p.latlng.lng.toFixed(7),''
+    ]);
+  });
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const bom='\uFEFF';
+  const blob=new Blob([bom+csv],{type:'text/csv'});
+  const now=new Date();
+  const fname='写真位置一覧_'+now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'.csv';
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+  setStatus('CSVを保存しました: '+fname);
+}
+
+// ===== HTML出力（地番情報を含む） =====
+function exportHTML(){
+  const placed=photos.filter(p=>p.latlng);
+  if(!placed.length){alert('写真を地図上に配置してから保存してください');return;}
+  closeSaveModal();
+  const hasVideo=placed.some(p=>p.kind==='video');
+  setStatus(hasVideo?'HTMLファイルを生成中...（動画を含むためファイルサイズが大きくなります）':'HTMLファイルを生成中...');
+  const toBase64=file=>new Promise(res=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result);
+    r.readAsDataURL(file);
+  });
+  Promise.all(placed.map(p=>toBase64(p.file).then(b64=>({...p,b64})))).then(phs=>{
+    const center=map.getCenter();const zoom=map.getZoom();
+    const layerKey=document.getElementById('map-sel').value;
+    const tile=TILES[layerKey];
+    const now=new Date();
+    const ts=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+    const popups=phs.map(p=>{
+      const mediaTag=p.kind==='video'
+        ?`<video src="${p.b64}" controls style="max-width:90vw;max-height:72vh;object-fit:contain;border-radius:8px"></video>`
+        :`<img src="${p.b64}" style="max-width:90vw;max-height:72vh;object-fit:contain;border-radius:8px">`;
+      return `
+<div id="m${p.id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:10px" onclick="if(event.target===this)this.style.display='none'">
+${mediaTag}
+<div style="color:#fff;font-size:13px">No.${p.num} ${p.name}${p.kind==='pano'?' [360°パノラマ]':''}</div>
+${p.chibanInfo?`<div style="color:#9FE1CB;font-size:12px">📍 ${p.chibanInfo.chiban}${p.chibanInfo.owner?' / '+p.chibanInfo.owner:''}</div>`:''}
+<button style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer" onclick="document.getElementById('m${p.id}').style.display='none'">閉じる</button>
+</div>`;}).join('');
+    const html=`<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>用地調査写真配置図 ${ts}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between}#map{height:calc(100vh - 36px)}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw.ch{border-color:#1D9E75}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}.ph-mk{position:absolute;top:-6px;right:-6px;background:#000;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:8px;line-height:1.4;border:1.5px solid #fff}</style>
+</head><body>
+<div id="hd"><b>用地調査 写真配置図</b><span style="color:#888;font-size:11px">${ts} / ${phs.length}件</span></div>
+<div id="map"></div>
+${popups}
+<script>
+const map=L.map('map').setView([${center.lat},${center.lng}],${zoom});
+L.tileLayer('${tile.url}',{attribution:'${tile.attr}',maxZoom:${tile.max}}).addTo(map);
+const data=${JSON.stringify(phs.map(p=>({id:p.id,num:p.num,name:p.name,lat:p.latlng.lat,lng:p.latlng.lng,b64:p.kind==='video'?(p.thumbUrl||''):p.b64,kind:p.kind||'photo',chiban:p.chibanInfo?p.chibanInfo.chiban:'',owner:p.chibanInfo?p.chibanInfo.owner:'',chibanShort:p.chibanInfo?p.chibanInfo.chibanShort:''})))};
+data.forEach(p=>{
+  const sz=68,hasCh=!!p.chiban,lbl=hasCh?p.chibanShort:p.name;
+  const badge=p.kind==='video'?'<div class="ph-mk">▶</div>':(p.kind==='pano'?'<div class="ph-mk">360°</div>':'');
+  const icon=L.divIcon({className:'',html:'<div class="ph-mw'+(hasCh?' ch':'')+'" style="width:'+sz+'px"><div class="ph-mn">'+p.num+'</div><img src="'+p.b64+'" style="width:'+sz+'px;height:'+(sz*3/4|0)+'px">'+badge+'<div class="ph-ml">'+lbl+'</div></div>',iconSize:[sz+4,(sz*3/4|0)+20],iconAnchor:[sz/2+2,(sz*3/4|0)/2+10]});
+  L.marker([p.lat,p.lng],{icon}).addTo(map).on('click',()=>document.getElementById('m'+p.id).style.display='flex');
+});
+<\/script></body></html>`;
+    const fname='用地調査配置図_'+now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'_'+('0'+now.getHours()).slice(-2)+('0'+now.getMinutes()).slice(-2)+'.html';
+    const blob=new Blob([html],{type:'text/html'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+    setStatus('HTMLファイルを保存しました: '+fname);
+  });
+}
+
+function exportPrint(){
+  if(!photos.filter(p=>p.latlng).length){alert('写真を配置してから印刷してください');return;}
+  window.print();
+}
+function setStatus(msg){document.getElementById('statusbar').textContent=msg;}
+
+window.addEventListener('resize',fixRep);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')fixRep();});
+window.addEventListener('pageshow',fixRep);
+window.addEventListener('focus',fixRep);
+map.locate({setView:true,maxZoom:15});
+map.on('locationfound',()=>{setStatus('現在地を取得しました');fixRep();});
+map.on('locationerror',()=>{map.setView([33.3206,130.8994],14);setStatus('地番QRスキャン or 写真追加から開始してください');});
+fixRep();
+</script>
+</body>
+</html>
