@@ -44,6 +44,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .ph-popup img{display:block;width:100%;max-width:220px;max-height:150px;object-fit:contain;cursor:pointer}
 .ph-popup-name{font-size:11px;color:#555;padding:4px 10px}
 .ph-popup-del{display:block;width:100%;padding:7px;background:#fff3f3;color:#c0392b;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
+.ph-popup-restore{display:block;width:100%;padding:7px;background:#EDF5FC;color:#185FA5;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
 #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
 #modal.open{display:flex}
 #modal img{max-width:92vw;max-height:75vh;object-fit:contain;border-radius:8px}
@@ -84,6 +85,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     <button class="tb-btn" id="btn-mode" onclick="toggleMode()">
       <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <span id="mode-txt">配置モード</span>
+    </button>
+    <button class="tb-btn" id="btn-vis" onclick="toggleMarkersVisible()">
+      <svg id="vis-icon-show" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg id="vis-icon-dot" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg>
+      <svg id="vis-icon-hide" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      <span id="vis-txt">写真:表示中</span>
     </button>
     <div class="tb-sep"></div>
     <button class="tb-btn" onclick="openSaveModal()">
@@ -161,6 +168,32 @@ const TILES={
 const mapWrap=document.getElementById('map-wrap');
 const mapEl=document.getElementById('map');
 const map=L.map('map',{zoomControl:true}).setView([33.3206,130.8994],14);
+const markerLayer=L.layerGroup().addTo(map); // 写真バブル＋引き出し線
+const dotLayer=L.layerGroup().addTo(map);    // 元GPS位置の青い点
+// 表示段階：0=すべて表示 / 1=点のみ表示 / 2=すべて非表示
+const VIS_STATES=[
+  {marker:true, dot:true, label:'写真:表示中', icon:'show'},
+  {marker:false,dot:true, label:'点のみ表示',  icon:'dot'},
+  {marker:false,dot:false,label:'写真:非表示中',icon:'hide'}
+];
+let visState=0;
+function applyVisState(){
+  const s=VIS_STATES[visState];
+  if(s.marker){markerLayer.addTo(map);}else{map.removeLayer(markerLayer);}
+  if(s.dot){dotLayer.addTo(map);}else{map.removeLayer(dotLayer);}
+  const showEl=document.getElementById('vis-icon-show'),dotEl=document.getElementById('vis-icon-dot'),hideEl=document.getElementById('vis-icon-hide'),txtEl=document.getElementById('vis-txt'),btnEl=document.getElementById('btn-vis');
+  if(showEl)showEl.style.display=s.icon==='show'?'':'none';
+  if(dotEl)dotEl.style.display=s.icon==='dot'?'':'none';
+  if(hideEl)hideEl.style.display=s.icon==='hide'?'':'none';
+  if(txtEl)txtEl.textContent=s.label;
+  if(btnEl)btnEl.classList.toggle('mode-on',s.icon!=='show');
+}
+function toggleMarkersVisible(){
+  visState=(visState+1)%VIS_STATES.length;
+  applyVisState();
+  const msgs=['写真マーカーを表示しました','写真は非表示、元GPS位置の青い点のみ表示します','写真マーカー・点ともに非表示にしました（地図・重畳レイヤは操作可能です）'];
+  setStatus(msgs[visState]);
+}
 let curLayer=L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:19}).addTo(map);
 
 function fixMapSize(){
@@ -257,44 +290,157 @@ function readExifGPS(file){
   });
 }
 
+function buildMarkerIcon(ph){
+  const sz=68;
+  const html=`<div class="ph-mw" style="width:${sz}px"><div class="ph-mn">${ph.num}</div><img src="${ph.url}" style="width:${sz}px;height:${Math.round(sz*3/4)}px"><div class="ph-ml">${ph.name}</div></div>`;
+  return{html,iconSize:[sz+4,Math.round(sz*3/4)+20],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+10]};
+}
+
 function placeMarker(ph,latlng){
   const pos=latlng||ph.latlng;if(!pos)return;
+  // 元の座標（origLatlng）は最初の配置時のみ記録し、以後は上書きしない
+  if(!ph.origLatlng){ph.origLatlng={lat:pos.lat,lng:pos.lng};}
   ph.latlng=pos;
-  if(ph.marker)map.removeLayer(ph.marker);
-  const sz=68;
-  const icon=L.divIcon({
-    className:'',
-    html:`<div class="ph-mw" style="width:${sz}px"><div class="ph-mn">${ph.num}</div><img src="${ph.url}" style="width:${sz}px;height:${Math.round(sz*3/4)}px"><div class="ph-ml">${ph.name}</div></div>`,
-    iconSize:[sz+4,Math.round(sz*3/4)+20],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+10]
-  });
-  ph.marker=L.marker(pos,{icon,draggable:true}).addTo(map);
+  if(ph.marker)markerLayer.removeLayer(ph.marker);
+  const{html,iconSize,iconAnchor}=buildMarkerIcon(ph);
+  const icon=L.divIcon({className:'',html,iconSize,iconAnchor});
+  ph.marker=L.marker(pos,{icon,draggable:true}).addTo(markerLayer);
   ph.marker.on('click',()=>{selId=ph.id;renderSide();showPopup(ph);});
-  ph.marker.on('dragend',e=>{ph.latlng=e.target.getLatLng();setStatus('No.'+ph.num+' 移動完了');});
+  ph.marker.on('dragend',e=>{
+    ph.latlng=e.target.getLatLng();
+    ph.manuallyMoved=true;
+    setStatus('No.'+ph.num+' 移動完了（元のGPS位置は記憶されています）');
+    updateLeaderVisual(ph);
+    scheduleDeclutter();
+  });
+  updateLeaderVisual(ph);
   renderSide();
+  scheduleDeclutter();
 }
+
+// 元のGPS地点に戻す
+function restoreOriginal(ph){
+  if(!ph.origLatlng)return;
+  const pos=L.latLng(ph.origLatlng.lat,ph.origLatlng.lng);
+  ph.latlng=pos;ph.manuallyMoved=false;
+  if(ph.marker)ph.marker.setLatLng(pos);
+  updateLeaderVisual(ph);
+  renderSide();
+  setStatus('No.'+ph.num+' 元のGPS位置に戻しました');
+  scheduleDeclutter();
+}
+
+// 元座標と現在位置が異なる場合、点＋引き出し線を実レイヤーとして表示
+const LATLNG_EPS=1e-8;
+function updateLeaderVisual(ph){
+  const differs=ph.origLatlng&&ph.latlng&&
+    (Math.abs(ph.origLatlng.lat-ph.latlng.lat)>LATLNG_EPS||Math.abs(ph.origLatlng.lng-ph.latlng.lng)>LATLNG_EPS);
+  if(!differs){
+    if(ph.leaderLine){markerLayer.removeLayer(ph.leaderLine);ph.leaderLine=null;}
+    if(ph.anchorDot){dotLayer.removeLayer(ph.anchorDot);ph.anchorDot=null;}
+    return;
+  }
+  const o=L.latLng(ph.origLatlng.lat,ph.origLatlng.lng);
+  if(!ph.leaderLine){
+    ph.leaderLine=L.polyline([o,ph.latlng],{color:'#185FA5',weight:2,opacity:.75,dashArray:ph.manuallyMoved?'4,4':null}).addTo(markerLayer);
+  }else{
+    ph.leaderLine.setLatLngs([o,ph.latlng]);
+    ph.leaderLine.setStyle({dashArray:ph.manuallyMoved?'4,4':null});
+  }
+  if(!ph.anchorDot){
+    ph.anchorDot=L.circleMarker(o,{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(dotLayer);
+  }else{
+    ph.anchorDot.setLatLng(o);
+  }
+}
+
+// ===== 重なりマーカーの自動振り分け（元座標は変えず、表示位置のみ調整） =====
+let declutterTimer=null;
+function scheduleDeclutter(){clearTimeout(declutterTimer);declutterTimer=setTimeout(declutterMarkers,60);}
+function declutterMarkers(){
+  const items=photos.filter(p=>p.latlng&&p.marker&&p.origLatlng);
+  if(!items.length)return;
+  const THRESH=54;
+  const pts=items.map(p=>({p,pt:map.latLngToLayerPoint(L.latLng(p.origLatlng.lat,p.origLatlng.lng))}));
+  const used=new Array(pts.length).fill(false);
+  const groups=[];
+  for(let i=0;i<pts.length;i++){
+    if(used[i])continue;
+    const group=[pts[i]];used[i]=true;
+    for(let j=i+1;j<pts.length;j++){
+      if(used[j])continue;
+      if(pts[i].pt.distanceTo(pts[j].pt)<THRESH){group.push(pts[j]);used[j]=true;}
+    }
+    groups.push(group);
+  }
+  groups.forEach(group=>{
+    if(group.length===1){
+      const p=group[0].p;
+      if(!p.manuallyMoved){
+        const o=L.latLng(p.origLatlng.lat,p.origLatlng.lng);
+        if(p.latlng.lat!==o.lat||p.latlng.lng!==o.lng){
+          p.latlng=o;p.marker.setLatLng(o);updateLeaderVisual(p);
+        }
+      }
+    }else{
+      const n=group.length;
+      const radius=58+Math.min(n,6)*10;
+      const spread=Math.min(300,40*n);
+      const start=-90-spread/2;
+      group.forEach((g,idx)=>{
+        const p=g.p;
+        if(p.manuallyMoved)return;
+        const angleDeg=start+(n>1?(spread/(n-1))*idx:0);
+        const rad=angleDeg*Math.PI/180;
+        const offPt=L.point(g.pt.x+radius*Math.cos(rad),g.pt.y+radius*Math.sin(rad));
+        const newLatLng=map.layerPointToLatLng(offPt);
+        p.latlng=newLatLng;p.marker.setLatLng(newLatLng);updateLeaderVisual(p);
+      });
+    }
+  });
+}
+map.on('zoomend',scheduleDeclutter);
+map.on('moveend',scheduleDeclutter);
 
 function showPopup(ph){
   const c=document.createElement('div');c.className='ph-popup';
   const img=document.createElement('img');img.src=ph.url;img.onclick=()=>openModal(ph);
   const nd=document.createElement('div');nd.className='ph-popup-name';nd.textContent='No.'+ph.num+' '+ph.name;
+  c.appendChild(img);c.appendChild(nd);
+  // 元のGPS位置からずれている場合は復元ボタンを表示
+  const differs=ph.origLatlng&&ph.latlng&&
+    (Math.abs(ph.origLatlng.lat-ph.latlng.lat)>LATLNG_EPS||Math.abs(ph.origLatlng.lng-ph.latlng.lng)>LATLNG_EPS);
+  if(differs){
+    const rb=document.createElement('button');rb.className='ph-popup-restore';
+    rb.textContent=ph.manuallyMoved?'📍 元のGPS位置に戻す':'📍 元のGPS位置に戻す（重なり回避で自動移動中）';
+    rb.onclick=()=>{restoreOriginal(ph);map.closePopup();};
+    c.appendChild(rb);
+  }
   const db=document.createElement('button');db.className='ph-popup-del';db.textContent='このマーカーを削除';
   db.onclick=()=>removePhoto(ph.id);
-  c.appendChild(img);c.appendChild(nd);c.appendChild(db);
+  c.appendChild(db);
   L.popup({maxWidth:240}).setLatLng(ph.latlng).setContent(c).openOn(map);
 }
 
 function removePhoto(id){
   const idx=photos.findIndex(p=>p.id===id);if(idx<0)return;
-  if(photos[idx].marker)map.removeLayer(photos[idx].marker);
+  const p=photos[idx];
+  if(p.marker)markerLayer.removeLayer(p.marker);
+  if(p.leaderLine)markerLayer.removeLayer(p.leaderLine);
+  if(p.anchorDot)dotLayer.removeLayer(p.anchorDot);
   map.closePopup();photos.splice(idx,1);
   if(selId===id)selId=photos.length?photos[0].id:null;
-  renderSide();setStatus('削除しました');
+  renderSide();setStatus('削除しました');scheduleDeclutter();
 }
 
 function clearAll(){
   if(!photos.length)return;
   if(!confirm('全ての写真とマーカーを削除しますか？'))return;
-  photos.forEach(p=>{if(p.marker)map.removeLayer(p.marker);});
+  photos.forEach(p=>{
+    if(p.marker)markerLayer.removeLayer(p.marker);
+    if(p.leaderLine)markerLayer.removeLayer(p.leaderLine);
+    if(p.anchorDot)dotLayer.removeLayer(p.anchorDot);
+  });
   photos.length=0;selId=null;map.closePopup();
   renderSide();setStatus('全削除しました');
 }
