@@ -917,10 +917,13 @@ function saveRecords(arr) {
 function addRecord() {
   const recs = loadRecords();
   const noVal = document.getElementById('no').value || '0';
+  const noStr = noVal.padStart(3, '0');
+  const vendorCode = document.getElementById('vendor-code').value.trim();
+  const koushuu = getCheckedKoushuu();
   recs.push({
-    vendor: document.getElementById('vendor-code').value.trim(),
-    no: noVal.padStart(3, '0'),
-    koushuu: getCheckedKoushuu(),
+    vendor: vendorCode,
+    no: noStr,
+    koushuu: koushuu,
     l: getNum('l1', 'l2'),
     h: getNum('h1', 'h2'),
     s: getNum('s1', 's2'),
@@ -928,6 +931,18 @@ function addRecord() {
   });
   saveRecords(recs);
   renderRecords();
+
+  // ===== haichizu(写真配置図)との連携 =====
+  // 同一オリジン(GitHub Pages)のlocalStorageを使い、「現在の工区」を共有する。
+  // haichizu側はこれを読み取り、以後追加される写真をこの工区に自動で紐付ける。
+  try{
+    localStorage.setItem('current_kouku', JSON.stringify({
+      no: noStr,
+      vendor: vendorCode,
+      koushuu: koushuu,
+      time: Date.now()
+    }));
+  }catch(e){}
 }
 
 function deleteRecord(i) {
