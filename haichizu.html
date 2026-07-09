@@ -237,18 +237,34 @@ function triggerGallery(){
   document.body.appendChild(inp);inp.click();
 }
 
+// ===== 工区（グループ）連携：saigai-form.htmlと同一オリジンのlocalStorageを共有 =====
+const KOUKU_PALETTE=['#E74C3C','#3498DB','#2ECC71','#F39C12','#9B59B6','#1ABC9C','#E67E22','#34495E','#D35400','#16A085'];
+function koukuColor(no){
+  if(!no)return null;
+  const n=parseInt(no,10)||0;
+  return KOUKU_PALETTE[n%KOUKU_PALETTE.length];
+}
+function getCurrentKouku(){
+  try{
+    const raw=localStorage.getItem('current_kouku');
+    if(!raw)return null;
+    return JSON.parse(raw);
+  }catch(e){return null;}
+}
+
 function addPhoto(f){
   const id='p'+Date.now()+Math.random().toString(36).slice(2,5);
   const url=URL.createObjectURL(f);
   const name=f.name.replace(/\.[^.]+$/,'');
   const num=photos.length+1;
-  const ph={id,url,name,num,marker:null,latlng:null,file:f};
+  const kouku=getCurrentKouku();
+  const ph={id,url,name,num,marker:null,latlng:null,file:f,koukuNo:kouku?kouku.no:null,koukuVendor:kouku?kouku.vendor:null};
   photos.push(ph);
   if(!selId)selId=id;
   renderSide();
   readExifGPS(f).then(coords=>{
-    if(coords){ph.latlng=coords;placeMarker(ph);map.setView(coords,16);setStatus('No.'+num+' GPS自動配置: '+name);}
-    else setStatus('No.'+num+' 追加 → 配置モードONで地図をタップ');
+    if(coords){ph.latlng=coords;placeMarker(ph);map.setView(coords,16);setStatus('No.'+num+' GPS自動配置: '+name+(ph.koukuNo?'（工区'+ph.koukuNo+'）':''));}
+    else setStatus('No.'+num+' 追加 → 配置モードONで地図をタップ'+(ph.koukuNo?'（工区'+ph.koukuNo+'）':''));
     renderSide();fixRep();
   });
 }
@@ -293,7 +309,11 @@ function readExifGPS(file){
 
 function buildMarkerIcon(ph){
   const sz=68;
-  const html=`<div class="ph-mw" style="width:${sz}px"><div class="ph-mn">${ph.num}</div><img src="${ph.url}" style="width:${sz}px;height:${Math.round(sz*3/4)}px"><div class="ph-ml">${ph.name}</div></div>`;
+  const kc=koukuColor(ph.koukuNo);
+  const badgeLabel=ph.koukuNo||ph.num;
+  const badgeStyle=kc?`background:${kc}`:'';
+  const borderStyle=kc?`border-color:${kc}`:'';
+  const html=`<div class="ph-mw" style="width:${sz}px;${borderStyle}"><div class="ph-mn" style="${badgeStyle}">${badgeLabel}</div><img src="${ph.url}" style="width:${sz}px;height:${Math.round(sz*3/4)}px"><div class="ph-ml">${ph.name}</div></div>`;
   return{html,iconSize:[sz+4,Math.round(sz*3/4)+20],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+10]};
 }
 
@@ -478,7 +498,14 @@ function renderSide(){
     const tw=document.createElement('div');tw.className='ph-tw';
     const img=document.createElement('img');img.className='ph-thumb';img.src=ph.url;tw.appendChild(img);
     const nm=document.createElement('div');nm.className='ph-name';nm.textContent='No.'+ph.num;
-    d.appendChild(xb);d.appendChild(tw);d.appendChild(nm);list.appendChild(d);
+    d.appendChild(xb);d.appendChild(tw);d.appendChild(nm);
+    if(ph.koukuNo){
+      const kt=document.createElement('div');
+      kt.style.cssText='font-size:9px;color:#fff;text-align:center;border-radius:3px;padding:1px 3px;margin-top:2px;background:'+koukuColor(ph.koukuNo);
+      kt.textContent='工区'+ph.koukuNo;
+      d.appendChild(kt);
+    }
+    list.appendChild(d);
   });
 }
 
@@ -581,6 +608,8 @@ async function autosaveSession(){
       latlng:p.latlng?{lat:p.latlng.lat,lng:p.latlng.lng}:null,
       origLatlng:p.origLatlng||null,
       manuallyMoved:!!p.manuallyMoved,
+      koukuNo:p.koukuNo||null,
+      koukuVendor:p.koukuVendor||null,
       fileName:p.file?p.file.name:null,
       fileType:p.file?p.file.type:null
     }));
@@ -635,7 +664,7 @@ async function checkAutosaveOnStartup(){
     if(!blob)continue;
     const file=new File([blob],m.fileName||(m.name+'.jpg'),{type:m.fileType||'image/jpeg'});
     const url=URL.createObjectURL(blob);
-    const ph={id:m.id,url,name:m.name,num:m.num,marker:null,latlng:m.latlng?L.latLng(m.latlng.lat,m.latlng.lng):null,file,origLatlng:m.origLatlng,manuallyMoved:m.manuallyMoved};
+    const ph={id:m.id,url,name:m.name,num:m.num,marker:null,latlng:m.latlng?L.latLng(m.latlng.lat,m.latlng.lng):null,file,origLatlng:m.origLatlng,manuallyMoved:m.manuallyMoved,koukuNo:m.koukuNo||null,koukuVendor:m.koukuVendor||null};
     photos.push(ph);
     if(ph.latlng)placeMarker(ph,ph.latlng);
   }
