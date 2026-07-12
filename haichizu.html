@@ -258,7 +258,7 @@ function addPhoto(f){
   const name=f.name.replace(/\.[^.]+$/,'');
   const num=photos.length+1;
   const kouku=getCurrentKouku();
-  const ph={id,url,name,num,marker:null,latlng:null,file:f,koukuNo:kouku?kouku.no:null,koukuVendor:kouku?kouku.vendor:null};
+  const ph={id,url,name,num,marker:null,latlng:null,file:f,koukuNo:kouku?kouku.no:null,koukuVendor:kouku?kouku.vendor:null,koukuKoushuu:kouku?kouku.koushuu:null};
   photos.push(ph);
   if(!selId)selId=id;
   renderSide();
@@ -428,6 +428,13 @@ function showPopup(ph){
   const img=document.createElement('img');img.src=ph.url;img.onclick=()=>openModal(ph);
   const nd=document.createElement('div');nd.className='ph-popup-name';nd.textContent='No.'+ph.num+' '+ph.name;
   c.appendChild(img);c.appendChild(nd);
+  // 工区（saigai-form.html連携）情報があれば表示
+  if(ph.koukuNo){
+    const kd=document.createElement('div');
+    kd.style.cssText='font-size:11px;color:#fff;padding:4px 10px;background:'+koukuColor(ph.koukuNo);
+    kd.textContent='工区'+ph.koukuNo+(ph.koukuKoushuu?'　工種：'+ph.koukuKoushuu:'')+(ph.koukuVendor?'　業者：'+ph.koukuVendor:'');
+    c.appendChild(kd);
+  }
   // 元のGPS位置からずれている場合は復元ボタンを表示
   const differs=ph.origLatlng&&ph.latlng&&
     (Math.abs(ph.origLatlng.lat-ph.latlng.lat)>LATLNG_EPS||Math.abs(ph.origLatlng.lng-ph.latlng.lng)>LATLNG_EPS);
@@ -610,6 +617,7 @@ async function autosaveSession(){
       manuallyMoved:!!p.manuallyMoved,
       koukuNo:p.koukuNo||null,
       koukuVendor:p.koukuVendor||null,
+      koukuKoushuu:p.koukuKoushuu||null,
       fileName:p.file?p.file.name:null,
       fileType:p.file?p.file.type:null
     }));
@@ -664,7 +672,7 @@ async function checkAutosaveOnStartup(){
     if(!blob)continue;
     const file=new File([blob],m.fileName||(m.name+'.jpg'),{type:m.fileType||'image/jpeg'});
     const url=URL.createObjectURL(blob);
-    const ph={id:m.id,url,name:m.name,num:m.num,marker:null,latlng:m.latlng?L.latLng(m.latlng.lat,m.latlng.lng):null,file,origLatlng:m.origLatlng,manuallyMoved:m.manuallyMoved,koukuNo:m.koukuNo||null,koukuVendor:m.koukuVendor||null};
+    const ph={id:m.id,url,name:m.name,num:m.num,marker:null,latlng:m.latlng?L.latLng(m.latlng.lat,m.latlng.lng):null,file,origLatlng:m.origLatlng,manuallyMoved:m.manuallyMoved,koukuNo:m.koukuNo||null,koukuVendor:m.koukuVendor||null,koukuKoushuu:m.koukuKoushuu||null};
     photos.push(ph);
     if(ph.latlng)placeMarker(ph,ph.latlng);
   }
