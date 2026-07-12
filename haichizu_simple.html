@@ -225,7 +225,7 @@ function addPhoto(f){
   const name=f.name.replace(/\.[^.]+$/,'');
   const num=photos.length+1;
   const kouku=getCurrentKouku();
-  const ph={id,url,name,num,marker:null,latlng:null,file:f,koukuNo:kouku?kouku.no:null,koukuVendor:kouku?kouku.vendor:null};
+  const ph={id,url,name,num,marker:null,latlng:null,file:f,koukuNo:kouku?kouku.no:null,koukuVendor:kouku?kouku.vendor:null,koukuKoushuu:kouku?kouku.koushuu:null};
   photos.push(ph);
   if(!selId)selId=id;
   renderSide();
@@ -298,9 +298,16 @@ function showPopup(ph){
   const c=document.createElement('div');c.className='ph-popup';
   const img=document.createElement('img');img.src=ph.url;img.onclick=()=>openModal(ph);
   const nd=document.createElement('div');nd.className='ph-popup-name';nd.textContent='No.'+ph.num+' '+ph.name;
+  c.appendChild(img);c.appendChild(nd);
+  if(ph.koukuNo){
+    const kd=document.createElement('div');
+    kd.style.cssText='font-size:11px;color:#fff;padding:4px 10px;background:'+koukuColor(ph.koukuNo);
+    kd.textContent='工区'+ph.koukuNo+(ph.koukuKoushuu?'　工種：'+ph.koukuKoushuu:'')+(ph.koukuVendor?'　業者：'+ph.koukuVendor:'');
+    c.appendChild(kd);
+  }
   const db=document.createElement('button');db.className='ph-popup-del';db.textContent='このマーカーを削除';
   db.onclick=()=>removePhoto(ph.id);
-  c.appendChild(img);c.appendChild(nd);c.appendChild(db);
+  c.appendChild(db);
   L.popup({maxWidth:240}).setLatLng(ph.latlng).setContent(c).openOn(map);
 }
 
@@ -462,6 +469,7 @@ async function autosaveSession(){
       latlng:p.latlng?{lat:p.latlng.lat,lng:p.latlng.lng}:null,
       koukuNo:p.koukuNo||null,
       koukuVendor:p.koukuVendor||null,
+      koukuKoushuu:p.koukuKoushuu||null,
       fileName:p.file?p.file.name:null,
       fileType:p.file?p.file.type:null
     }));
@@ -516,7 +524,7 @@ async function checkAutosaveOnStartup(){
     if(!blob)continue;
     const file=new File([blob],m.fileName||(m.name+'.jpg'),{type:m.fileType||'image/jpeg'});
     const url=URL.createObjectURL(blob);
-    const ph={id:m.id,url,name:m.name,num:m.num,marker:null,latlng:m.latlng?L.latLng(m.latlng.lat,m.latlng.lng):null,file,koukuNo:m.koukuNo||null,koukuVendor:m.koukuVendor||null};
+    const ph={id:m.id,url,name:m.name,num:m.num,marker:null,latlng:m.latlng?L.latLng(m.latlng.lat,m.latlng.lng):null,file,koukuNo:m.koukuNo||null,koukuVendor:m.koukuVendor||null,koukuKoushuu:m.koukuKoushuu||null};
     photos.push(ph);
     if(ph.latlng)placeMarker(ph,ph.latlng);
   }
