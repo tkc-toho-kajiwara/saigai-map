@@ -128,6 +128,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
       <div><span>ギャラリーから選択</span><span class="sheet-sub">保存済みの写真（複数可）</span></div>
     </button>
+    <button class="sheet-opt" onclick="triggerImportExport()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div><span>書き出し済みファイルから復元</span><span class="sheet-sub">「保存・提出」で作ったHTMLファイルを読み込む</span></div>
+    </button>
     <button class="sheet-cancel" onclick="closeAddModal()">キャンセル</button>
   </div>
 </div>
@@ -235,6 +239,64 @@ function triggerGallery(){
   inp.type='file';inp.accept='image/*';inp.multiple=true;inp.style.display='none';
   inp.onchange=e=>{Array.from(e.target.files).forEach(addPhoto);document.body.removeChild(inp);fixRep();};
   document.body.appendChild(inp);inp.click();
+}
+
+// ===== 「保存・提出」で書き出した静止HTMLファイルから、編集可能な状態へ復元 =====
+function triggerImportExport(){
+  closeAddModal();
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='.html,text/html';inp.style.display='none';
+  inp.onchange=e=>{
+    const f=e.target.files[0];
+    document.body.removeChild(inp);
+    if(f)importFromExportedFile(f);
+  };
+  document.body.appendChild(inp);inp.click();
+}
+function dataURLtoBlob(dataurl){
+  const arr=dataurl.split(',');
+  const mimeMatch=arr[0].match(/:(.*?);/);
+  const mime=mimeMatch?mimeMatch[1]:'image/jpeg';
+  const bstr=atob(arr[1]);
+  let n=bstr.length;
+  const u8=new Uint8Array(n);
+  while(n--){u8[n]=bstr.charCodeAt(n);}
+  return new Blob([u8],{type:mime});
+}
+function importFromExportedFile(file){
+  setStatus('書き出し済みファイルを読み込み中...');
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const text=ev.target.result;
+    const m=text.match(/const data=(\[[\s\S]*?\]);/);
+    if(!m){alert('このファイルからは写真データを読み取れませんでした（haichizuで書き出したファイルではない可能性があります）');return;}
+    let arr;
+    try{arr=JSON.parse(m[1]);}catch(err){alert('データの解析に失敗しました');return;}
+    if(!arr.length){alert('写真データが見つかりませんでした');return;}
+    let added=0;
+    arr.forEach(p=>{
+      if(!p.b64)return;
+      const blob=dataURLtoBlob(p.b64);
+      const fName=(p.name||('photo'+(photos.length+1)))+'.jpg';
+      const nf=new File([blob],fName,{type:blob.type||'image/jpeg'});
+      const id='p'+Date.now()+Math.random().toString(36).slice(2,5);
+      const url=URL.createObjectURL(blob);
+      const num=photos.length+1;
+      const ph={id,url,name:p.name||('No'+num),num,marker:null,latlng:null,file:nf};
+      photos.push(ph);
+      ph.latlng=L.latLng(p.lat,p.lng);
+      placeMarker(ph);
+      added++;
+    });
+    renderSide();
+    if(added){
+      const bounds=arr.filter(p=>p.b64).map(p=>[p.lat,p.lng]);
+      if(bounds.length===1)map.setView(bounds[0],16);else if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40]});
+    }
+    setStatus(added+'枚を書き出し済みファイルから復元しました');
+    fixRep();
+  };
+  reader.readAsText(file);
 }
 
 // ===== 工区（グループ）連携：saigai-form.htmlと同一オリジンのlocalStorageを共有 =====
