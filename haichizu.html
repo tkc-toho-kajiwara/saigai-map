@@ -535,11 +535,7 @@ function exportHTML(){
     r.readAsDataURL(file);
   });
   Promise.all(placed.map(p=>toBase64(p.file).then(b64=>({...p,b64})))).then(phs=>{
-    const center=map.getCenter();const zoom=map.getZoom();
     const layerKey=document.getElementById('map-sel').value;
-    const tile=TILES[layerKey];
-    const markers=phs.map(p=>`
-<div onclick="document.getElementById('m${p.id}').style.display='flex'" style="position:absolute;left:${p.latlng.lng};top:${p.latlng.lat};cursor:pointer" data-lat="${p.latlng.lat}" data-lng="${p.latlng.lng}" data-num="${p.num}" data-name="${p.name}" data-b64="${p.b64}" class="ph-data"></div>`).join('');
     const now=new Date();
     const ts=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     const popups=phs.map(p=>`
@@ -548,25 +544,93 @@ function exportHTML(){
 <div style="color:#fff;font-size:13px">No.${p.num} ${p.name}</div>
 <button style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer" onclick="document.getElementById('m${p.id}').style.display='none'">閉じる</button>
 </div>`).join('');
+    const tilesJson=JSON.stringify(TILES);
     const html=`<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>災害調査写真配置図 ${ts}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between}#map{height:calc(100vh - 36px)}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#hd select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #ccc}#map{height:calc(100vh - 36px)}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}</style>
 </head><body>
-<div id="hd"><b>災害調査写真配置図</b><span style="color:#888;font-size:11px">${ts} / ${phs.length}枚</span></div>
+<div id="hd"><b>災害調査写真配置図</b><span style="color:#888;font-size:11px;flex:1">${ts} / ${phs.length}枚</span><select id="layer-sel" onchange="changeLayer(this.value)"></select></div>
 <div id="map"></div>
 ${popups}
 <script>
-const map=L.map('map').setView([${center.lat},${center.lng}],${zoom});
-L.tileLayer('${tile.url}',{attribution:'${tile.attr}',maxZoom:${tile.max}}).addTo(map);
-const data=${JSON.stringify(phs.map(p=>({id:p.id,num:p.num,name:p.name,lat:p.latlng.lat,lng:p.latlng.lng,b64:p.b64})))};
-data.forEach(p=>{
-  const sz=68;
-  const icon=L.divIcon({className:'',html:'<div class="ph-mw" style="width:'+sz+'px"><div class="ph-mn">'+p.num+'</div><img src="'+p.b64+'" style="width:'+sz+'px;height:'+(sz*3/4|0)+'px"><div class="ph-ml">'+p.name+'</div></div>',iconSize:[sz+4,(sz*3/4|0)+20],iconAnchor:[sz/2+2,(sz*3/4|0)/2+10]});
-  L.marker([p.lat,p.lng],{icon}).addTo(map).on('click',()=>document.getElementById('m'+p.id).style.display='flex');
+const TILES=${tilesJson};
+const map=L.map('map');
+let curLayer=null;
+function changeLayer(key){
+  if(curLayer)map.removeLayer(curLayer);
+  const t=TILES[key];
+  curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:t.max}).addTo(map);
+}
+const sel=document.getElementById('layer-sel');
+const LAYER_LABELS={osm:'🗺 OpenStreetMap',gsi:'📍 地理院標準',gsip:'🗾 地理院航空',gsil:'📋 地理院淡色',gmap:'🌐 Googleマップ',gsat:'🛰 Google航空'};
+Object.keys(TILES).forEach(k=>{
+  const o=document.createElement('option');o.value=k;o.textContent=LAYER_LABELS[k]||k;sel.appendChild(o);
 });
+sel.value='${layerKey}';
+changeLayer('${layerKey}');
+
+const data=${JSON.stringify(phs.map(p=>({id:p.id,num:p.num,name:p.name,lat:p.latlng.lat,lng:p.latlng.lng,b64:p.b64})))};
+
+// 全マーカーが収まるよう自動フィット
+const allLatLngs=data.map(p=>[p.lat,p.lng]);
+if(allLatLngs.length===1){map.setView(allLatLngs[0],17);}else{map.fitBounds(allLatLngs,{padding:[40,40]});}
+
+// 重なり回避（元の地図アプリと同じ考え方：近接マーカーを扇状にずらし、元位置に点＋線を残す）
+function declutterExport(){
+  const THRESH=54;
+  const pts=data.map(p=>({p,pt:map.latLngToLayerPoint([p.lat,p.lng])}));
+  const used=new Array(pts.length).fill(false);
+  const groups=[];
+  for(let i=0;i<pts.length;i++){
+    if(used[i])continue;
+    const group=[pts[i]];used[i]=true;
+    for(let j=i+1;j<pts.length;j++){
+      if(used[j])continue;
+      if(pts[i].pt.distanceTo(pts[j].pt)<THRESH){group.push(pts[j]);used[j]=true;}
+    }
+    groups.push(group);
+  }
+  groups.forEach(group=>{
+    if(group.length===1){
+      group[0].p._disp=[group[0].p.lat,group[0].p.lng];
+    }else{
+      const n=group.length;
+      const radius=58+Math.min(n,6)*10;
+      const spread=Math.min(300,40*n);
+      const start=-90-spread/2;
+      group.forEach((g,idx)=>{
+        const angleDeg=start+(n>1?(spread/(n-1))*idx:0);
+        const rad=angleDeg*Math.PI/180;
+        const offPt=L.point(g.pt.x+radius*Math.cos(rad),g.pt.y+radius*Math.sin(rad));
+        const newLatLng=map.layerPointToLatLng(offPt);
+        g.p._disp=[newLatLng.lat,newLatLng.lng];
+      });
+    }
+  });
+}
+function renderMarkers(){
+  if(window._markerLayer)map.removeLayer(window._markerLayer);
+  if(window._lineLayer)map.removeLayer(window._lineLayer);
+  window._markerLayer=L.layerGroup().addTo(map);
+  window._lineLayer=L.layerGroup().addTo(map);
+  declutterExport();
+  data.forEach(p=>{
+    const disp=p._disp||[p.lat,p.lng];
+    const differs=Math.abs(disp[0]-p.lat)>1e-8||Math.abs(disp[1]-p.lng)>1e-8;
+    if(differs){
+      L.polyline([[p.lat,p.lng],disp],{color:'#185FA5',weight:2,opacity:.75}).addTo(window._lineLayer);
+      L.circleMarker([p.lat,p.lng],{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(window._lineLayer);
+    }
+    const sz=68;
+    const icon=L.divIcon({className:'',html:'<div class="ph-mw" style="width:'+sz+'px"><div class="ph-mn">'+p.num+'</div><img src="'+p.b64+'" style="width:'+sz+'px;height:'+(sz*3/4|0)+'px"><div class="ph-ml">'+p.name+'</div></div>',iconSize:[sz+4,(sz*3/4|0)+20],iconAnchor:[sz/2+2,(sz*3/4|0)/2+10]});
+    L.marker(disp,{icon}).addTo(window._markerLayer).on('click',()=>document.getElementById('m'+p.id).style.display='flex');
+  });
+}
+renderMarkers();
+map.on('zoomend moveend',renderMarkers);
 <\/script></body></html>`;
     const fname='配置図_'+now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'_'+('0'+now.getHours()).slice(-2)+('0'+now.getMinutes()).slice(-2)+'.html';
     const blob=new Blob([html],{type:'text/html'});
