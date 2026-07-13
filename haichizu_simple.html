@@ -393,10 +393,13 @@ function exportHTML(){
     const now=new Date();
     const ts=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     const popups=phs.map(p=>`
-<div id="m${p.id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:10px" onclick="this.style.display='none'">
+<div id="m${p.id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:10px" onclick="if(event.target===this)this.style.display='none'">
 <img src="${p.b64}" style="max-width:90vw;max-height:72vh;object-fit:contain;border-radius:8px">
 <div style="color:#fff;font-size:13px">No.${p.num} ${p.name}</div>
+<div style="display:flex;gap:10px">
+<a href="${p.b64}" download="No${p.num}_${p.name}.jpg" style="background:#185FA5;color:#fff;border:1px solid #185FA5;border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer;text-decoration:none">⬇ ダウンロード</a>
 <button style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer" onclick="document.getElementById('m${p.id}').style.display='none'">閉じる</button>
+</div>
 </div>`).join('');
     const tilesJson=JSON.stringify(TILES);
     const html=`<!DOCTYPE html>
@@ -404,10 +407,21 @@ function exportHTML(){
 <title>災害調査写真配置図 ${ts}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#hd select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #ccc}#map{height:calc(100vh - 36px)}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}</style>
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"><\/script>
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#hd select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #ccc}#wrap{display:flex;height:calc(100vh - 36px)}#map{flex:1}#side{width:170px;flex-shrink:0;border-left:1px solid #ddd;background:#fff;display:flex;flex-direction:column}#side-hd{padding:6px;border-bottom:1px solid #eee;display:flex;gap:4px;flex-wrap:wrap}#side-hd button{font-size:10.5px;padding:5px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}#side-hd button.dl{background:#185FA5;color:#fff;border-color:#185FA5;flex:1 0 100%}#photo-list{flex:1;overflow-y:auto}.pl-item{display:flex;align-items:center;gap:6px;padding:6px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:11px}.pl-item:hover{background:#f7f9fb}.pl-item img{width:36px;height:27px;object-fit:cover;border-radius:3px;flex-shrink:0}.pl-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}</style>
 </head><body>
 <div id="hd"><b>災害調査写真配置図</b><span style="color:#888;font-size:11px;flex:1">${ts} / ${phs.length}枚</span><select id="layer-sel" onchange="changeLayer(this.value)"></select></div>
+<div id="wrap">
 <div id="map"></div>
+<div id="side">
+  <div id="side-hd">
+    <button onclick="selectAllPhotos(true)">全選択</button>
+    <button onclick="selectAllPhotos(false)">全解除</button>
+    <button class="dl" onclick="downloadSelected()">⬇ 選択した写真を一括DL（ZIP）</button>
+  </div>
+  <div id="photo-list"></div>
+</div>
+</div>
 ${popups}
 <script>
 const TILES=${tilesJson};
@@ -427,6 +441,50 @@ sel.value='${layerKey}';
 changeLayer('${layerKey}');
 
 const data=${JSON.stringify(phs.map(p=>({id:p.id,num:p.num,name:p.name,lat:p.latlng.lat,lng:p.latlng.lng,b64:p.b64})))};
+data.forEach(p=>{p._sel=true;});
+
+function renderPhotoList(){
+  const list=document.getElementById('photo-list');
+  list.innerHTML=data.map(p=>
+    '<div class="pl-item">'
+    +'<input type="checkbox" '+(p._sel?'checked':'')+' onclick="event.stopPropagation();toggleSelPhoto(\\''+p.id+'\\',this.checked)">'
+    +'<img src="'+p.b64+'" onclick="focusPhoto(\\''+p.id+'\\')">'
+    +'<span onclick="focusPhoto(\\''+p.id+'\\')">No.'+p.num+' '+p.name+'</span>'
+    +'</div>'
+  ).join('');
+}
+function toggleSelPhoto(id,checked){
+  const p=data.find(d=>d.id===id);
+  if(p)p._sel=checked;
+}
+function selectAllPhotos(v){
+  data.forEach(p=>p._sel=v);
+  renderPhotoList();
+}
+function focusPhoto(id){
+  const p=data.find(d=>d.id===id);
+  if(!p)return;
+  map.setView([p.lat,p.lng],Math.max(map.getZoom(),17));
+  document.getElementById('m'+id).style.display='flex';
+}
+async function downloadSelected(){
+  const sel=data.filter(p=>p._sel);
+  if(!sel.length){alert('写真を選択してください');return;}
+  const zip=new JSZip();
+  sel.forEach(p=>{
+    const base64Data=p.b64.split(',')[1];
+    const safeName=('No'+p.num+'_'+p.name).replace(/[\\\\/:*?"<>|]/g,'_');
+    zip.file(safeName+'.jpg',base64Data,{base64:true});
+  });
+  const blob=await zip.generateAsync({type:'blob'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='写真一式_${ts.replace(/[\/: ]/g,'')}.zip';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+renderPhotoList();
+
 
 const allLatLngs=data.map(p=>[p.lat,p.lng]);
 if(allLatLngs.length===1){map.setView(allLatLngs[0],17);}else{map.fitBounds(allLatLngs,{padding:[40,40]});}
