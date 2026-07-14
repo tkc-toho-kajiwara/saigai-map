@@ -1961,12 +1961,7 @@ function showMegaTab(name){
 // 記入票の保存(画像として保存)が完了したら、少し待って自動的に写真配置図タブへ切り替える
 function autoAdvanceToMap(){
   refreshLockBadge();
-  const banner=document.getElementById('autonext-banner');
-  banner.classList.add('show');
-  setTimeout(()=>{
-    banner.classList.remove('show');
-    showMegaTab('map');
-  }, 1400);
+  showMegaTab('map');
 }
 refreshLockBadge();
 
