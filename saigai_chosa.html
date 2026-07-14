@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="災害調査">
 <title>災害調査（記録票＋写真配置図）</title>
@@ -513,7 +513,8 @@ textarea { resize: vertical; min-height: 60px; }
 .mega-tab .lock-badge{font-size:9px;background:#E24B4A;color:#fff;border-radius:8px;padding:1px 6px;margin-left:4px;vertical-align:middle}
 .mega-pane{display:none}
 #mega-map.mega-pane.active{display:flex;flex-direction:column;height:calc(100vh - 46px);height:calc(100dvh - 46px);overflow:hidden}
-#mega-form.mega-pane.active{display:flex;height:calc(100vh - 46px);height:calc(100dvh - 46px);overflow-y:auto}
+#mega-form.mega-pane.active{display:flex;height:calc(100vh - 46px);height:calc(100dvh - 46px);overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+#mega-form.mega-pane.active > *{flex-shrink:0}
 html,body{margin:0;padding:0}
 #kouku-gate{position:fixed;inset:0;background:rgba(10,20,40,.92);z-index:20000;display:none;align-items:center;justify-content:center;padding:24px}
 #kouku-gate.show{display:flex}
