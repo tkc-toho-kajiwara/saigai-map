@@ -931,6 +931,14 @@ async function saveAsImage() {
 
   btn.textContent = '⏳ 生成中...';
 
+  // ===== 記録の保存とタブ切替は、画像(PNG)生成の成否に関係なく必ず実行する =====
+  // (端末やブラウザによってはhtml2canvasの画像生成に失敗する場合があるが、
+  //  その場合でも工区データの保存・次の画面への案内は止めない)
+  addRecord();
+  msg.style.display = 'block';
+  msg.innerHTML = `✅ 記録を保存しました（画像生成中…）`;
+  if(typeof autoAdvanceToMap==='function')autoAdvanceToMap();
+
   try {
     const canvas = await html2canvas(ticket, {
       scale: 2,
@@ -950,14 +958,9 @@ async function saveAsImage() {
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-    addRecord();
-
-    msg.style.display = 'block';
     msg.innerHTML = `✅ <b>${filename}</b> を保存しました`;
-    if(typeof autoAdvanceToMap==='function')autoAdvanceToMap();
   } catch (e) {
-    msg.style.display = 'block';
-    msg.innerHTML = '⚠️ 画像の生成に失敗しました。スクリーンショットで保存してください。';
+    msg.innerHTML = '✅ 記録は保存済みです。⚠️ただし記入票の画像生成には失敗しました（スクリーンショットで代用してください）';
   } finally {
     btn.disabled = false;
     btn.textContent = '📸 画像として保存';
