@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>T4〜T10 配置図・現地調査票</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; font-family: "Hiragino Sans", "Meiryo", sans-serif; background:#f4f5f7; }
+  #tabbar { display:flex; background:#1976d2; }
+  #tabbar button {
+    flex:1; padding:12px 0; background:none; border:none; color:#dbe9fb; font-size:15px;
+    font-weight:bold; cursor:pointer; border-bottom:3px solid transparent;
+  }
+  #tabbar button.active { color:#fff; border-bottom:3px solid #fff; }
+  .view { display:none; }
+  .view.active { display:block; }
+
+  /* ---- Map view ---- */
+  #map-view { position:relative; }
+  #map { width:100%; height:calc(100vh - 46px); }
+  .info-box {
+    position:absolute; top:10px; right:10px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:6px;
+    box-shadow:0 1px 6px rgba(0,0,0,0.3); font-size:12.5px; max-width:250px;
+  }
+  .info-box h3 { margin:0 0 6px 0; font-size:14px; }
+  table.coord { border-collapse: collapse; width:100%; font-size:11.5px; }
+  table.coord th, table.coord td { border:1px solid #ccc; padding:2px 5px; text-align:right; }
+  table.coord th:first-child, table.coord td:first-child { text-align:center; }
+  .note { font-size:10.5px; color:#666; margin-top:6px; }
+
+  /* ---- Survey view ---- */
+  #survey-view { height:calc(100vh - 46px); overflow-y:auto; padding:12px; }
+  .survey-header { background:#fff; border-radius:8px; padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,0.12); }
+  .survey-header h2 { margin:0 0 8px 0; font-size:16px; }
+  .survey-header label { display:block; font-size:12.5px; color:#555; margin-top:8px; }
+  .survey-header input[type=text], .survey-header input[type=date] {
+    width:100%; padding:6px 8px; font-size:13px; border:1px solid #ccc; border-radius:4px; margin-top:2px;
+  }
+  .qr-row { display:flex; align-items:center; gap:12px; margin-top:10px; }
+  #qrcode { background:#fff; padding:4px; border-radius:4px; }
+  .qr-hint { font-size:11.5px; color:#666; }
+
+  .point-card { background:#fff; border-radius:8px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,0.12); overflow:hidden; }
+  .point-card .head {
+    display:flex; justify-content:space-between; align-items:center; padding:10px 14px;
+    background:#e3f2fd; cursor:pointer;
+  }
+  .point-card .head h3 { margin:0; font-size:15px; }
+  .point-card .head .coords { font-size:11px; color:#555; }
+  .point-card .body { padding:12px 14px; display:none; }
+  .point-card.open .body { display:block; }
+  .field-row { margin-bottom:10px; }
+  .field-row label { display:block; font-size:12px; color:#555; margin-bottom:3px; }
+  .status-btns { display:flex; gap:6px; }
+  .status-btns button {
+    flex:1; padding:8px 0; border:1px solid #ccc; border-radius:5px; background:#fafafa; font-size:12.5px; cursor:pointer;
+  }
+  .status-btns button.sel-ok { background:#4caf50; color:#fff; border-color:#4caf50; }
+  .status-btns button.sel-warn { background:#fb8c00; color:#fff; border-color:#fb8c00; }
+  .status-btns button.sel-lost { background:#e53935; color:#fff; border-color:#e53935; }
+  textarea.remark {
+    width:100%; min-height:56px; font-size:13px; padding:6px 8px; border:1px solid #ccc; border-radius:4px; resize:vertical;
+  }
+  .photo-actions { display:flex; gap:8px; margin-bottom:8px; }
+  .photo-actions label.btn, .photo-actions button {
+    flex:1; text-align:center; padding:9px 0; border-radius:5px; font-size:12.5px; cursor:pointer; border:1px solid #1976d2;
+    background:#1976d2; color:#fff;
+  }
+  .photo-thumbs { display:flex; flex-wrap:wrap; gap:8px; }
+  .thumb { position:relative; width:84px; height:84px; border-radius:6px; overflow:hidden; border:1px solid #ddd; }
+  .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb .del {
+    position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none;
+    width:20px; height:20px; border-radius:50%; font-size:12px; line-height:20px; text-align:center; cursor:pointer; padding:0;
+  }
+  input[type=file] { display:none; }
+
+  .export-bar {
+    position:sticky; bottom:0; background:#fff; padding:10px 14px; box-shadow:0 -1px 6px rgba(0,0,0,0.15);
+    display:flex; gap:10px;
+  }
+  .export-bar button {
+    flex:1; padding:11px 0; font-size:14px; font-weight:bold; border:none; border-radius:6px; cursor:pointer;
+  }
+  #exportBtn { background:#2e7d32; color:#fff; }
+  #clearBtn { background:#eee; color:#c62828; }
+  .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10.5px; margin-left:6px; }
+  .badge-ok { background:#4caf50; color:#fff; }
+  .badge-warn { background:#fb8c00; color:#fff; }
+  .badge-lost { background:#e53935; color:#fff; }
+  .badge-none { background:#ccc; color:#555; }
+</style>
+</head>
+<body>
+
+<div id="tabbar">
+  <button id="tab-map" class="active">配置図</button>
+  <button id="tab-survey">現地調査票</button>
+</div>
+
+<!-- ===================== MAP VIEW ===================== -->
+<div id="map-view" class="view active">
+  <div id="map"></div>
+  <div class="info-box">
+    <h3>T4〜T10 配置図</h3>
+    <table class="coord">
+      <tr><th>点名</th><th>X (系II)</th><th>Y (系II)</th><th>標高H</th></tr>
+      <tr><td>T4</td><td>44406.318</td><td>-12902.196</td><td>157.123</td></tr>
+      <tr><td>T5</td><td>44430.667</td><td>-12961.290</td><td>157.711</td></tr>
+      <tr><td>T6</td><td>44476.956</td><td>-12992.410</td><td>158.892</td></tr>
+      <tr><td>T7</td><td>44534.028</td><td>-13034.720</td><td>159.734</td></tr>
+      <tr><td>T8</td><td>44582.655</td><td>-13068.657</td><td>160.544</td></tr>
+      <tr><td>T9</td><td>44627.375</td><td>-13100.127</td><td>161.247</td></tr>
+      <tr><td>T10</td><td>44707.443</td><td>-13176.835</td><td>163.289</td></tr>
+    </table>
+    <div class="note">平面直角座標系 第II系 (JGD2011, EPSG:6670) として変換。右上メニューで背景図を切替できます。</div>
+  </div>
+</div>
+
+<!-- ===================== SURVEY VIEW ===================== -->
+<div id="survey-view" class="view">
+  <div class="survey-header">
+    <h2>基準点 現地調査票（T4〜T10）</h2>
+    <label>現場名</label>
+    <input type="text" id="siteName" value="一般国道211号 現地測量及び路線測量業務委託">
+    <label>調査日</label>
+    <input type="date" id="surveyDate">
+    <label>調査員</label>
+    <input type="text" id="surveyor" placeholder="氏名を入力">
+
+    <label>公開後のURL（GitHub Pagesなどにアップロード後のアドレスを入力してください）</label>
+    <input type="text" id="qrUrlInput" placeholder="例: https://tkc-toho-kajiwara.github.io/saigai-map/T4_T10_調査票.html">
+    <div class="qr-row">
+      <div id="qrcode"></div>
+      <div class="qr-hint">
+        上の欄にURLを入力すると下のQRコードが自動更新されます。<br>
+        現地でスマートフォンのカメラで読み取ると、この調査票をそのまま開けます。<br>
+        <span style="color:#c62828">※ file:// のまま（サーバーに置かず手元で開いただけ）の状態ではQRが読み取れない、または読み取れても他の端末では開けません。必ずGitHub PagesやBOXなどインターネット上のURLに置いてから、そのURLを入力してください。</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="cards"></div>
+
+  <div class="export-bar">
+    <button id="exportBtn">📦 写真+調査データをZIP出力</button>
+    <button id="clearBtn">全てクリア</button>
+  </div>
+</div>
+
+<script>
+/* ---------------- Shared point data ---------------- */
+const points = [
+  {name:"T4",  x:44406.318, y:-12902.196, h:157.123, lat:33.4003512, lon:130.8612959},
+  {name:"T5",  x:44430.667, y:-12961.290, h:157.711, lat:33.4005700, lon:130.8606603},
+  {name:"T6",  x:44476.956, y:-12992.410, h:158.892, lat:33.4009871, lon:130.8603251},
+  {name:"T7",  x:44534.028, y:-13034.720, h:159.734, lat:33.4015012, lon:130.8598694},
+  {name:"T8",  x:44582.655, y:-13068.657, h:160.544, lat:33.4019392, lon:130.8595039},
+  {name:"T9",  x:44627.375, y:-13100.127, h:161.247, lat:33.4023421, lon:130.8591649},
+  {name:"T10", x:44707.443, y:-13176.835, h:163.289, lat:33.4030631, lon:130.8583391}
+];
+
+/* ---------------- Tab switching ---------------- */
+const tabMap = document.getElementById('tab-map');
+const tabSurvey = document.getElementById('tab-survey');
+const mapView = document.getElementById('map-view');
+const surveyView = document.getElementById('survey-view');
+let leafletInitialized = false;
+
+tabMap.addEventListener('click', () => {
+  tabMap.classList.add('active'); tabSurvey.classList.remove('active');
+  mapView.classList.add('active'); surveyView.classList.remove('active');
+  if (leafletInitialized) setTimeout(() => map.invalidateSize(), 50);
+});
+tabSurvey.addEventListener('click', () => {
+  tabSurvey.classList.add('active'); tabMap.classList.remove('active');
+  surveyView.classList.add('active'); mapView.classList.remove('active');
+});
+
+/* ---------------- Leaflet map ---------------- */
+function initMap() {
+  const center = [points[3].lat, points[3].lon];
+  window.map = L.map('map', { zoomControl:true }).setView(center, 17);
+
+  const gsiStd = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+    attribution: '国土地理院（標準地図）', maxZoom:18
+  });
+  const gsiPale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+    attribution: '国土地理院（淡色地図）', maxZoom:18
+  });
+  const gsiPhoto = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', {
+    attribution: '国土地理院（航空写真）', maxZoom:18
+  });
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom:19
+  });
+  gsiStd.addTo(map);
+
+  L.control.layers({
+    "地理院地図（標準）": gsiStd,
+    "地理院地図（淡色）": gsiPale,
+    "地理院地図（航空写真）": gsiPhoto,
+    "OpenStreetMap": osm
+  }, null, {position:'topright'}).addTo(map);
+
+  const latlngs = points.map(p => [p.lat, p.lon]);
+  L.polyline(latlngs, {color:'#e53935', weight:3, opacity:0.85}).addTo(map);
+
+  points.forEach(p => {
+    const marker = L.circleMarker([p.lat, p.lon], {
+      radius:7, color:'#fff', weight:2, fillColor:'#1976d2', fillOpacity:1
+    }).addTo(map);
+    marker.bindTooltip(p.name, {permanent:true, direction:'top', offset:[0,-6]});
+    marker.bindPopup(
+      `<b>${p.name}</b><br>X = ${p.x.toFixed(3)}<br>Y = ${p.y.toFixed(3)}<br>H = ${p.h.toFixed(3)}<br>` +
+      `緯度 = ${p.lat.toFixed(7)}<br>経度 = ${p.lon.toFixed(7)}`
+    );
+  });
+  map.fitBounds(latlngs, {padding:[60,60]});
+  leafletInitialized = true;
+}
+initMap();
+
+/* ---------------- QR code ---------------- */
+let qrObj = null;
+const qrUrlInput = document.getElementById('qrUrlInput');
+
+function renderQR(text) {
+  const box = document.getElementById('qrcode');
+  box.innerHTML = '';
+  if (!text) {
+    box.innerText = 'URLを入力するとQRコードが表示されます';
+    return;
+  }
+  try {
+    qrObj = new QRCode(box, {
+      text: text,
+      width: 200,
+      height: 200,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    box.innerText = 'QR生成エラー: ' + e.message;
+  }
+}
+
+// file:// のURLは長すぎ/端末間で無効なため初期表示には使わない。http(s)で開かれている場合のみ初期値として使う。
+const initialUrl = window.location.protocol.startsWith('http') ? window.location.href : '';
+qrUrlInput.value = initialUrl;
+renderQR(initialUrl);
+qrUrlInput.addEventListener('input', () => renderQR(qrUrlInput.value.trim()));
+document.getElementById('surveyDate').valueAsDate = new Date();
+
+/* ---------------- Survey cards (in-memory state) ---------------- */
+// NOTE: データはこのタブを閉じるまでの一時保存です。永続化はZIP出力で行ってください。
+const state = {}; // name -> {status, remark, photos:[{blob,url,name}]}
+points.forEach(p => state[p.name] = {status:null, remark:'', photos:[]});
+
+const cardsEl = document.getElementById('cards');
+
+function statusBadge(status) {
+  if (status === 'ok') return '<span class="badge badge-ok">異常なし</span>';
+  if (status === 'warn') return '<span class="badge badge-warn">要注意</span>';
+  if (status === 'lost') return '<span class="badge badge-lost">亡失・要復旧</span>';
+  return '<span class="badge badge-none">未確認</span>';
+}
+
+function render() {
+  cardsEl.innerHTML = '';
+  points.forEach(p => {
+    const s = state[p.name];
+    const card = document.createElement('div');
+    card.className = 'point-card';
+    card.innerHTML = `
+      <div class="head">
+        <div>
+          <h3>${p.name} ${statusBadge(s.status)}</h3>
+          <div class="coords">X:${p.x.toFixed(3)} / Y:${p.y.toFixed(3)} / H:${p.h.toFixed(3)}</div>
+        </div>
+        <div>▼</div>
+      </div>
+      <div class="body">
+        <div class="field-row">
+          <label>現況確認</label>
+          <div class="status-btns">
+            <button data-status="ok" class="${s.status==='ok'?'sel-ok':''}">異常なし</button>
+            <button data-status="warn" class="${s.status==='warn'?'sel-warn':''}">要注意</button>
+            <button data-status="lost" class="${s.status==='lost'?'sel-lost':''}">亡失・要復旧</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>備考</label>
+          <textarea class="remark" placeholder="現地状況・備考を入力">${s.remark}</textarea>
+        </div>
+        <div class="field-row">
+          <label>写真</label>
+          <div class="photo-actions">
+            <label class="btn">📷 撮影
+              <input type="file" accept="image/*" capture="environment" multiple class="camInput">
+            </label>
+            <label class="btn">🖼 選択
+              <input type="file" accept="image/*" multiple class="fileInput">
+            </label>
+          </div>
+          <div class="photo-thumbs"></div>
+        </div>
+      </div>
+    `;
+    // toggle open
+    card.querySelector('.head').addEventListener('click', () => card.classList.toggle('open'));
+
+    // status buttons
+    card.querySelectorAll('.status-btns button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        s.status = btn.dataset.status;
+        render();
+        // re-open this card after re-render
+        document.querySelectorAll('.point-card').forEach(c => {
+          if (c.querySelector('h3').textContent.startsWith(p.name)) c.classList.add('open');
+        });
+      });
+    });
+
+    // remark
+    card.querySelector('.remark').addEventListener('input', (e) => {
+      s.remark = e.target.value;
+    });
+    card.querySelector('.remark').addEventListener('click', (e) => e.stopPropagation());
+
+    // photo inputs
+    const thumbBox = card.querySelector('.photo-thumbs');
+    function addPhotos(files) {
+      Array.from(files).forEach((f, idx) => {
+        const url = URL.createObjectURL(f);
+        const id = Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2,7);
+        s.photos.push({id, file:f, url, name:f.name || (p.name + '_' + id + '.jpg')});
+      });
+      renderThumbs();
+    }
+    function renderThumbs() {
+      thumbBox.innerHTML = '';
+      s.photos.forEach(ph => {
+        const t = document.createElement('div');
+        t.className = 'thumb';
+        t.innerHTML = `<img src="${ph.url}"><button class="del">×</button>`;
+        t.querySelector('.del').addEventListener('click', (e) => {
+          e.stopPropagation();
+          s.photos = s.photos.filter(x => x.id !== ph.id);
+          renderThumbs();
+          updateBadgeOnly();
+        });
+        thumbBox.appendChild(t);
+      });
+    }
+    function updateBadgeOnly() {
+      card.querySelector('h3').innerHTML = `${p.name} ${statusBadge(s.status)}`;
+    }
+    renderThumbs();
+
+    card.querySelector('.camInput').addEventListener('click', (e) => e.stopPropagation());
+    card.querySelector('.fileInput').addEventListener('click', (e) => e.stopPropagation());
+    card.querySelector('.camInput').addEventListener('change', (e) => addPhotos(e.target.files));
+    card.querySelector('.fileInput').addEventListener('change', (e) => addPhotos(e.target.files));
+
+    cardsEl.appendChild(card);
+  });
+}
+render();
+
+/* ---------------- Export ZIP ---------------- */
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const zip = new JSZip();
+  const siteName = document.getElementById('siteName').value;
+  const surveyDate = document.getElementById('surveyDate').value;
+  const surveyor = document.getElementById('surveyor').value;
+
+  let summary = `現場名,${siteName}\n調査日,${surveyDate}\n調査員,${surveyor}\n\n`;
+  summary += "点名,X,Y,H,現況,備考,写真枚数\n";
+
+  for (const p of points) {
+    const s = state[p.name];
+    const statusText = s.status === 'ok' ? '異常なし' : s.status === 'warn' ? '要注意' : s.status === 'lost' ? '亡失・要復旧' : '未確認';
+    summary += `${p.name},${p.x},${p.y},${p.h},${statusText},"${(s.remark||'').replace(/"/g,'""')}",${s.photos.length}\n`;
+
+    if (s.photos.length) {
+      const folder = zip.folder(p.name);
+      for (let i = 0; i < s.photos.length; i++) {
+        const ph = s.photos[i];
+        const ext = (ph.file.name.split('.').pop() || 'jpg');
+        folder.file(`${p.name}_${String(i+1).padStart(2,'0')}.${ext}`, ph.file);
+      }
+    }
+  }
+  zip.file("調査票サマリー.csv", "\uFEFF" + summary);
+
+  const blob = await zip.generateAsync({type:"blob"});
+  const a = document.createElement('a');
+  const dateStr = surveyDate || new Date().toISOString().slice(0,10);
+  a.href = URL.createObjectURL(blob);
+  a.download = `T4-T10_現地調査_${dateStr}.zip`;
+  a.click();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!confirm('入力した調査データと写真を全て削除します。よろしいですか？')) return;
+  points.forEach(p => state[p.name] = {status:null, remark:'', photos:[]});
+  render();
+});
+</script>
+</body>
+</html>
