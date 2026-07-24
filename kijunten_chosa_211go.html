@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>T4〜T10 配置図・現地調査票</title>
+<title>T1〜T10 配置図・現地調査票</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -108,9 +108,12 @@
 <div id="map-view" class="view active">
   <div id="map"></div>
   <div class="info-box">
-    <h3>T4〜T10 配置図</h3>
+    <h3>T1〜T10 配置図</h3>
     <table class="coord">
       <tr><th>点名</th><th>X (系II)</th><th>Y (系II)</th><th>標高H</th></tr>
+      <tr><td>T1</td><td>44349.926</td><td>-12746.947</td><td>158.425</td></tr>
+      <tr><td>T2</td><td>44385.937</td><td>-12801.009</td><td>156.788</td></tr>
+      <tr><td>T3</td><td>44395.319</td><td>-12844.023</td><td>156.335</td></tr>
       <tr><td>T4</td><td>44406.318</td><td>-12902.196</td><td>157.123</td></tr>
       <tr><td>T5</td><td>44430.667</td><td>-12961.290</td><td>157.711</td></tr>
       <tr><td>T6</td><td>44476.956</td><td>-12992.410</td><td>158.892</td></tr>
@@ -126,7 +129,7 @@
 <!-- ===================== SURVEY VIEW ===================== -->
 <div id="survey-view" class="view">
   <div class="survey-header">
-    <h2>基準点 現地調査票（T4〜T10）</h2>
+    <h2>基準点 現地調査票（T1〜T10、KBM）</h2>
     <label>現場名</label>
     <input type="text" id="siteName" value="一般国道211号 現地測量及び路線測量業務委託">
     <label>調査日</label>
@@ -157,6 +160,9 @@
 <script>
 /* ---------------- Shared point data ---------------- */
 const points = [
+  {name:"T1",  x:44349.926, y:-12746.947, h:158.425, lat:33.3998446, lon:130.8629657},
+  {name:"T2",  x:44385.937, y:-12801.009, h:156.788, lat:33.4001686, lon:130.8623840},
+  {name:"T3",  x:44395.319, y:-12844.023, h:156.335, lat:33.4002527, lon:130.8619215},
   {name:"T4",  x:44406.318, y:-12902.196, h:157.123, lat:33.4003512, lon:130.8612959},
   {name:"T5",  x:44430.667, y:-12961.290, h:157.711, lat:33.4005700, lon:130.8606603},
   {name:"T6",  x:44476.956, y:-12992.410, h:158.892, lat:33.4009871, lon:130.8603251},
@@ -164,6 +170,12 @@ const points = [
   {name:"T8",  x:44582.655, y:-13068.657, h:160.544, lat:33.4019392, lon:130.8595039},
   {name:"T9",  x:44627.375, y:-13100.127, h:161.247, lat:33.4023421, lon:130.8591649},
   {name:"T10", x:44707.443, y:-13176.835, h:163.289, lat:33.4030631, lon:130.8583391}
+];
+
+// 座標データが無い点（写真・現況確認のみ）
+const noCoordPoints = [
+  {name:"KBM.1"},
+  {name:"KBM.2"}
 ];
 
 /* ---------------- Tab switching ---------------- */
@@ -259,8 +271,9 @@ document.getElementById('surveyDate').valueAsDate = new Date();
 
 /* ---------------- Survey cards (in-memory state) ---------------- */
 // NOTE: データはこのタブを閉じるまでの一時保存です。永続化はZIP出力で行ってください。
+const allPoints = points.concat(noCoordPoints);
 const state = {}; // name -> {status, remark, photos:[{blob,url,name}]}
-points.forEach(p => state[p.name] = {status:null, remark:'', photos:[]});
+allPoints.forEach(p => state[p.name] = {status:null, remark:'', photos:[]});
 
 const cardsEl = document.getElementById('cards');
 
@@ -273,7 +286,8 @@ function statusBadge(status) {
 
 function render() {
   cardsEl.innerHTML = '';
-  points.forEach(p => {
+  allPoints.forEach(p => {
+    const hasCoord = p.x !== undefined;
     const s = state[p.name];
     const card = document.createElement('div');
     card.className = 'point-card';
@@ -281,7 +295,7 @@ function render() {
       <div class="head">
         <div>
           <h3>${p.name} ${statusBadge(s.status)}</h3>
-          <div class="coords">X:${p.x.toFixed(3)} / Y:${p.y.toFixed(3)} / H:${p.h.toFixed(3)}</div>
+          <div class="coords">${hasCoord ? `X:${p.x.toFixed(3)} / Y:${p.y.toFixed(3)} / H:${p.h.toFixed(3)}` : '座標データなし（写真・現況記録のみ）'}</div>
         </div>
         <div>▼</div>
       </div>
@@ -384,10 +398,13 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
   let summary = `現場名,${siteName}\n調査日,${surveyDate}\n調査員,${surveyor}\n\n`;
   summary += "点名,X,Y,H,現況,備考,写真枚数\n";
 
-  for (const p of points) {
+  for (const p of allPoints) {
     const s = state[p.name];
     const statusText = s.status === 'ok' ? '異常なし' : s.status === 'warn' ? '要注意' : s.status === 'lost' ? '亡失・要復旧' : '未確認';
-    summary += `${p.name},${p.x},${p.y},${p.h},${statusText},"${(s.remark||'').replace(/"/g,'""')}",${s.photos.length}\n`;
+    const xv = p.x !== undefined ? p.x : '';
+    const yv = p.y !== undefined ? p.y : '';
+    const hv = p.h !== undefined ? p.h : '';
+    summary += `${p.name},${xv},${yv},${hv},${statusText},"${(s.remark||'').replace(/"/g,'""')}",${s.photos.length}\n`;
 
     if (s.photos.length) {
       const folder = zip.folder(p.name);
@@ -404,13 +421,13 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
   const a = document.createElement('a');
   const dateStr = surveyDate || new Date().toISOString().slice(0,10);
   a.href = URL.createObjectURL(blob);
-  a.download = `T4-T10_現地調査_${dateStr}.zip`;
+  a.download = `T1-T10_KBM_現地調査_${dateStr}.zip`;
   a.click();
 });
 
 document.getElementById('clearBtn').addEventListener('click', () => {
   if (!confirm('入力した調査データと写真を全て削除します。よろしいですか？')) return;
-  points.forEach(p => state[p.name] = {status:null, remark:'', photos:[]});
+  allPoints.forEach(p => state[p.name] = {status:null, remark:'', photos:[]});
   render();
 });
 </script>
