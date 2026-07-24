@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --bg: #f4f2ee;
@@ -56,6 +57,23 @@
     padding:6px 10px;border-radius:5px;text-decoration:none;font-weight:600;
   }
   .notion-link:hover{opacity:.85;}
+  .photo-btn{
+    display:inline-block;margin-top:6px;margin-left:6px;font-size:12.5px;color:var(--accent);
+    background:#fff;border:1px solid var(--accent);padding:5px 10px;border-radius:5px;
+    cursor:pointer;font-weight:600;
+  }
+  .photo-btn:hover{background:#faf1ec;}
+  .photo-count{font-size:11.5px;color:var(--sub);margin-top:4px;}
+  .photo-thumbs{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+  .photo-thumbs img{width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--line);}
+  #photoStats{font-size:12px;color:var(--sub);line-height:1.7;margin-top:8px;}
+  #photoStats b{color:var(--ink);}
+  #exportBtn{
+    width:100%;margin-top:8px;padding:10px 0;border:none;border-radius:6px;
+    background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer;
+  }
+  #exportBtn:hover{opacity:.9;}
+  #exportBtn:disabled{background:#c8c4ba;cursor:default;}
   .num-badge{
     background:var(--accent);color:#fff;border-radius:50%;
     width:22px;height:22px;display:flex;align-items:center;justify-content:center;
@@ -132,6 +150,15 @@
       <div class="section-title">集計</div>
       <div id="stats"></div>
     </div>
+
+    <div class="section">
+      <div class="section-title">現場写真</div>
+      <div id="photoStats">読み込み中…</div>
+      <button id="exportBtn">📦 全写真をZIPでエクスポート</button>
+      <div class="btn-row">
+        <button id="btnClearPhotos">端末内の写真を全削除</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -203,6 +230,12 @@ SITES.forEach(site=>{
     <div class="popup-row"><span class="popup-label">延長</span><span>${site.encho}</span></div>
     <div class="popup-row"><span class="popup-label">概要</span><span>${site.gaiyo}</span></div>
     <a class="notion-link" href="${site.notion}" target="_blank" rel="noopener">Notionで詳細を見る ↗</a>
+    <label class="photo-btn">
+      📷 写真を撮影
+      <input type="file" accept="image/*" capture="environment" data-site-no="${site.no}" class="photo-input" style="display:none">
+    </label>
+    <div class="photo-count" id="photo-count-${site.no}">写真：0枚</div>
+    <div class="photo-thumbs" id="photo-thumbs-${site.no}"></div>
   `);
   if(!markersByVendor[site.vendor]) markersByVendor[site.vendor] = [];
   markersByVendor[site.vendor].push(marker);
@@ -275,6 +308,153 @@ scrim.addEventListener('click', closeSidebar);
 // keep the map sized correctly after layout changes (address bar show/hide etc.)
 window.addEventListener('resize', ()=> map.invalidateSize());
 setTimeout(()=> map.invalidateSize(), 300);
+
+// ==================== 写真保存（IndexedDB） ====================
+const DB_NAME = 'haichizu_photos_db';
+const STORE = 'photos';
+let dbPromise = new Promise((resolve, reject)=>{
+  const req = indexedDB.open(DB_NAME, 1);
+  req.onupgradeneeded = e=>{
+    const db = e.target.result;
+    if(!db.objectStoreNames.contains(STORE)){
+      const store = db.createObjectStore(STORE, {keyPath:'id', autoIncrement:true});
+      store.createIndex('siteNo', 'siteNo', {unique:false});
+    }
+  };
+  req.onsuccess = e=> resolve(e.target.result);
+  req.onerror = e=> reject(e);
+});
+
+async function dbAdd(record){
+  const db = await dbPromise;
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).add(record);
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = e=> reject(e);
+  });
+}
+async function dbGetBySite(siteNo){
+  const db = await dbPromise;
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readonly');
+    const idx = tx.objectStore(STORE).index('siteNo');
+    const req = idx.getAll(siteNo);
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = e=> reject(e);
+  });
+}
+async function dbGetAll(){
+  const db = await dbPromise;
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = e=> reject(e);
+  });
+}
+async function dbClearAll(){
+  const db = await dbPromise;
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = e=> reject(e);
+  });
+}
+
+function siteByNo(no){ return SITES.find(s=> String(s.no) === String(no)); }
+
+async function refreshPopupPhotoUI(siteNo){
+  const countEl = document.getElementById(`photo-count-${siteNo}`);
+  const thumbsEl = document.getElementById(`photo-thumbs-${siteNo}`);
+  if(!countEl || !thumbsEl) return;
+  const records = await dbGetBySite(Number(siteNo));
+  countEl.textContent = `写真：${records.length}枚`;
+  thumbsEl.innerHTML = '';
+  records.forEach(r=>{
+    const url = URL.createObjectURL(r.blob);
+    const img = document.createElement('img');
+    img.src = url;
+    thumbsEl.appendChild(img);
+  });
+}
+
+async function refreshSidebarPhotoStats(){
+  const all = await dbGetAll();
+  const bySite = {};
+  all.forEach(r=>{ bySite[r.siteNo] = (bySite[r.siteNo]||0) + 1; });
+  const sitesWithPhotos = Object.keys(bySite).length;
+  document.getElementById('photoStats').innerHTML =
+    `保存済み：<b>${all.length}</b>枚（<b>${sitesWithPhotos}</b>／${SITES.length}箇所）`;
+  document.getElementById('exportBtn').disabled = all.length === 0;
+}
+
+// 撮影ボタン：ポップアップ内のfile inputのchangeを委任イベントで拾う
+document.addEventListener('change', async e=>{
+  if(!e.target.classList || !e.target.classList.contains('photo-input')) return;
+  const file = e.target.files[0];
+  if(!file) return;
+  const siteNo = Number(e.target.dataset.siteNo);
+  const site = siteByNo(siteNo);
+  await dbAdd({
+    siteNo,
+    vendor: site ? site.vendor : '',
+    kasen: site ? site.kasen : '',
+    filename: `No${siteNo}_${Date.now()}.jpg`,
+    blob: file,
+    ts: Date.now()
+  });
+  e.target.value = '';
+  refreshPopupPhotoUI(siteNo);
+  refreshSidebarPhotoStats();
+});
+
+// ポップアップが開いた時に、その箇所の写真枚数・サムネイルを表示
+map.on('popupopen', e=>{
+  const content = e.popup.getElement();
+  if(!content) return;
+  const input = content.querySelector('.photo-input');
+  if(input){
+    refreshPopupPhotoUI(input.dataset.siteNo);
+  }
+});
+
+// ZIPエクスポート
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const all = await dbGetAll();
+  if(all.length === 0) return;
+  const btn = document.getElementById('exportBtn');
+  btn.disabled = true;
+  btn.textContent = '📦 ZIP作成中…';
+  const zip = new JSZip();
+  all.forEach(r=>{
+    const site = siteByNo(r.siteNo);
+    const folder = `No${r.siteNo}_${(site?site.kasen:'').replace(/[\\\/:*?"<>|]/g,'')}`;
+    zip.folder(folder).file(r.filename, r.blob);
+  });
+  const blob = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.href = url;
+  a.download = `災害箇所写真_${today}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 5000);
+  btn.textContent = '📦 全写真をZIPでエクスポート';
+  refreshSidebarPhotoStats();
+});
+
+document.getElementById('btnClearPhotos').addEventListener('click', async ()=>{
+  if(!confirm('端末内に保存した写真をすべて削除します。よろしいですか？（エクスポート前のデータは復元できません）')) return;
+  await dbClearAll();
+  refreshSidebarPhotoStats();
+  SITES.forEach(s=> refreshPopupPhotoUI(s.no));
+});
+
+refreshSidebarPhotoStats();
 </script>
 </body>
 </html>
