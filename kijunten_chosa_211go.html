@@ -41,6 +41,11 @@
   .gps-legend { display:flex; align-items:center; flex-wrap:wrap; gap:2px; }
   .legend-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:3px; vertical-align:middle; }
   .dist-badge { margin-left:6px; padding:1px 7px; border-radius:10px; font-size:10.5px; color:#fff; background:#999; }
+  .add-row { display:flex; gap:8px; margin-top:2px; }
+  .add-row input { flex:1; padding:8px; font-size:13px; border:1px solid #ccc; border-radius:4px; }
+  .add-row button {
+    padding:8px 14px; font-size:13px; font-weight:bold; background:#2e7d32; color:#fff; border:none; border-radius:5px; cursor:pointer; white-space:nowrap;
+  }
 
   /* ---- Survey view ---- */
   #survey-view { height:calc(100vh - 46px); overflow-y:auto; padding:12px; }
@@ -164,6 +169,12 @@
     </div>
     <button id="gpsToggle2" class="gps-btn">📍 現在地との距離を表示（近づくと色が変化）</button>
     <div id="gpsStatus2" class="note"></div>
+
+    <label>現地で項目を追加（例: 追加写真①、KBM.3 など）</label>
+    <div class="add-row">
+      <input type="text" id="customNameInput" placeholder="項目名を入力してEnterまたは追加">
+      <button id="addCustomBtn">＋ 追加</button>
+    </div>
   </div>
 
   <div id="cards"></div>
@@ -378,7 +389,8 @@ document.getElementById('surveyDate').valueAsDate = new Date();
 
 /* ---------------- Survey cards (in-memory state) ---------------- */
 // NOTE: データはこのタブを閉じるまでの一時保存です。永続化はZIP出力で行ってください。
-const allPoints = points.concat(noCoordPoints);
+let customPoints = []; // 現地で追加した項目（座標なし・写真/現況のみ）
+let allPoints = points.concat(noCoordPoints, customPoints);
 const state = {}; // name -> {status, remark, photos:[{blob,url,name}]}
 allPoints.forEach(p => state[p.name] = {status:null, remark:'', photos:[]});
 
@@ -390,6 +402,36 @@ function statusBadge(status) {
   if (status === 'lost') return '<span class="badge badge-lost">亡失・要復旧</span>';
   return '<span class="badge badge-none">未確認</span>';
 }
+
+function addCustomPoint(name) {
+  name = (name || '').trim();
+  if (!name) return;
+  if (state[name]) { alert('同じ名前の項目が既にあります: ' + name); return; }
+  const p = {name};
+  customPoints.push(p);
+  allPoints = points.concat(noCoordPoints, customPoints);
+  state[name] = {status:null, remark:'', photos:[]};
+  render();
+  // 追加した項目を開いた状態にする
+  document.querySelectorAll('.point-card').forEach(c => {
+    if (c.querySelector('h3').textContent.trim().startsWith(name)) {
+      c.classList.add('open');
+      c.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  });
+}
+
+document.getElementById('addCustomBtn').addEventListener('click', () => {
+  const input = document.getElementById('customNameInput');
+  addCustomPoint(input.value);
+  input.value = '';
+});
+document.getElementById('customNameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('addCustomBtn').click();
+  }
+});
 
 function render() {
   cardsEl.innerHTML = '';
