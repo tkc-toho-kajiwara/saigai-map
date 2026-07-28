@@ -162,6 +162,8 @@
         <span style="color:#c62828">※ file:// のまま（サーバーに置かず手元で開いただけ）の状態ではQRが読み取れない、または読み取れても他の端末では開けません。必ずGitHub PagesやBOXなどインターネット上のURLに置いてから、そのURLを入力してください。</span>
       </div>
     </div>
+    <button id="gpsToggle2" class="gps-btn">📍 現在地との距離を表示（近づくと色が変化）</button>
+    <div id="gpsStatus2" class="note"></div>
   </div>
 
   <div id="cards"></div>
@@ -275,12 +277,18 @@ function colorForDistance(d) {
 }
 
 let gpsWatchId = null;
-const gpsToggle = document.getElementById('gpsToggle');
-const gpsStatus = document.getElementById('gpsStatus');
+const gpsToggleBtns = [document.getElementById('gpsToggle'), document.getElementById('gpsToggle2')];
+const gpsStatusEls = [document.getElementById('gpsStatus'), document.getElementById('gpsStatus2')];
+const GPS_ON_LABEL = '📍 現在地追跡を停止';
+const GPS_OFF_LABEL = '📍 現在地との距離を表示（近づくと色が変化）';
+
+function setGpsStatus(text) {
+  gpsStatusEls.forEach(el => { if (el) el.textContent = text; });
+}
 
 function onGPSUpdate(pos) {
   const { latitude, longitude } = pos.coords;
-  gpsStatus.textContent = `現在地取得中（精度 約${Math.round(pos.coords.accuracy)}m）`;
+  setGpsStatus(`現在地取得中（精度 約${Math.round(pos.coords.accuracy)}m／${new Date().toLocaleTimeString('ja-JP')}）`);
 
   if (!userLocMarker) {
     userLocMarker = L.circleMarker([latitude, longitude], {
@@ -306,27 +314,36 @@ function onGPSUpdate(pos) {
 }
 
 function onGPSError(err) {
-  gpsStatus.textContent = '現在地を取得できませんでした: ' + err.message;
+  // コード1=許可拒否, 2=位置情報取得不可, 3=タイムアウト
+  const reasons = {1:'位置情報の利用が許可されていません（ブラウザの設定を確認してください）', 2:'電波状況などにより位置を取得できません', 3:'取得がタイムアウトしました（山間部・木陰などで電波が弱い可能性があります。再試行します）'};
+  setGpsStatus('⚠ ' + (reasons[err.code] || err.message));
 }
 
-gpsToggle.addEventListener('click', () => {
-  if (gpsWatchId === null) {
-    if (!navigator.geolocation) {
-      gpsStatus.textContent = 'このブラウザは位置情報に対応していません';
-      return;
-    }
-    gpsWatchId = navigator.geolocation.watchPosition(onGPSUpdate, onGPSError, {
-      enableHighAccuracy: true, maximumAge: 2000, timeout: 10000
-    });
-    gpsToggle.textContent = '📍 現在地追跡を停止';
-    gpsToggle.classList.add('active');
-  } else {
-    navigator.geolocation.clearWatch(gpsWatchId);
-    gpsWatchId = null;
-    gpsToggle.textContent = '📍 現在地との距離を表示（近づくと色が変化）';
-    gpsToggle.classList.remove('active');
-    gpsStatus.textContent = '';
+function startGPS() {
+  if (!navigator.geolocation) {
+    setGpsStatus('このブラウザは位置情報に対応していません');
+    return;
   }
+  // 山間部など電波が弱い現場向けにタイムアウトを長め・キャッシュ許容を長めに設定
+  gpsWatchId = navigator.geolocation.watchPosition(onGPSUpdate, onGPSError, {
+    enableHighAccuracy: true, maximumAge: 5000, timeout: 20000
+  });
+  gpsToggleBtns.forEach(b => { if (b) { b.textContent = GPS_ON_LABEL; b.classList.add('active'); } });
+  setGpsStatus('現在地を取得しています…');
+}
+
+function stopGPS() {
+  if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+  gpsWatchId = null;
+  gpsToggleBtns.forEach(b => { if (b) { b.textContent = GPS_OFF_LABEL; b.classList.remove('active'); } });
+  setGpsStatus('');
+}
+
+gpsToggleBtns.forEach(btn => {
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    if (gpsWatchId === null) startGPS(); else stopGPS();
+  });
 });
 
 /* ---------------- QR code ---------------- */
