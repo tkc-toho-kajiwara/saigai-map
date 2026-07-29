@@ -17,8 +17,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 #hd-sub{font-size:11px;opacity:.8}
 #chiban-bar{background:rgba(255,255,255,.2);border-radius:6px;padding:4px 10px;font-size:12px;margin-top:6px;display:none}
 #chiban-bar.show{display:block}
-#site-bar{background:rgba(255,255,255,.15);border-radius:6px;padding:4px 10px;font-size:12px;margin-top:6px;cursor:pointer}
-#site-bar:active{background:rgba(255,255,255,.25)}
 /* タブ */
 #tabs{display:flex;background:#fff;border-bottom:2px solid #e0e0d8;flex-shrink:0}
 .tab{flex:1;padding:10px 2px;text-align:center;font-size:11px;color:#888;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;touch-action:manipulation;font-weight:500}
@@ -48,11 +46,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
 #sp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px}
 .sp{padding:9px 2px;border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;border:1.5px solid #ddd;background:#fff;color:#444;text-align:center;touch-action:manipulation;line-height:1.4}
 .sp.on{border-color:#0F6E56;background:#E1F5EE;color:#085041}
-/* 音声ボタン */
-#mic{background:#E24B4A;color:#fff;border:none;border-radius:50%;width:64px;height:64px;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 3px 10px rgba(226,75,74,.4);touch-action:manipulation}
-#mic.rec{animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{box-shadow:0 3px 10px rgba(226,75,74,.4)}50%{box-shadow:0 3px 20px rgba(226,75,74,.7)}}
-#mic-txt{text-align:center;font-size:12px;color:#888;margin-top:6px;min-height:18px}
+
 /* 写真 */
 .ph-thumb{width:68px;height:52px;object-fit:cover;border-radius:6px;border:1.5px solid #ddd;cursor:pointer}
 /* リストアイテム */
@@ -90,7 +84,6 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
     <button onclick="openQR()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit">🏷️ QR読込</button>
   </div>
   <div id="hd-sub">毎木調査デジタル入力</div>
-  <div id="site-bar" onclick="editSiteName()">🏢 <span id="site-txt">現場名：未設定（タップで設定）</span></div>
   <div id="chiban-bar">📍 <span id="chiban-txt"></span></div>
 </div>
 
@@ -127,12 +120,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
       <div class="sp" onclick="selSp('スギ','needle',this)">🌲<br>スギ</div>
       <div class="sp" onclick="selSp('ヒノキ','needle',this)">🌲<br>ヒノキ</div>
       <div class="sp" onclick="selSp('マツ','needle',this)">🌲<br>マツ</div>
-      <div class="sp" onclick="selSp('竹','bamboo',this)">🎋<br>竹</div>
       <div class="sp" onclick="selSp('クリ','fruit',this)">🌰<br>クリ</div>
       <div class="sp" onclick="selSp('ウメ','fruit',this)">🌸<br>ウメ</div>
       <div class="sp" onclick="selSp('サクラ','garden',this)">🌸<br>サクラ</div>
       <div class="sp" onclick="selSp('カキ','fruit',this)">🍊<br>カキ</div>
-      <div class="sp" onclick="selSp('その他','other',this)">🌿<br>その他</div>
+      <div class="sp" onclick="selSp('雑木','other',this)">🌿<br>雑木</div>
+      <div class="sp" onclick="selSp('ナンテン','garden',this)">🌺<br>ナンテン</div>
       <div class="sp" onclick="openCustom()">✏️<br>手入力</div>
     </div>
     <div id="sp-sel" style="text-align:center;font-size:13px;color:#aaa">樹種を選択してください</div>
@@ -140,33 +133,36 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
 
   <!-- STEP3 計測値 -->
   <div class="card">
-    <div class="card-title">STEP 3　計測値</div>
-    <!-- 音声入力 -->
-    <div style="text-align:center;margin-bottom:12px">
-      <button id="mic" onclick="toggleMic()">🎤</button>
-      <div id="mic-txt">マイクで話すか、下の欄に手入力</div>
-    </div>
+    <div class="card-title">STEP 3　計測値（手入力）</div>
+
     <!-- 手入力フォーム（常時表示） -->
     <div id="fields">
       <div class="grid2">
         <div class="field">
-          <label>胸高直径（cm）<span class="req">必須</span></label>
-          <input type="number" id="f-dbh" inputmode="decimal" step="any" placeholder="例：30">
+          <label>胸高直径（cm）<span class="opt">任意</span></label>
+          <input type="text" id="f-dbh" placeholder="例：30,25,28（複数はカンマ区切り）">
         </div>
         <div class="field">
-          <label>樹高（m）<span class="req">必須</span></label>
+          <label>樹高（m）<span class="opt">任意</span></label>
           <input type="number" id="f-height" inputmode="decimal" step="any" placeholder="例：12">
         </div>
       </div>
       <div class="grid2">
         <div class="field">
-          <label>本数<span class="req">必須</span></label>
+          <label>根廻（cm）<span class="opt">任意</span></label>
+          <input type="text" id="f-nemawari" inputmode="decimal" placeholder="例：45,38,52">
+        </div>
+        <div class="field">
+          <label>本数<span class="req">必須</span>　<span style="font-size:10px;color:#aaa">胸高カンマ入力で自動計算</span></label>
           <input type="number" id="f-count" inputmode="numeric" placeholder="1" value="1">
         </div>
+      </div>
+      <div class="grid2">
         <div class="field">
           <label>樹齢（年）<span class="opt">任意</span></label>
           <input type="number" id="f-age" inputmode="numeric" placeholder="聞き取り">
         </div>
+        <div class="field"></div>
       </div>
     </div>
     <!-- 竹用追加フォーム -->
@@ -196,8 +192,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
     <div id="fields-fruit" style="display:none">
       <div class="grid2">
         <div class="field">
-          <label>胸高直径（cm）<span class="req">必須</span></label>
-          <input type="number" id="f-fdbh" inputmode="decimal" step="any" placeholder="例：25">
+          <label>胸高直径（cm）<span class="opt">任意</span></label>
+          <input type="text" id="f-fdbh" placeholder="例：25,20（複数はカンマ区切り）">
         </div>
         <div class="field">
           <label>樹齢（年）<span class="req">必須</span></label>
@@ -206,36 +202,50 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
       </div>
       <div class="grid2">
         <div class="field">
-          <label>本数<span class="req">必須</span></label>
-          <input type="number" id="f-fcount" inputmode="numeric" placeholder="1" value="1">
+          <label>根廻（cm）<span class="opt">任意</span></label>
+          <input type="text" id="f-fnemawari" inputmode="decimal" placeholder="例：45,38,52">
         </div>
         <div class="field">
-          <label>管理状態<span class="req">必須</span></label>
+          <label>本数<span class="req">必須</span>　<span style="font-size:10px;color:#aaa">胸高カンマ入力で自動計算</span></label>
+          <input type="number" id="f-fcount" inputmode="numeric" placeholder="1" value="1">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>管理状態<span class="opt">任意</span></label>
           <select id="f-fcond"><option value="">--</option><option>管理中</option><option>半放置</option><option>放置</option></select>
         </div>
+        <div class="field"></div>
       </div>
     </div>
     <!-- 庭木用 -->
     <div id="fields-garden" style="display:none">
       <div class="grid2">
         <div class="field">
-          <label>胸高直径（cm）<span class="req">必須</span></label>
-          <input type="number" id="f-gdbh" inputmode="decimal" step="any" placeholder="例：20">
+          <label>胸高直径（cm）<span class="opt">任意</span></label>
+          <input type="text" id="f-gdbh" placeholder="例：20,18（複数はカンマ区切り）">
         </div>
         <div class="field">
-          <label>樹高（m）<span class="req">必須</span></label>
+          <label>樹高（m）<span class="opt">任意</span></label>
           <input type="number" id="f-gheight" inputmode="decimal" step="any" placeholder="例：6">
         </div>
       </div>
       <div class="grid2">
         <div class="field">
-          <label>枝張り（m）<span class="req">必須</span></label>
+          <label>枝張り（m）<span class="opt">任意</span></label>
           <input type="number" id="f-spread" inputmode="decimal" step="any" placeholder="例：4">
         </div>
         <div class="field">
-          <label>本数<span class="req">必須</span></label>
+          <label>根廻（cm）<span class="opt">任意</span></label>
+          <input type="text" id="f-gnemawari" inputmode="decimal" placeholder="例：45,38,52">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>本数<span class="req">必須</span>　<span style="font-size:10px;color:#aaa">胸高カンマ入力で自動計算</span></label>
           <input type="number" id="f-gcount" inputmode="numeric" placeholder="1" value="1">
         </div>
+        <div class="field"></div>
       </div>
     </div>
   </div>
@@ -354,22 +364,6 @@ let curSp = null, curCat = null, curPh = [];
 let activeQR = null;
 let qrScanner = null;
 
-// ===== 現場名・発注者名（複数人・複数現場で使う場合の区別用） =====
-let curSite = localStorage.getItem('maiboku_site') || '';
-function refreshSiteBar(){
-  document.getElementById('site-txt').textContent = curSite ? ('現場名：'+curSite+'（タップで変更）') : '現場名：未設定（タップで設定）';
-}
-function editSiteName(){
-  const val = prompt('現場名・発注者名を入力してください\n（複数人・複数発注者のデータを後でまとめる際の目印になります）', curSite || '');
-  if(val===null) return;
-  curSite = val.trim();
-  localStorage.setItem('maiboku_site', curSite);
-  refreshSiteBar();
-  setSb(curSite ? ('現場名を設定しました：'+curSite) : '現場名をクリアしました');
-}
-refreshSiteBar();
-let isRec = false;
-let SR = null;
 
 // ===== タブ =====
 function showTab(name) {
@@ -398,6 +392,26 @@ function selSp(name, cat, el) {
   setSb('樹種「'+name+'」を選択。計測値を入力してください。');
 }
 
+// 胸高・根廻カンマ入力で本数を自動カウント
+function autoCount(inputId, countId) {
+  const el = document.getElementById(inputId);
+  const ce = document.getElementById(countId);
+  if(!el || !ce) return;
+  el.addEventListener('input', () => {
+    const vals = el.value.split(',').map(v=>v.trim()).filter(v=>v!=='');
+    if(vals.length > 1) ce.value = vals.length;
+  });
+}
+// 各フォームの胸高・根廻に自動カウントを設定
+document.addEventListener('DOMContentLoaded', () => {
+  autoCount('f-dbh', 'f-count');
+  autoCount('f-nemawari', 'f-count');
+  autoCount('f-fdbh', 'f-fcount');
+  autoCount('f-fnemawari', 'f-fcount');
+  autoCount('f-gdbh', 'f-gcount');
+  autoCount('f-gnemawari', 'f-gcount');
+});
+
 function openCustom() {
   document.getElementById('modal-custom').classList.add('open');
   setTimeout(() => document.getElementById('custom-inp').focus(), 300);
@@ -419,96 +433,34 @@ function applyCustom() {
 }
 
 // ===== 音声入力 =====
-function toggleMic() {
-  if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    setSb('このブラウザは音声認識非対応です。手動入力してください。'); return;
-  }
-  if(isRec) { if(SR) SR.stop(); return; }
-  const SRClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-  SR = new SRClass();
-  SR.lang = 'ja-JP'; SR.continuous = false; SR.interimResults = true;
-  SR.onstart = () => {
-    isRec = true;
-    document.getElementById('mic').classList.add('rec');
-    document.getElementById('mic').textContent = '⏹';
-    document.getElementById('mic-txt').textContent = '🎤 話してください...';
-  };
-  SR.onresult = e => {
-    const txt = Array.from(e.results).map(r=>r[0].transcript).join('');
-    document.getElementById('mic-txt').textContent = txt;
-    if(e.results[e.results.length-1].isFinal) parseVoice(txt);
-  };
-  SR.onerror = () => stopMic();
-  SR.onend = () => stopMic();
-  SR.start();
-}
-function stopMic() {
-  isRec = false;
-  document.getElementById('mic').classList.remove('rec');
-  document.getElementById('mic').textContent = '🎤';
-}
-function parseVoice(txt) {
-  // 樹種検出
-  const spMap = [
-    {keys:['スギ','すぎ','杉'], name:'スギ', cat:'needle'},
-    {keys:['ヒノキ','ひのき','檜','桧'], name:'ヒノキ', cat:'needle'},
-    {keys:['マツ','まつ','松'], name:'マツ', cat:'needle'},
-    {keys:['竹','タケ','たけ'], name:'竹', cat:'bamboo'},
-    {keys:['クリ','くり','栗'], name:'クリ', cat:'fruit'},
-    {keys:['ウメ','うめ','梅'], name:'ウメ', cat:'fruit'},
-    {keys:['カキ','かき','柿'], name:'カキ', cat:'fruit'},
-    {keys:['サクラ','さくら','桜'], name:'サクラ', cat:'garden'},
-  ];
-  for(const sp of spMap) {
-    if(sp.keys.some(k => txt.includes(k))) {
-      const btn = [...document.querySelectorAll('.sp')].find(b => b.textContent.includes(sp.name));
-      selSp(sp.name, sp.cat, btn);
-      break;
-    }
-  }
-  // 数値抽出
-  const patterns = [
-    {id:'f-dbh',    re:/胸高[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-height', re:/樹高[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-count',  re:/本数[\s:：]?(\d+)/},
-    {id:'f-age',    re:/樹齢[\s:：]?(\d+)/},
-    {id:'f-area',   re:/面積[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-kheight',re:/稈高[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-spread', re:/枝張り[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-bcount', re:/本数[\s:：]?(\d+)/},
-    // 果樹用
-    {id:'f-fdbh',   re:/胸高[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-fage',   re:/樹齢[\s:：]?(\d+)/},
-    {id:'f-fcount', re:/本数[\s:：]?(\d+)/},
-    // 庭木用
-    {id:'f-gdbh',   re:/胸高[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-gheight',re:/樹高[\s:：]?(\d+(\.\d+)?)/},
-    {id:'f-gcount', re:/本数[\s:：]?(\d+)/},
-  ];
-  patterns.forEach(p => {
-    const m = txt.match(p.re);
-    const el = document.getElementById(p.id);
-    if(m && el) el.value = m[1];
-  });
-  setSb('音声認識完了。内容を確認してください。');
-}
 
 // ===== 写真 =====
 function addPh(input) {
-  Array.from(input.files).forEach(f => {
-    const url = URL.createObjectURL(f);
-    curPh.push({url, name:f.name});
-    const img = document.createElement('img');
-    img.className = 'ph-thumb'; img.src = url;
-    img.onclick = () => {
-      if(confirm('この写真を削除しますか？')) {
-        curPh = curPh.filter(p=>p.url!==url);
-        URL.revokeObjectURL(url); img.remove();
-      }
+  const files = Array.from(input.files);
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const b64 = e.target.result; // data:image/jpeg;base64,...
+      const ph = {b64, name: f.name, size: f.size};
+      curPh.push(ph);
+      appendPhThumb(ph, curPh.length - 1);
     };
-    document.getElementById('ph-area').appendChild(img);
+    reader.readAsDataURL(f);
   });
   input.value = '';
+}
+
+function appendPhThumb(ph, idx) {
+  const img = document.createElement('img');
+  img.className = 'ph-thumb';
+  img.src = ph.b64;
+  img.onclick = () => {
+    if(confirm('この写真を削除しますか？')) {
+      curPh.splice(idx, 1);
+      img.remove();
+    }
+  };
+  document.getElementById('ph-area').appendChild(img);
 }
 
 // ===== QR =====
@@ -586,32 +538,34 @@ function regTree() {
     v.cond   = document.getElementById('f-cond').value;
     if(!v.count||!v.area||!v.height){alert('本数・面積・稈高は必須です');return;}
   } else if(curCat==='fruit') {
-    v.dbh   = +document.getElementById('f-fdbh').value||0;
-    v.age   = +document.getElementById('f-fage').value||0;
-    v.count = +document.getElementById('f-fcount').value||1;
-    v.cond  = document.getElementById('f-fcond').value;
-    if(!v.dbh||!v.age){alert('胸高直径・樹齢は必須です');return;}
+    v.dbh      = +document.getElementById('f-fdbh').value||0;
+    v.age      = +document.getElementById('f-fage').value||0;
+    v.nemawari = +document.getElementById('f-fnemawari').value||0;
+    v.count    = +document.getElementById('f-fcount').value||1;
+    v.cond     = document.getElementById('f-fcond').value;
+    // 胸高は任意のためバリデーションなし
   } else if(curCat==='garden') {
-    v.dbh    = +document.getElementById('f-gdbh').value||0;
-    v.height = +document.getElementById('f-gheight').value||0;
-    v.spread = +document.getElementById('f-spread').value||0;
-    v.count  = +document.getElementById('f-gcount').value||1;
-    if(!v.dbh||!v.height||!v.spread){alert('胸高直径・樹高・枝張りは必須です');return;}
+    v.dbh      = +document.getElementById('f-gdbh').value||0;
+    v.height   = +document.getElementById('f-gheight').value||0;
+    v.spread   = +document.getElementById('f-spread').value||0;
+    v.nemawari = +document.getElementById('f-gnemawari').value||0;
+    v.count    = +document.getElementById('f-gcount').value||1;
+    // 胸高は任意のためバリデーションなし
   } else {
-    v.dbh    = +document.getElementById('f-dbh').value||0;
-    v.height = +document.getElementById('f-height').value||0;
-    v.count  = +document.getElementById('f-count').value||1;
-    v.age    = +document.getElementById('f-age').value||0;
-    if(!v.dbh||!v.height){alert('胸高直径・樹高は必須です');return;}
+    v.dbh      = +document.getElementById('f-dbh').value||0;
+    v.height   = +document.getElementById('f-height').value||0;
+    v.nemawari = +document.getElementById('f-nemawari').value||0;
+    v.count    = +document.getElementById('f-count').value||1;
+    v.age      = +document.getElementById('f-age').value||0;
+    // 胸高は任意のためバリデーションなし
   }
 
   const tree = {
     id: Date.now(), no: trees.length+1,
-    site: curSite,
     chiban, owner, chimo,
     species: curSp, category: curCat,
     values: v, biko,
-    photos: curPh.map(p=>p.name),
+    photos: curPh.map(p=>({b64:p.b64, name:p.name})),
     gps: null,
     at: new Date().toISOString()
   };
@@ -634,7 +588,7 @@ function save(tree) {
 
 function resetForm() {
   // 地番はそのまま維持
-  curSp=null; curCat=null; curPh=[];
+  curSp=null; curCat=null;
   document.querySelectorAll('.sp').forEach(b=>b.classList.remove('on'));
   document.getElementById('sp-sel').textContent='樹種を選択してください';
   document.getElementById('sp-sel').style.color='#aaa';
@@ -644,8 +598,8 @@ function resetForm() {
   document.getElementById('fields-fruit').style.display='none';
   document.getElementById('fields-garden').style.display='none';
   // 計測値クリア
-  ['f-dbh','f-height','f-age','f-bcount','f-area','f-kheight',
-   'f-fdbh','f-fage','f-gdbh','f-gheight','f-spread'].forEach(id=>{
+  ['f-dbh','f-height','f-nemawari','f-age','f-bcount','f-area','f-kheight',
+   'f-fdbh','f-fage','f-fnemawari','f-gdbh','f-gheight','f-spread','f-gnemawari'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('f-count').value='1';
@@ -655,7 +609,8 @@ function resetForm() {
   document.getElementById('f-fcond').value='';
   document.getElementById('f-biko').value='';
   document.getElementById('ph-area').innerHTML='';
-  document.getElementById('mic-txt').textContent='マイクで話すか、下の欄に手入力';
+  curPh=[];
+
   window.scrollTo(0,0);
 }
 
@@ -686,19 +641,45 @@ function renderList() {
     const cls={'needle':'','bamboo':'bamboo','fruit':'fruit','garden':'garden'}[t.category]||'';
     d.className='ti '+cls;
     const vt=Object.entries(t.values).map(([k,v])=>{
-      const lbl={dbh:'胸高',height:'樹高',count:'本数',age:'樹齢',area:'面積',cond:'管理',spread:'枝張り',kheight:'稈高'}[k]||k;
+      const lbl={dbh:'胸高',height:'樹高',nemawari:'根廻',count:'本数',age:'樹齢',area:'面積',cond:'管理',spread:'枝張り',kheight:'稈高'}[k]||k;
       const unit={dbh:'cm',height:'m',count:'本',age:'年',area:'㎡',spread:'m'}[k]||'';
       return v?lbl+'：'+v+unit:'';
     }).filter(Boolean).join('　');
-    d.innerHTML=`<div class="ti-no">No.${t.no} | ${t.at.slice(0,10)}${t.site?' | 🏢'+t.site:''}</div>
+    // 写真サムネイル
+const phHtml = (t.photos&&t.photos.length)
+  ? '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'
+    + t.photos.map((p,i)=>`<img src="${p.b64||''}" style="width:60px;height:45px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer" onclick="showPh('${t.id}',${i})">`).join('')
+    + '</div>'
+  : '';
+d.innerHTML=`<div class="ti-no">No.${t.no} | ${t.at.slice(0,10)}</div>
 <div class="ti-sp">${t.species}</div>
 <div class="ti-dt">${vt}</div>
 ${t.biko?'<div class="ti-dt" style="color:#999">備考：'+t.biko+'</div>':''}
 ${t.gps?'<div class="ti-dt" style="color:#1D9E75;font-size:10px">📍 '+t.gps.lat.toFixed(5)+', '+t.gps.lng.toFixed(5)+'</div>':''}
 <div><span class="ti-cb">${t.chiban!=='未設定'?'📋 '+t.chiban+(t.owner?' / '+t.owner:''):'地番未設定（後付け可）'}</span></div>
+${phHtml}
 <button onclick="delTree(${t.id})" style="margin-top:5px;font-size:11px;color:#E24B4A;background:none;border:none;cursor:pointer;padding:0">削除</button>`;
     el.appendChild(d);
   });
+}
+
+function showPh(treeId, idx) {
+  const t = trees.find(t => String(t.id)===String(treeId));
+  if(!t||!t.photos||!t.photos[idx]) return;
+  const ph = t.photos[idx];
+  // 既存のモーダルがあれば削除
+  const old = document.getElementById('ph-modal');
+  if(old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = 'ph-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px';
+  modal.innerHTML = `
+    <img src="${ph.b64}" style="max-width:92vw;max-height:72vh;object-fit:contain;border-radius:8px">
+    <div style="color:#fff;font-size:12px">No.${t.no} ${t.species} / ${ph.name}</div>
+    <button onclick="document.getElementById('ph-modal').remove()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:9px 24px;font-size:14px;cursor:pointer;font-family:inherit">閉じる</button>
+  `;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
 }
 
 function delTree(id) {
@@ -734,10 +715,10 @@ function renderSum() {
 // ===== 出力 =====
 function expCSV() {
   if(!trees.length){alert('データがありません');return;}
-  const hd=['No','現場名','樹種','地番','所有者','地目','胸高(cm)','樹高(m)','本数','樹齢(年)','面積(㎡)','枝張(m)','管理状態','備考','GPS緯度','GPS経度','登録日時'];
+  const hd=['No','樹種','地番','所有者','地目','胸高(cm)','樹高(m)','根廻(cm)','本数','樹齢(年)','面積(㎡)','枝張(m)','管理状態','備考','GPS緯度','GPS経度','登録日時'];
   const rows=trees.map(t=>[
-    t.no,t.site||'',t.species,t.chiban,t.owner,t.chimo,
-    t.values.dbh||'',t.values.height||'',t.values.count||1,
+    t.no,t.species,t.chiban,t.owner,t.chimo,
+    t.values.dbh||'',t.values.height||'',t.values.nemawari||'',t.values.count||1,
     t.values.age||'',t.values.area||'',t.values.spread||'',
     t.values.cond||'',t.biko,
     t.gps?t.gps.lat.toFixed(6):'',t.gps?t.gps.lng.toFixed(6):'',
@@ -745,7 +726,7 @@ function expCSV() {
   ]);
   const csv=[hd,...rows].map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
   const d=new Date();
-  dl('\uFEFF'+csv,'text/csv','毎木調査_'+(curSite?curSite+'_':'')+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.csv');
+  dl('\uFEFF'+csv,'text/csv','毎木調査_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.csv');
 }
 function expJSON() {
   if(!trees.length){alert('データがありません');return;}
