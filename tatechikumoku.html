@@ -153,14 +153,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
           <input type="text" id="f-nemawari" inputmode="decimal" placeholder="例：45,38,52">
         </div>
         <div class="field">
-          <label>本数<span class="req">必須</span>　<span style="font-size:10px;color:#aaa">胸高カンマ入力で自動計算</span></label>
+          <label>本数<span class="req">必須</span>　<span style="font-size:10px;color:#aaa">カンマ入力で自動計算</span></label>
           <input type="number" id="f-count" inputmode="numeric" placeholder="1" value="1">
         </div>
       </div>
       <div class="grid2">
         <div class="field">
-          <label>樹齢（年）<span class="opt">任意</span></label>
-          <input type="number" id="f-age" inputmode="numeric" placeholder="聞き取り">
+          <label>樹幅 W（m）<span class="opt">任意</span></label>
+          <input type="number" id="f-width" inputmode="decimal" step="any" placeholder="例：3.5">
         </div>
         <div class="field"></div>
       </div>
@@ -206,16 +206,19 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0F6E56}
           <input type="text" id="f-fnemawari" inputmode="decimal" placeholder="例：45,38,52">
         </div>
         <div class="field">
-          <label>本数<span class="req">必須</span>　<span style="font-size:10px;color:#aaa">胸高カンマ入力で自動計算</span></label>
+          <label>本数<span class="req">必須</span>　<span style="font-size:10px;color:#aaa">カンマ入力で自動計算</span></label>
           <input type="number" id="f-fcount" inputmode="numeric" placeholder="1" value="1">
         </div>
       </div>
       <div class="grid2">
         <div class="field">
+          <label>樹幅 W（m）<span class="opt">任意</span></label>
+          <input type="number" id="f-fwidth" inputmode="decimal" step="any" placeholder="例：3.5">
+        </div>
+        <div class="field">
           <label>管理状態<span class="opt">任意</span></label>
           <select id="f-fcond"><option value="">--</option><option>管理中</option><option>半放置</option><option>放置</option></select>
         </div>
-        <div class="field"></div>
       </div>
     </div>
     <!-- 庭木用 -->
@@ -410,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
   autoCount('f-fnemawari', 'f-fcount');
   autoCount('f-gdbh', 'f-gcount');
   autoCount('f-gnemawari', 'f-gcount');
+  // 樹幅は本数と無関係なので自動カウント不要
 });
 
 function openCustom() {
@@ -552,12 +556,12 @@ function regTree() {
     v.count    = +document.getElementById('f-gcount').value||1;
     // 胸高は任意のためバリデーションなし
   } else {
-    v.dbh      = +document.getElementById('f-dbh').value||0;
+    v.dbh      = document.getElementById('f-dbh').value.trim()||'';
     v.height   = +document.getElementById('f-height').value||0;
-    v.nemawari = +document.getElementById('f-nemawari').value||0;
+    v.nemawari = document.getElementById('f-nemawari').value.trim()||'';
+    v.width    = +document.getElementById('f-width').value||0;
     v.count    = +document.getElementById('f-count').value||1;
-    v.age      = +document.getElementById('f-age').value||0;
-    // 胸高は任意のためバリデーションなし
+    // 全項目任意
   }
 
   const tree = {
@@ -598,8 +602,8 @@ function resetForm() {
   document.getElementById('fields-fruit').style.display='none';
   document.getElementById('fields-garden').style.display='none';
   // 計測値クリア
-  ['f-dbh','f-height','f-nemawari','f-age','f-bcount','f-area','f-kheight',
-   'f-fdbh','f-fage','f-fnemawari','f-gdbh','f-gheight','f-spread','f-gnemawari'].forEach(id=>{
+  ['f-dbh','f-height','f-nemawari','f-width','f-bcount','f-area','f-kheight',
+   'f-fdbh','f-fnemawari','f-fwidth','f-gdbh','f-gheight','f-spread','f-gnemawari','f-gwidth'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('f-count').value='1';
@@ -641,7 +645,7 @@ function renderList() {
     const cls={'needle':'','bamboo':'bamboo','fruit':'fruit','garden':'garden'}[t.category]||'';
     d.className='ti '+cls;
     const vt=Object.entries(t.values).map(([k,v])=>{
-      const lbl={dbh:'胸高',height:'樹高',nemawari:'根廻',count:'本数',age:'樹齢',area:'面積',cond:'管理',spread:'枝張り',kheight:'稈高'}[k]||k;
+      const lbl={dbh:'胸高',height:'樹高',nemawari:'根廻',width:'樹幅W',count:'本数',area:'面積',cond:'管理',spread:'枝張り',kheight:'稈高'}[k]||k;
       const unit={dbh:'cm',height:'m',count:'本',age:'年',area:'㎡',spread:'m'}[k]||'';
       return v?lbl+'：'+v+unit:'';
     }).filter(Boolean).join('　');
@@ -715,11 +719,11 @@ function renderSum() {
 // ===== 出力 =====
 function expCSV() {
   if(!trees.length){alert('データがありません');return;}
-  const hd=['No','樹種','地番','所有者','地目','胸高(cm)','樹高(m)','根廻(cm)','本数','樹齢(年)','面積(㎡)','枝張(m)','管理状態','備考','GPS緯度','GPS経度','登録日時'];
+  const hd=['No','樹種','地番','所有者','地目','胸高(cm)','樹高(m)','根廻(cm)','樹幅W(m)','本数','面積(㎡)','枝張(m)','管理状態','備考','GPS緯度','GPS経度','登録日時'];
   const rows=trees.map(t=>[
     t.no,t.species,t.chiban,t.owner,t.chimo,
-    t.values.dbh||'',t.values.height||'',t.values.nemawari||'',t.values.count||1,
-    t.values.age||'',t.values.area||'',t.values.spread||'',
+    t.values.dbh||'',t.values.height||'',t.values.nemawari||'',t.values.width||'',t.values.count||1,
+    t.values.area||'',t.values.spread||'',
     t.values.cond||'',t.biko,
     t.gps?t.gps.lat.toFixed(6):'',t.gps?t.gps.lng.toFixed(6):'',
     t.at.slice(0,19).replace('T',' ')
