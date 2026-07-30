@@ -444,23 +444,24 @@ function addPh(input) {
   files.forEach(f => {
     const reader = new FileReader();
     reader.onload = e => {
-      const b64 = e.target.result; // data:image/jpeg;base64,...
-      const ph = {b64, name: f.name, size: f.size};
+      const ph = {b64: e.target.result, name: f.name};
       curPh.push(ph);
-      appendPhThumb(ph, curPh.length - 1);
+      appendPhThumb(ph); // phオブジェクトを直接渡す
     };
     reader.readAsDataURL(f);
   });
   input.value = '';
 }
 
-function appendPhThumb(ph, idx) {
+function appendPhThumb(ph) {
   const img = document.createElement('img');
   img.className = 'ph-thumb';
   img.src = ph.b64;
   img.onclick = () => {
     if(confirm('この写真を削除しますか？')) {
-      curPh.splice(idx, 1);
+      // インデックスではなくオブジェクト参照で削除
+      const i = curPh.indexOf(ph);
+      if(i >= 0) curPh.splice(i, 1);
       img.remove();
     }
   };
@@ -585,7 +586,19 @@ function regTree() {
 
 function save(tree) {
   trees.push(tree);
-  localStorage.setItem('maiboku', JSON.stringify(trees));
+  // localStorage保存（容量超過対策）
+  try {
+    localStorage.setItem('maiboku', JSON.stringify(trees));
+  } catch(e) {
+    // 容量超過の場合は写真なしで保存
+    const lite = trees.map(t=>({...t, photos: t.photos ? t.photos.map(p=>({name:p.name||''})) : []}));
+    try {
+      localStorage.setItem('maiboku', JSON.stringify(lite));
+      setSb('⚠ 写真データが大きいため写真なしで保存しました。CSVを出力してデータを退避してください。');
+    } catch(e2) {
+      setSb('⚠ ストレージ容量不足。CSVを出力してからデータをクリアしてください。');
+    }
+  }
   setSb('No.'+tree.no+'「'+tree.species+'」を登録しました。（累計：'+trees.length+'本）');
   resetForm();
 }
@@ -612,8 +625,10 @@ function resetForm() {
   document.getElementById('f-cond').value='';
   document.getElementById('f-fcond').value='';
   document.getElementById('f-biko').value='';
-  document.getElementById('ph-area').innerHTML='';
-  curPh=[];
+  // 写真エリアを完全クリア
+  curPh = [];
+  const pa = document.getElementById('ph-area');
+  if(pa) pa.innerHTML = '';
 
   window.scrollTo(0,0);
 }
@@ -735,7 +750,11 @@ function expCSV() {
 function expJSON() {
   if(!trees.length){alert('データがありません');return;}
   const d=new Date();
-  dl(JSON.stringify(trees,null,2),'application/json','毎木調査_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.json');
+  const fname='毎木調査_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate());
+  // 写真なし版（軽量・Excelで開ける）
+  const lite = trees.map(t=>({...t, photos: t.photos ? t.photos.map(p=>p.name||'') : []}));
+  dl(JSON.stringify(lite,null,2),'application/json',fname+'.json');
+  setSb('JSONを保存しました（写真はリストタブで確認できます）');
 }
 function impJSON(input) {
   const f=input.files[0];if(!f)return;
