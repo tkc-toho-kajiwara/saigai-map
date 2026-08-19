@@ -731,16 +731,17 @@ async function downloadSelected(){
 renderPhotoList();
 
 // 全マーカーが収まるよう自動フィット（サイズ確定前後で再計算できるよう関数化）
-const allLatLngs=data.map(p=>[p.lat,p.lng]);
+const allLatLngs=data.map(p=>p.manuallyMoved?[p.lat,p.lng]:[p.origLat,p.origLng]);
 function fitAllMarkers(){
   if(allLatLngs.length===1){map.setView(allLatLngs[0],17);}else{map.fitBounds(allLatLngs,{padding:[40,40]});}
 }
 fitAllMarkers();
 
-// 重なり回避（元の地図アプリと同じ考え方：近接マーカーを扇状にずらし、元位置に点＋線を残す）
+// 重なり回避（元の地図アプリと同じ考え方：元GPS位置が近いものだけを扇状にずらす。
+// 手動で動かした写真(manuallyMoved)はその位置をそのまま尊重し、自動計算の対象から外す）
 function declutterExport(){
   const THRESH=54;
-  const pts=data.map(p=>({p,pt:map.latLngToLayerPoint([p.lat,p.lng])}));
+  const pts=data.map(p=>({p,pt:map.latLngToLayerPoint([p.origLat,p.origLng])}));
   const used=new Array(pts.length).fill(false);
   const groups=[];
   for(let i=0;i<pts.length;i++){
@@ -754,13 +755,16 @@ function declutterExport(){
   }
   groups.forEach(group=>{
     if(group.length===1){
-      group[0].p._disp=[group[0].p.lat,group[0].p.lng];
+      const p=group[0].p;
+      p._disp=p.manuallyMoved?[p.lat,p.lng]:[p.origLat,p.origLng];
     }else{
       const n=group.length;
       const radius=58+Math.min(n,6)*10;
       const spread=Math.min(300,40*n);
       const start=-90-spread/2;
       group.forEach((g,idx)=>{
+        const p=g.p;
+        if(p.manuallyMoved){p._disp=[p.lat,p.lng];return;}
         const angleDeg=start+(n>1?(spread/(n-1))*idx:0);
         const rad=angleDeg*Math.PI/180;
         const offPt=L.point(g.pt.x+radius*Math.cos(rad),g.pt.y+radius*Math.sin(rad));
@@ -778,10 +782,10 @@ function renderMarkers(){
   declutterExport();
   data.forEach(p=>{
     const disp=p._disp||[p.lat,p.lng];
-    const differs=Math.abs(disp[0]-p.lat)>1e-8||Math.abs(disp[1]-p.lng)>1e-8;
+    const differs=Math.abs(disp[0]-p.origLat)>1e-8||Math.abs(disp[1]-p.origLng)>1e-8;
     if(differs){
-      L.polyline([[p.lat,p.lng],disp],{color:'#185FA5',weight:2,opacity:.75}).addTo(window._lineLayer);
-      L.circleMarker([p.lat,p.lng],{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(window._lineLayer);
+      L.polyline([[p.origLat,p.origLng],disp],{color:'#185FA5',weight:2,opacity:.75,dashArray:p.manuallyMoved?'4,4':null}).addTo(window._lineLayer);
+      L.circleMarker([p.origLat,p.origLng],{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(window._lineLayer);
     }
     const sz=68;
     const icon=L.divIcon({className:'',html:'<div class="ph-mw" style="width:'+sz+'px"><div class="ph-mn">'+p.num+'</div><img src="'+p.b64+'" style="width:'+sz+'px;height:'+(sz*3/4|0)+'px"><div class="ph-ml">'+p.name+'</div></div>',iconSize:[sz+4,(sz*3/4|0)+20],iconAnchor:[sz/2+2,(sz*3/4|0)/2+10]});
@@ -798,7 +802,13 @@ map.on('zoomend moveend',renderMarkers);
     // data配列を1本の巨大文字列にせず、写真1枚ずつ別々の部品として積む
     const parts=[headerPart];
     phs.forEach((p,i)=>{
-      const meta=JSON.stringify({id:p.id,num:p.num,name:p.name,lat:p.latlng.lat,lng:p.latlng.lng});
+      const meta=JSON.stringify({
+        id:p.id,num:p.num,name:p.name,
+        lat:p.latlng.lat,lng:p.latlng.lng,
+        origLat:p.origLatlng?p.origLatlng.lat:p.latlng.lat,
+        origLng:p.origLatlng?p.origLatlng.lng:p.latlng.lng,
+        manuallyMoved:!!p.manuallyMoved
+      });
       parts.push((i>0?',':'')+meta.slice(0,-1)+',"b64":"');
       parts.push(p.b64);
       parts.push('"}');
