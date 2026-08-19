@@ -636,9 +636,20 @@ function exportHTML(){
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"><\/script>
-<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#hd select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #ccc}#wrap{display:flex;height:calc(100vh - 36px)}#map{flex:1}#side{width:170px;flex-shrink:0;border-left:1px solid #ddd;background:#fff;display:flex;flex-direction:column}#side-hd{padding:6px;border-bottom:1px solid #eee;display:flex;gap:4px;flex-wrap:wrap}#side-hd button{font-size:10.5px;padding:5px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}#side-hd button.dl{background:#185FA5;color:#fff;border-color:#185FA5;flex:1 0 100%}#photo-list{flex:1;overflow-y:auto}.pl-item{display:flex;align-items:center;gap:6px;padding:6px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:11px}.pl-item:hover{background:#f7f9fb}.pl-item img{width:36px;height:27px;object-fit:cover;border-radius:3px;flex-shrink:0}.pl-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#hd select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #ccc}#hd button{font-size:11px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}#hd button.on{background:#E6F1FB;border-color:#185FA5;color:#185FA5}#wrap{display:flex;height:calc(100vh - 36px)}#map{flex:1}#side{width:170px;flex-shrink:0;border-left:1px solid #ddd;background:#fff;display:flex;flex-direction:column}#side-hd{padding:6px;border-bottom:1px solid #eee;display:flex;gap:4px;flex-wrap:wrap}#side-hd button{font-size:10.5px;padding:5px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}#side-hd button.dl{background:#185FA5;color:#fff;border-color:#185FA5;flex:1 0 100%}#photo-list{flex:1;overflow-y:auto}.pl-item{display:flex;align-items:center;gap:6px;padding:6px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:11px}.pl-item:hover{background:#f7f9fb}.pl-item img{width:36px;height:27px;object-fit:cover;border-radius:3px;flex-shrink:0}.pl-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}#print-header{display:none;padding:6px 10px;font-size:13px;border-bottom:1px solid #ccc}
+@media print{
+  #hd,#side,#photo-modal{display:none!important}
+  html,body{overflow:visible!important;height:auto!important}
+  #print-header{display:block!important}
+  #wrap{display:block!important;height:auto!important}
+  #map{position:relative!important;width:100%!important;height:180mm!important}
+  .leaflet-control{display:none!important}
+  @page{size:landscape;margin:8mm}
+}
+</style>
 </head><body>
-<div id="hd"><b>災害調査写真配置図</b><span style="color:#888;font-size:11px;flex:1">${ts} / ${phs.length}枚</span><select id="layer-sel" onchange="changeLayer(this.value)"></select></div>
+<div id="hd"><b>災害調査写真配置図</b><span style="color:#888;font-size:11px;flex:1">${ts} / ${phs.length}枚</span><button id="btn-print-area" onclick="togglePrintAreaMode()"><span id="print-area-txt">印刷範囲を選ぶ</span></button><button onclick="doExportPrint()">🖨 印刷</button><select id="layer-sel" onchange="changeLayer(this.value)"></select></div>
+<div id="print-header"><b>災害調査写真配置図</b> <span style="color:#888">${ts} / ${phs.length}枚</span></div>
 <div id="wrap">
 <div id="map"></div>
 <div id="side">
@@ -800,6 +811,43 @@ map.invalidateSize();
 setTimeout(()=>{map.invalidateSize();fitAllMarkers();renderMarkers();},50);
 setTimeout(()=>{map.invalidateSize();fitAllMarkers();renderMarkers();},300);
 map.on('zoomend moveend',renderMarkers);
+
+// ===== 印刷範囲をドラッグで選ぶ（編集画面と同じ仕組み） =====
+let printAreaMode=false,printRect=null,printRectStart=null;
+function togglePrintAreaMode(){
+  printAreaMode=!printAreaMode;
+  document.getElementById('btn-print-area').classList.toggle('on',printAreaMode);
+  document.getElementById('print-area-txt').textContent=printAreaMode?'ドラッグで範囲指定...':'印刷範囲を選ぶ';
+  if(map.dragging)map.dragging[printAreaMode?'disable':'enable']();
+  map.getContainer().style.cursor=printAreaMode?'crosshair':'';
+  if(!printAreaMode&&printRect){map.removeLayer(printRect);printRect=null;}
+}
+document.getElementById('map').addEventListener('pointerdown',e=>{
+  if(!printAreaMode)return;
+  e.preventDefault();
+  printRectStart=map.mouseEventToLatLng(e);
+  if(printRect){map.removeLayer(printRect);printRect=null;}
+  printRect=L.rectangle([printRectStart,printRectStart],{color:'#185FA5',weight:2,dashArray:'6,4',fillOpacity:.08}).addTo(map);
+  const move=ev=>{if(printRect)printRect.setBounds([printRectStart,map.mouseEventToLatLng(ev)]);};
+  const up=ev=>{
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',up);
+    const end=map.mouseEventToLatLng(ev);
+    const bounds=L.latLngBounds([printRectStart,end]);
+    if(printRect){map.removeLayer(printRect);printRect=null;}
+    if(bounds.getNorthEast().distanceTo(bounds.getSouthWest())<8)return;
+    map.fitBounds(bounds,{padding:[10,10]});
+    togglePrintAreaMode();
+    setTimeout(()=>map.invalidateSize(),300);
+  };
+  document.addEventListener('pointermove',move);
+  document.addEventListener('pointerup',up);
+});
+function doExportPrint(){
+  if(printAreaMode)togglePrintAreaMode();
+  map.invalidateSize();
+  setTimeout(()=>window.print(),200);
+}
 <\/script></body></html>`;
     // data配列を1本の巨大文字列にせず、写真1枚ずつ別々の部品として積む
     const parts=[headerPart];
