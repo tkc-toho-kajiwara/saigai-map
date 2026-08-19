@@ -460,13 +460,14 @@ function updateLeaderVisual(ph){
 }
 
 // ===== 重なりマーカーの自動振り分け（元座標は変えず、表示位置のみ調整） =====
+// グループ判定は「実際の距離（メートル）」で行う（画面ピクセル距離だとズームのたびに結果が変わってしまうため）
+const DECLUTTER_GEO_THRESH_M=12;
 let declutterTimer=null;
 function scheduleDeclutter(){clearTimeout(declutterTimer);declutterTimer=setTimeout(declutterMarkers,60);}
 function declutterMarkers(){
   const items=photos.filter(p=>p.latlng&&p.marker&&p.origLatlng);
   if(!items.length)return;
-  const THRESH=54;
-  const pts=items.map(p=>({p,pt:map.latLngToLayerPoint(L.latLng(p.origLatlng.lat,p.origLatlng.lng))}));
+  const pts=items.map(p=>({p,ll:L.latLng(p.origLatlng.lat,p.origLatlng.lng),pt:map.latLngToLayerPoint(L.latLng(p.origLatlng.lat,p.origLatlng.lng))}));
   const used=new Array(pts.length).fill(false);
   const groups=[];
   for(let i=0;i<pts.length;i++){
@@ -474,7 +475,7 @@ function declutterMarkers(){
     const group=[pts[i]];used[i]=true;
     for(let j=i+1;j<pts.length;j++){
       if(used[j])continue;
-      if(pts[i].pt.distanceTo(pts[j].pt)<THRESH){group.push(pts[j]);used[j]=true;}
+      if(pts[i].ll.distanceTo(pts[j].ll)<DECLUTTER_GEO_THRESH_M){group.push(pts[j]);used[j]=true;}
     }
     groups.push(group);
   }
@@ -738,10 +739,11 @@ function fitAllMarkers(){
 fitAllMarkers();
 
 // 重なり回避（元の地図アプリと同じ考え方：元GPS位置が近いものだけを扇状にずらす。
-// 手動で動かした写真(manuallyMoved)はその位置をそのまま尊重し、自動計算の対象から外す）
+// 手動で動かした写真(manuallyMoved)はその位置をそのまま尊重し、自動計算の対象から外す。
+// グループ判定は実際の距離（メートル）で行う（画面ピクセル距離だとズームのたびに結果が変わるため）
+const DECLUTTER_GEO_THRESH_M=12;
 function declutterExport(){
-  const THRESH=54;
-  const pts=data.map(p=>({p,pt:map.latLngToLayerPoint([p.origLat,p.origLng])}));
+  const pts=data.map(p=>({p,ll:L.latLng(p.origLat,p.origLng),pt:map.latLngToLayerPoint([p.origLat,p.origLng])}));
   const used=new Array(pts.length).fill(false);
   const groups=[];
   for(let i=0;i<pts.length;i++){
@@ -749,7 +751,7 @@ function declutterExport(){
     const group=[pts[i]];used[i]=true;
     for(let j=i+1;j<pts.length;j++){
       if(used[j])continue;
-      if(pts[i].pt.distanceTo(pts[j].pt)<THRESH){group.push(pts[j]);used[j]=true;}
+      if(pts[i].ll.distanceTo(pts[j].ll)<DECLUTTER_GEO_THRESH_M){group.push(pts[j]);used[j]=true;}
     }
     groups.push(group);
   }
