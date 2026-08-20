@@ -524,6 +524,17 @@ html,body{margin:0;padding:0}
 #kouku-gate .box button{background:#0F6E56;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:14px;cursor:pointer}
 #autonext-banner{display:none;position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#0F6E56;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:21000;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 #autonext-banner.show{display:block}
+#print-header{display:none}
+@media print{
+  #toolbar,#side,#add-modal,#save-modal,#modal,#offline-badge{display:none!important}
+  html,body{overflow:visible!important;height:auto!important}
+  #print-header{display:block!important;padding:6px 10px;font-size:13px;border-bottom:1px solid #ccc}
+  #main{display:block!important;height:auto!important}
+  #map-wrap{position:relative!important;width:100%!important;height:180mm!important;overflow:visible!important}
+  #map{position:relative!important;width:100%!important;height:100%!important}
+  .leaflet-control{display:none!important}
+  @page{size:landscape;margin:8mm}
+}
 
 </style>
 </head>
@@ -794,7 +805,16 @@ html,body{margin:0;padding:0}
       <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
       印刷
     </button>
+    <button class="tb-btn" id="btn-print-area" onclick="togglePrintAreaMode()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></svg>
+      <span id="print-area-txt">印刷範囲を選ぶ</span>
+    </button>
+    <button class="tb-btn" id="btn-toggle-side" onclick="toggleSidePanelLive()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      <span id="toggle-side-txt">一覧を隠す</span>
+    </button>
   </div>
+  <div id="print-header" style="display:none"><b>構造物調査 写真配置図</b><span id="print-header-meta"></span></div>
   <div id="main">
     <div id="map-wrap"><div id="map"></div></div>
     <div id="side">
@@ -1492,9 +1512,9 @@ function readExifGPS(file){
             for(let i=0;i<gn;i++){
               const b=gp+2+i*12,tg=ru16(b),vo=ru32(b+8);
               const dms=o=>{const g=o=>dv.getUint32(ts+o,le);return g(o)/g(o+4)+g(o+8)/g(o+12)/60+(g(o+20)?g(o+16)/g(o+20):0)/3600;};
-              if(tg===1)lr=String.fromCharCode(dv.getUint8(ts+vo));
+              if(tg===1)lr=String.fromCharCode(dv.getUint8(ts+b+8));
               else if(tg===2)la=dms(vo);
-              else if(tg===3)mr=String.fromCharCode(dv.getUint8(ts+vo));
+              else if(tg===3)mr=String.fromCharCode(dv.getUint8(ts+b+8));
               else if(tg===4)lo=dms(vo);
             }
             if(la&&lo){res({lat:lr==='S'?-la:la,lng:mr==='W'?-lo:lo});return;}
@@ -1579,13 +1599,14 @@ function updateLeaderVisual(ph){
 }
 
 // ===== 重なりマーカーの自動振り分け（元座標は変えず、表示位置のみ調整） =====
+// グループ判定は「実際の距離（メートル）」で行う（画面ピクセル距離だとズームのたびに結果が変わってしまうため）
+const DECLUTTER_GEO_THRESH_M=12;
 let declutterTimer=null;
 function scheduleDeclutter(){clearTimeout(declutterTimer);declutterTimer=setTimeout(declutterMarkers,60);}
 function declutterMarkers(){
   const items=photos.filter(p=>p.latlng&&p.marker&&p.origLatlng);
   if(!items.length)return;
-  const THRESH=54;
-  const pts=items.map(p=>({p,pt:map.latLngToLayerPoint(L.latLng(p.origLatlng.lat,p.origLatlng.lng))}));
+  const pts=items.map(p=>({p,ll:L.latLng(p.origLatlng.lat,p.origLatlng.lng),pt:map.latLngToLayerPoint(L.latLng(p.origLatlng.lat,p.origLatlng.lng))}));
   const used=new Array(pts.length).fill(false);
   const groups=[];
   for(let i=0;i<pts.length;i++){
@@ -1593,7 +1614,7 @@ function declutterMarkers(){
     const group=[pts[i]];used[i]=true;
     for(let j=i+1;j<pts.length;j++){
       if(used[j])continue;
-      if(pts[i].pt.distanceTo(pts[j].pt)<THRESH){group.push(pts[j]);used[j]=true;}
+      if(pts[i].ll.distanceTo(pts[j].ll)<DECLUTTER_GEO_THRESH_M){group.push(pts[j]);used[j]=true;}
     }
     groups.push(group);
   }
@@ -1731,35 +1752,43 @@ function exportHTML(){
   const placed=photos.filter(p=>p.latlng);
   if(!placed.length){alert('写真を地図上に配置してから保存してください');return;}
   closeSaveModal();
-  setStatus('HTMLファイルを生成中...');
-  const toBase64=file=>new Promise(res=>{
+  let done=0;
+  setStatus('HTMLファイルを生成中...(0/'+placed.length+')');
+  const toBase64=file=>new Promise((res,rej)=>{
+    if(!file){rej(new Error('ファイルデータがありません'));return;}
     const r=new FileReader();
-    r.onload=e=>res(e.target.result);
+    r.onload=e=>{done++;setStatus('HTMLファイルを生成中...('+done+'/'+placed.length+')');res(e.target.result);};
+    r.onerror=()=>rej(new Error('画像の読み込みに失敗しました'));
     r.readAsDataURL(file);
   });
   Promise.all(placed.map(p=>toBase64(p.file).then(b64=>({...p,b64})))).then(phs=>{
     const layerKey=document.getElementById('map-sel').value;
     const now=new Date();
     const ts=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
-    const popups=phs.map(p=>`
-<div id="m${p.id}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:10px" onclick="if(event.target===this)this.style.display='none'">
-<img src="${p.b64}" style="max-width:90vw;max-height:72vh;object-fit:contain;border-radius:8px">
-<div style="color:#fff;font-size:13px">No.${p.num} ${p.name}</div>
-<div style="display:flex;gap:10px">
-<a href="${p.b64}" download="No${p.num}_${p.name}.jpg" style="background:#185FA5;color:#fff;border:1px solid #185FA5;border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer;text-decoration:none">⬇ ダウンロード</a>
-<button style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer" onclick="document.getElementById('m${p.id}').style.display='none'">閉じる</button>
-</div>
-</div>`).join('');
     const tilesJson=JSON.stringify(TILES);
-    const html=`<!DOCTYPE html>
+    // ===== 写真データが大量・大容量でも「Invalid string length」で失敗しないよう、
+    //       1本の巨大文字列を作らずBlobの部品配列として組み立てる。
+    //       また、写真base64は data配列にのみ格納し、モーダル側は使い回して二重埋め込みをなくす =====
+    const headerPart=`<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>構造物調査写真配置図 ${ts}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"><\/script>
-<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#hd select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #ccc}#wrap{display:flex;height:calc(100vh - 36px)}#map{flex:1}#side{width:170px;flex-shrink:0;border-left:1px solid #ddd;background:#fff;display:flex;flex-direction:column}#side-hd{padding:6px;border-bottom:1px solid #eee;display:flex;gap:4px;flex-wrap:wrap}#side-hd button{font-size:10.5px;padding:5px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}#side-hd button.dl{background:#185FA5;color:#fff;border-color:#185FA5;flex:1 0 100%}#photo-list{flex:1;overflow-y:auto}.pl-item{display:flex;align-items:center;gap:6px;padding:6px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:11px}.pl-item:hover{background:#f7f9fb}.pl-item img{width:36px;height:27px;object-fit:cover;border-radius:3px;flex-shrink:0}.pl-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}#hd{padding:8px 12px;background:#fff;border-bottom:1px solid #ddd;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#hd select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #ccc}#hd button{font-size:11px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}#hd button.on{background:#E6F1FB;border-color:#185FA5;color:#185FA5}#wrap{display:flex;height:calc(100vh - 36px)}#map{flex:1}#side{width:170px;flex-shrink:0;border-left:1px solid #ddd;background:#fff;display:flex;flex-direction:column}#side-hd{padding:6px;border-bottom:1px solid #eee;display:flex;gap:4px;flex-wrap:wrap}#side-hd button{font-size:10.5px;padding:5px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}#side-hd button.dl{background:#185FA5;color:#fff;border-color:#185FA5;flex:1 0 100%}#photo-list{flex:1;overflow-y:auto}.pl-item{display:flex;align-items:center;gap:6px;padding:6px;border-bottom:1px solid #f2f2f2;cursor:pointer;font-size:11px}.pl-item:hover{background:#f7f9fb}.pl-item img{width:36px;height:27px;object-fit:cover;border-radius:3px;flex-shrink:0}.pl-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}.ph-mw{background:#fff;border:2px solid #378ADD;border-radius:6px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}.ph-mw img{display:block;border-radius:3px;object-fit:cover}.ph-ml{font-size:9px;text-align:center;background:rgba(0,0,0,.65);color:#fff;padding:1px 3px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ph-mn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;background:#E24B4A;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1}#print-header{display:none;padding:6px 10px;font-size:13px;border-bottom:1px solid #ccc}
+@media print{
+  #hd,#side,#photo-modal{display:none!important}
+  html,body{overflow:visible!important;height:auto!important}
+  #print-header{display:block!important}
+  #wrap{display:block!important;height:auto!important}
+  #map{position:relative!important;width:100%!important;height:180mm!important}
+  .leaflet-control{display:none!important}
+  @page{size:landscape;margin:8mm}
+}
+</style>
 </head><body>
-<div id="hd"><b>災害調査写真配置図</b><span style="color:#888;font-size:11px;flex:1">${ts} / ${phs.length}枚</span><select id="layer-sel" onchange="changeLayer(this.value)"></select></div>
+<div id="hd"><b>構造物調査写真配置図</b><span style="color:#888;font-size:11px;flex:1">${ts} / ${phs.length}枚</span><button id="btn-toggle-side" onclick="toggleSidePanel()">一覧を隠す</button><button id="btn-print-area" onclick="togglePrintAreaMode()"><span id="print-area-txt">印刷範囲を選ぶ</span></button><button onclick="doExportPrint()">🖨 印刷</button><select id="layer-sel" onchange="changeLayer(this.value)"></select></div>
+<div id="print-header"><b>構造物調査写真配置図</b> <span style="color:#888">${ts} / ${phs.length}枚</span></div>
 <div id="wrap">
 <div id="map"></div>
 <div id="side">
@@ -1771,7 +1800,14 @@ function exportHTML(){
   <div id="photo-list"></div>
 </div>
 </div>
-${popups}
+<div id="photo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:10px" onclick="if(event.target===this)closePhotoModal()">
+<img id="pm-img" style="max-width:90vw;max-height:72vh;object-fit:contain;border-radius:8px">
+<div id="pm-cap" style="color:#fff;font-size:13px"></div>
+<div style="display:flex;gap:10px">
+<a id="pm-dl" style="background:#185FA5;color:#fff;border:1px solid #185FA5;border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer;text-decoration:none">⬇ ダウンロード</a>
+<button style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:8px 24px;font-size:14px;cursor:pointer" onclick="closePhotoModal()">閉じる</button>
+</div>
+</div>
 <script>
 const TILES=${tilesJson};
 const map=L.map('map');
@@ -1789,7 +1825,8 @@ Object.keys(TILES).forEach(k=>{
 sel.value='${layerKey}';
 changeLayer('${layerKey}');
 
-const data=${JSON.stringify(phs.map(p=>({id:p.id,num:p.num,name:p.name,lat:p.latlng.lat,lng:p.latlng.lng,b64:p.b64})))};
+const data=[`;
+    const footerPart=`];
 data.forEach(p=>{p._sel=true;});
 
 function renderPhotoList(){
@@ -1810,11 +1847,21 @@ function selectAllPhotos(v){
   data.forEach(p=>p._sel=v);
   renderPhotoList();
 }
+function openPhotoModal(id){
+  const p=data.find(d=>d.id===id);
+  if(!p)return;
+  document.getElementById('pm-img').src=p.b64;
+  document.getElementById('pm-cap').textContent='No.'+p.num+' '+p.name;
+  const dl=document.getElementById('pm-dl');
+  dl.href=p.b64;dl.setAttribute('download','No'+p.num+'_'+p.name+'.jpg');
+  document.getElementById('photo-modal').style.display='flex';
+}
+function closePhotoModal(){document.getElementById('photo-modal').style.display='none';}
 function focusPhoto(id){
   const p=data.find(d=>d.id===id);
   if(!p)return;
   map.setView([p.lat,p.lng],Math.max(map.getZoom(),17));
-  document.getElementById('m'+id).style.display='flex';
+  openPhotoModal(id);
 }
 async function downloadSelected(){
   const sel=data.filter(p=>p._sel);
@@ -1834,14 +1881,19 @@ async function downloadSelected(){
 }
 renderPhotoList();
 
-// 全マーカーが収まるよう自動フィット
-const allLatLngs=data.map(p=>[p.lat,p.lng]);
-if(allLatLngs.length===1){map.setView(allLatLngs[0],17);}else{map.fitBounds(allLatLngs,{padding:[40,40]});}
+// 全マーカーが収まるよう自動フィット（サイズ確定前後で再計算できるよう関数化）
+const allLatLngs=data.map(p=>p.manuallyMoved?[p.lat,p.lng]:[p.origLat,p.origLng]);
+function fitAllMarkers(){
+  if(allLatLngs.length===1){map.setView(allLatLngs[0],17);}else{map.fitBounds(allLatLngs,{padding:[40,40]});}
+}
+fitAllMarkers();
 
-// 重なり回避（元の地図アプリと同じ考え方：近接マーカーを扇状にずらし、元位置に点＋線を残す）
+// 重なり回避（元の地図アプリと同じ考え方：元GPS位置が近いものだけを扇状にずらす。
+// 手動で動かした写真(manuallyMoved)はその位置をそのまま尊重し、自動計算の対象から外す。
+// グループ判定は実際の距離（メートル）で行う（画面ピクセル距離だとズームのたびに結果が変わるため）
+const DECLUTTER_GEO_THRESH_M=12;
 function declutterExport(){
-  const THRESH=54;
-  const pts=data.map(p=>({p,pt:map.latLngToLayerPoint([p.lat,p.lng])}));
+  const pts=data.map(p=>({p,ll:L.latLng(p.origLat,p.origLng),pt:map.latLngToLayerPoint([p.origLat,p.origLng])}));
   const used=new Array(pts.length).fill(false);
   const groups=[];
   for(let i=0;i<pts.length;i++){
@@ -1849,19 +1901,22 @@ function declutterExport(){
     const group=[pts[i]];used[i]=true;
     for(let j=i+1;j<pts.length;j++){
       if(used[j])continue;
-      if(pts[i].pt.distanceTo(pts[j].pt)<THRESH){group.push(pts[j]);used[j]=true;}
+      if(pts[i].ll.distanceTo(pts[j].ll)<DECLUTTER_GEO_THRESH_M){group.push(pts[j]);used[j]=true;}
     }
     groups.push(group);
   }
   groups.forEach(group=>{
     if(group.length===1){
-      group[0].p._disp=[group[0].p.lat,group[0].p.lng];
+      const p=group[0].p;
+      p._disp=p.manuallyMoved?[p.lat,p.lng]:[p.origLat,p.origLng];
     }else{
       const n=group.length;
       const radius=58+Math.min(n,6)*10;
       const spread=Math.min(300,40*n);
       const start=-90-spread/2;
       group.forEach((g,idx)=>{
+        const p=g.p;
+        if(p.manuallyMoved){p._disp=[p.lat,p.lng];return;}
         const angleDeg=start+(n>1?(spread/(n-1))*idx:0);
         const rad=angleDeg*Math.PI/180;
         const offPt=L.point(g.pt.x+radius*Math.cos(rad),g.pt.y+radius*Math.sin(rad));
@@ -1879,29 +1934,148 @@ function renderMarkers(){
   declutterExport();
   data.forEach(p=>{
     const disp=p._disp||[p.lat,p.lng];
-    const differs=Math.abs(disp[0]-p.lat)>1e-8||Math.abs(disp[1]-p.lng)>1e-8;
+    const differs=Math.abs(disp[0]-p.origLat)>1e-8||Math.abs(disp[1]-p.origLng)>1e-8;
     if(differs){
-      L.polyline([[p.lat,p.lng],disp],{color:'#185FA5',weight:2,opacity:.75}).addTo(window._lineLayer);
-      L.circleMarker([p.lat,p.lng],{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(window._lineLayer);
+      L.polyline([[p.origLat,p.origLng],disp],{color:'#185FA5',weight:2,opacity:.75,dashArray:p.manuallyMoved?'4,4':null}).addTo(window._lineLayer);
+      L.circleMarker([p.origLat,p.origLng],{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(window._lineLayer);
     }
     const sz=68;
     const icon=L.divIcon({className:'',html:'<div class="ph-mw" style="width:'+sz+'px"><div class="ph-mn">'+p.num+'</div><img src="'+p.b64+'" style="width:'+sz+'px;height:'+(sz*3/4|0)+'px"><div class="ph-ml">'+p.name+'</div></div>',iconSize:[sz+4,(sz*3/4|0)+20],iconAnchor:[sz/2+2,(sz*3/4|0)/2+10]});
-    L.marker(disp,{icon}).addTo(window._markerLayer).on('click',()=>document.getElementById('m'+p.id).style.display='flex');
+    L.marker(disp,{icon}).addTo(window._markerLayer).on('click',()=>openPhotoModal(p.id));
   });
 }
-renderMarkers();
+// 地図のピクセルサイズが確定してから、表示範囲・重なり回避の両方を計算し直す
+// （サイズ未確定のまま計算すると、ズームがずれたまま重なり判定してしまい写真がバラバラになるため）
+map.invalidateSize();
+setTimeout(()=>{map.invalidateSize();fitAllMarkers();renderMarkers();},50);
+setTimeout(()=>{map.invalidateSize();fitAllMarkers();renderMarkers();},300);
 map.on('zoomend moveend',renderMarkers);
+
+// ===== 印刷範囲をドラッグで選ぶ（編集画面と同じ仕組み） =====
+let printAreaMode=false,printRect=null,printRectStart=null;
+function togglePrintAreaMode(){
+  printAreaMode=!printAreaMode;
+  document.getElementById('btn-print-area').classList.toggle('on',printAreaMode);
+  document.getElementById('print-area-txt').textContent=printAreaMode?'ドラッグで範囲指定...':'印刷範囲を選ぶ';
+  if(map.dragging)map.dragging[printAreaMode?'disable':'enable']();
+  map.getContainer().style.cursor=printAreaMode?'crosshair':'';
+  if(!printAreaMode&&printRect){map.removeLayer(printRect);printRect=null;}
+}
+document.getElementById('map').addEventListener('pointerdown',e=>{
+  if(!printAreaMode)return;
+  e.preventDefault();
+  printRectStart=map.mouseEventToLatLng(e);
+  if(printRect){map.removeLayer(printRect);printRect=null;}
+  printRect=L.rectangle([printRectStart,printRectStart],{color:'#185FA5',weight:2,dashArray:'6,4',fillOpacity:.08}).addTo(map);
+  const move=ev=>{if(printRect)printRect.setBounds([printRectStart,map.mouseEventToLatLng(ev)]);};
+  const up=ev=>{
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',up);
+    const end=map.mouseEventToLatLng(ev);
+    const bounds=L.latLngBounds([printRectStart,end]);
+    if(printRect){map.removeLayer(printRect);printRect=null;}
+    if(bounds.getNorthEast().distanceTo(bounds.getSouthWest())<8)return;
+    map.fitBounds(bounds,{padding:[10,10]});
+    togglePrintAreaMode();
+    setTimeout(()=>map.invalidateSize(),300);
+  };
+  document.addEventListener('pointermove',move);
+  document.addEventListener('pointerup',up);
+});
+function doExportPrint(){
+  if(printAreaMode)togglePrintAreaMode();
+  map.invalidateSize();
+  setTimeout(()=>window.print(),200);
+}
+function toggleSidePanel(){
+  const side=document.getElementById('side');
+  const hidden=side.style.display==='none';
+  side.style.display=hidden?'flex':'none';
+  document.getElementById('btn-toggle-side').textContent=hidden?'一覧を隠す':'一覧を表示';
+  setTimeout(()=>map.invalidateSize(),50);
+}
 <\/script></body></html>`;
+    // data配列を1本の巨大文字列にせず、写真1枚ずつ別々の部品として積む
+    const parts=[headerPart];
+    phs.forEach((p,i)=>{
+      const meta=JSON.stringify({
+        id:p.id,num:p.num,name:p.name,
+        lat:p.latlng.lat,lng:p.latlng.lng,
+        origLat:p.origLatlng?p.origLatlng.lat:p.latlng.lat,
+        origLng:p.origLatlng?p.origLatlng.lng:p.latlng.lng,
+        manuallyMoved:!!p.manuallyMoved
+      });
+      parts.push((i>0?',':'')+meta.slice(0,-1)+',"b64":"');
+      parts.push(p.b64);
+      parts.push('"}');
+    });
+    parts.push(footerPart);
     const fname='配置図_'+now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'_'+('0'+now.getHours()).slice(-2)+('0'+now.getMinutes()).slice(-2)+'.html';
-    const blob=new Blob([html],{type:'text/html'});
+    const blob=new Blob(parts,{type:'text/html'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();
     setStatus('HTMLファイルを保存しました: '+fname);
+  }).catch(err=>{
+    console.error(err);
+    setStatus('生成に失敗しました');
+    alert('HTMLファイルの生成に失敗しました。\n原因: '+err.message+'\n\n写真の中に読み込めないファイル（動画や破損データなど）が含まれている可能性があります。写真リストを確認し、問題のありそうな写真を削除してから再度お試しください。');
   });
 }
 
 function exportPrint(){
   if(!photos.filter(p=>p.latlng).length){alert('写真を配置してから印刷してください');return;}
-  window.print();
+  if(printAreaMode)togglePrintAreaMode();
+  const n=photos.filter(p=>p.latlng).length;
+  const now=new Date();
+  const ts=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('print-header-meta').textContent=ts+' / 配置写真'+n+'枚';
+  map.invalidateSize();
+  setTimeout(()=>window.print(),200);
+}
+
+// ===== 印刷範囲をドラッグで選ぶ =====
+let printAreaMode=false,printRect=null,printRectStart=null;
+function togglePrintAreaMode(){
+  printAreaMode=!printAreaMode;
+  document.getElementById('btn-print-area').classList.toggle('mode-on',printAreaMode);
+  document.getElementById('print-area-txt').textContent=printAreaMode?'ドラッグで範囲指定...':'印刷範囲を選ぶ';
+  if(map.dragging)map.dragging[printAreaMode?'disable':'enable']();
+  map.getContainer().style.cursor=printAreaMode?'crosshair':'';
+  if(!printAreaMode&&printRect){map.removeLayer(printRect);printRect=null;}
+  setStatus(printAreaMode?'地図上をドラッグして印刷したい範囲を囲んでください':'');
+}
+(function(){
+  const cont=document.getElementById('map');
+  cont.addEventListener('pointerdown',e=>{
+    if(!printAreaMode)return;
+    e.preventDefault();
+    printRectStart=map.mouseEventToLatLng(e);
+    if(printRect){map.removeLayer(printRect);printRect=null;}
+    printRect=L.rectangle([printRectStart,printRectStart],{color:'#185FA5',weight:2,dashArray:'6,4',fillOpacity:.08}).addTo(map);
+    const move=ev=>{if(printRect)printRect.setBounds([printRectStart,map.mouseEventToLatLng(ev)]);};
+    const up=ev=>{
+      document.removeEventListener('pointermove',move);
+      document.removeEventListener('pointerup',up);
+      const end=map.mouseEventToLatLng(ev);
+      const bounds=L.latLngBounds([printRectStart,end]);
+      if(printRect){map.removeLayer(printRect);printRect=null;}
+      if(bounds.getNorthEast().distanceTo(bounds.getSouthWest())<8){
+        setStatus('範囲が小さすぎます。もう一度ドラッグしてください');
+        return;
+      }
+      map.fitBounds(bounds,{padding:[10,10]});
+      togglePrintAreaMode();
+      setTimeout(()=>{map.invalidateSize();setStatus('印刷範囲を設定しました。「印刷」ボタンで印刷してください');},300);
+    };
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',up);
+  });
+})();
+function toggleSidePanelLive(){
+  const side=document.getElementById('side');
+  const hidden=side.style.display==='none';
+  side.style.display=hidden?'flex':'none';
+  document.getElementById('toggle-side-txt').textContent=hidden?'一覧を隠す':'一覧を表示';
+  fixRep();
 }
 function setStatus(msg){document.getElementById('statusbar').textContent=msg;}
 
