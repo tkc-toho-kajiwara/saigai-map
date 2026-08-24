@@ -45,6 +45,30 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .ph-popup-name{font-size:11px;color:#555;padding:4px 10px}
 .ph-popup-del{display:block;width:100%;padding:7px;background:#fff3f3;color:#c0392b;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
 .ph-popup-restore{display:block;width:100%;padding:7px;background:#EDF5FC;color:#185FA5;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
+.ph-popup-coord{display:block;width:100%;padding:7px;background:#F0F5EC;color:#2D6A11;border:none;border-top:1px solid #eee;font-size:12px;cursor:pointer;font-family:inherit}
+#coord-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;align-items:center;justify-content:center}
+#coord-modal.open{display:flex}
+#coord-box{background:#fff;border-radius:16px;padding:20px 18px;width:92%;max-width:400px;display:flex;flex-direction:column;gap:11px;max-height:92vh;overflow-y:auto}
+#coord-box h3{font-size:15px;font-weight:600;color:#333;margin:0}
+.coord-tabs{display:flex;gap:6px}
+.coord-tab{flex:1;padding:7px 4px;border:1px solid #d0d0c8;border-radius:8px;background:#f5f5f0;font-size:12px;cursor:pointer;font-family:inherit;color:#555;text-align:center}
+.coord-tab.on{background:#185FA5;color:#fff;border-color:#185FA5;font-weight:600}
+.coord-row{display:flex;flex-direction:column;gap:4px}
+.coord-row label{font-size:12px;font-weight:600;color:#555}
+.coord-row input,.coord-row select{padding:8px 10px;border:1px solid #d0d0c8;border-radius:8px;font-size:14px;font-family:inherit;width:100%}
+.coord-row input:focus,.coord-row select:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 2px #185FA533}
+.coord-paste-area{padding:8px 10px;border:1.5px dashed #b0d0b0;border-radius:8px;font-size:12px;color:#444;background:#f8faf8;min-height:48px;cursor:text;white-space:pre-wrap;word-break:break-all}
+.coord-paste-area:focus{outline:none;border-color:#2D6A11}
+.coord-desc{font-size:11px;color:#888;line-height:1.6}
+.coord-btns{display:flex;gap:8px}
+.coord-btns button{flex:1;padding:10px;border-radius:10px;font-size:13px;font-family:inherit;cursor:pointer;border:none}
+.coord-apply{background:#185FA5;color:#fff;font-weight:600}
+.coord-cancel-btn{background:#f0f0ea;color:#555}
+#coord-result{font-size:11px;padding:6px 10px;border-radius:6px;display:none}
+#coord-result.ok{background:#e8f5e9;color:#1D7A3A;display:block}
+#coord-result.ng{background:#fff3f3;color:#c0392b;display:block}
+.coord-section{display:none}
+.coord-section.show{display:flex;flex-direction:column;gap:10px}
 #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
 #modal.open{display:flex}
 #modal img{max-width:92vw;max-height:75vh;object-fit:contain;border-radius:8px}
@@ -185,6 +209,68 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
       <div><span>PDF印刷・保存</span><span class="sheet-sub">印刷またはPDF出力（地図+マーカー）</span></div>
     </button>
     <button class="sheet-cancel" onclick="closeSaveModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- 座標入力・修正モーダル -->
+<div id="coord-modal">
+  <div id="coord-box">
+    <h3>📐 座標を入力・修正</h3>
+    <div class="coord-tabs">
+      <button class="coord-tab on" onclick="switchCoordTab('latlon')">緯度・経度</button>
+      <button class="coord-tab" onclick="switchCoordTab('xy')">XY平面直角</button>
+      <button class="coord-tab" onclick="switchCoordTab('paste')">貼り付け解析</button>
+    </div>
+
+    <!-- 緯度経度タブ -->
+    <div id="coord-sec-latlon" class="coord-section show">
+      <div class="coord-row"><label>緯度（Latitude）</label>
+        <input type="number" id="coord-lat" step="0.000001" placeholder="例: 33.255505"></div>
+      <div class="coord-row"><label>経度（Longitude）</label>
+        <input type="number" id="coord-lng" step="0.000001" placeholder="例: 131.022907"></div>
+    </div>
+
+    <!-- XYタブ -->
+    <div id="coord-sec-xy" class="coord-section">
+      <div class="coord-desc">測量成果の平面直角座標（X=北、Y=東）を入力します。大分県は第II系です。</div>
+      <div class="coord-row"><label>系番号</label>
+        <select id="coord-kei">
+          <option value="1">第I系（長崎・鹿児島南部）</option>
+          <option value="2" selected>第II系（福岡・佐賀・熊本・大分・宮崎・鹿児島）</option>
+          <option value="3">第III系（山口・島根・広島）</option>
+          <option value="4">第IV系（香川・愛媛・徳島・高知）</option>
+          <option value="5">第V系（兵庫・鳥取・岡山）</option>
+          <option value="6">第VI系（京都・大阪・奈良・和歌山・三重・福井・滋賀）</option>
+          <option value="7">第VII系（石川・富山・岐阜・愛知・静岡）</option>
+          <option value="8">第VIII系（長野・新潟・山梨・静岡・神奈川・東京・千葉・埼玉）</option>
+          <option value="9">第IX系（東京・千葉・栃木・群馬・茨城・埼玉・神奈川・長野・山梨）</option>
+          <option value="10">第X系（青森・秋田・山形・岩手・宮城・福島・栃木・群馬）</option>
+          <option value="11">第XI系（小笠原）</option>
+          <option value="12">第XII系（北海道西部）</option>
+          <option value="13">第XIII系（北海道中部）</option>
+          <option value="14">第XIV系（北海道東部）</option>
+        </select></div>
+      <div class="coord-row"><label>X座標（北方向・m）</label>
+        <input type="number" id="coord-x" step="0.001" placeholder="例: -45231.234"></div>
+      <div class="coord-row"><label>Y座標（東方向・m）</label>
+        <input type="number" id="coord-y" step="0.001" placeholder="例: 12456.789"></div>
+      <button class="coord-tab" style="background:#2D6A11;color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit" onclick="convertXYtoLatLon()">XY→緯度経度に変換</button>
+    </div>
+
+    <!-- 貼り付けタブ -->
+    <div id="coord-sec-paste" class="coord-section">
+      <div class="coord-desc">CSV・テキスト・座標を貼り付けると自動解析します。<br>
+      対応形式：<b>33.255, 131.022</b>　/　<b>X=-45231 Y=12456</b>　/　<b>33°15'N 131°01'E</b></div>
+      <div class="coord-row"><label>貼り付けエリア</label>
+        <div class="coord-paste-area" id="coord-paste" contenteditable="true"></div></div>
+    </div>
+
+    <div id="coord-result"></div>
+    <div id="coord-preview" style="font-size:11px;color:#185FA5;display:none;padding:4px 0"></div>
+    <div class="coord-btns">
+      <button class="coord-cancel-btn" onclick="closeCoordModal()">キャンセル</button>
+      <button class="coord-apply" onclick="applyCoord()">この座標を適用</button>
+    </div>
   </div>
 </div>
 
@@ -418,7 +504,7 @@ function buildMarkerIcon(ph){
   const badgeLabel=ph.koukuNo||ph.num;
   const badgeStyle=kc?`background:${kc}`:'';
   const borderStyle=kc?`border-color:${kc}`:'';
-  const pairBadge=ph.pairRole==='primary'?'<div class="ph-mk2">遠景+近景</div>':'';
+  const pairBadge=ph.pairRole==='primary'?'<div class="ph-mk2">2枚</div>':'';
   const html=`<div class="ph-mw" style="width:${sz}px;${borderStyle}"><div class="ph-mn" style="${badgeStyle}">${badgeLabel}</div>${pairBadge}<img src="${ph.url}" style="width:${sz}px;height:${Math.round(sz*3/4)}px"><div class="ph-ml">${ph.name}</div></div>`;
   return{html,iconSize:[sz+4,Math.round(sz*3/4)+20],iconAnchor:[sz/2+2,Math.round(sz*3/4)/2+10]};
 }
@@ -489,7 +575,7 @@ function togglePairPhoto(id){
     return;
   }
   if(pairSourceId===id){pairSourceId=null;renderSide();setStatus('ペア設定をキャンセルしました');return;}
-  if(!pairSourceId){pairSourceId=id;renderSide();setStatus('近景写真の🔗アイコンをタップしてペアにしてください（最初の写真が遠景、次が近景になります）');return;}
+  if(!pairSourceId){pairSourceId=id;renderSide();setStatus('ペアにするもう1枚の写真を🔗アイコンでタップしてください');return;}
   const src=photos.find(p=>p.id===pairSourceId);
   if(!src){pairSourceId=null;renderSide();return;}
   if(src.pairId||ph.pairId){alert('どちらかが既にペア設定済みです。先に解除してください');pairSourceId=null;renderSide();return;}
@@ -504,7 +590,7 @@ function togglePairPhoto(id){
   if(secondary.anchorDot){dotLayer.removeLayer(secondary.anchorDot);secondary.anchorDot=null;}
   if(primary.latlng)placeMarker(primary,primary.latlng);
   pairSourceId=null;renderSide();
-  setStatus('No.'+primary.num+'（遠景）と No.'+secondary.num+'（近景）をペアにしました');
+  setStatus('No.'+primary.num+' と No.'+secondary.num+' をペアにしました（1つのマーカーにまとまります）');
   scheduleDeclutter();
 }
 
@@ -584,44 +670,9 @@ map.on('moveend',scheduleDeclutter);
 function showPopup(ph){
   const c=document.createElement('div');c.className='ph-popup';
   const partner=getPairPartner(ph);
-  if(partner){
-    // 遠景・近景を横並び表示
-    const pair=ph.pairRole==='primary'?[ph,partner]:[partner,ph];
-    const hd=document.createElement('div');
-    hd.style.cssText='padding:6px 10px;font-size:11px;font-weight:600;color:#333;border-bottom:1px solid #f0f0ea;display:flex;align-items:center;gap:6px';
-    const badge=document.createElement('span');
-    badge.style.cssText='background:#E24B4A;color:#fff;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0';
-    badge.textContent=pair[0].num;
-    hd.appendChild(badge);
-    hd.appendChild(document.createTextNode('No.'+pair[0].num+' / No.'+pair[1].num));
-    c.appendChild(hd);
-    const body=document.createElement('div');
-    body.style.cssText='display:flex;gap:0';
-    const LABELS=['遠景','近景'];
-    const COLORS=['#185FA5','#1D7A3A'];
-    pair.forEach((p,i)=>{
-      const col=document.createElement('div');
-      col.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;padding:6px;gap:4px;cursor:pointer'+(i===0?';border-right:1px solid #f0f0ea':'');
-      col.onclick=()=>openModal(p);
-      const lbl=document.createElement('div');
-      lbl.style.cssText='font-size:10px;font-weight:600;padding:1px 10px;border-radius:4px;background:'+(i===0?'#E3F0FF':'#E3F5E8')+';color:'+COLORS[i];
-      lbl.textContent=LABELS[i];
-      const img2=document.createElement('img');
-      img2.src=p.url;img2.style.cssText='width:100%;max-width:110px;aspect-ratio:4/3;object-fit:cover;border-radius:4px;display:block';
-      col.appendChild(lbl);col.appendChild(img2);
-      body.appendChild(col);
-    });
-    c.appendChild(body);
-    // 削除ボタン
-    const db=document.createElement('button');db.className='ph-popup-del';db.textContent='このマーカーを削除';
-    db.onclick=()=>removePhoto(ph.pairRole==='primary'?ph.id:partner.id);
-    c.appendChild(db);
-    L.popup({maxWidth:280}).setLatLng(ph.latlng).setContent(c).openOn(map);
-    return;
-  }
   const img=document.createElement('img');img.src=ph.url;img.onclick=()=>openModal(ph);
   const nd=document.createElement('div');nd.className='ph-popup-name';
-  nd.textContent='No.'+ph.num+' '+ph.name;
+  nd.textContent='No.'+ph.num+' '+ph.name+(partner?'（+No.'+partner.num+' とペア）':'');
   c.appendChild(img);c.appendChild(nd);
   // 工区（saigai-form.html連携）情報があれば表示
   if(ph.koukuNo){
@@ -639,6 +690,9 @@ function showPopup(ph){
     rb.onclick=()=>{restoreOriginal(ph);map.closePopup();};
     c.appendChild(rb);
   }
+  const cb=document.createElement('button');cb.className='ph-popup-coord';cb.textContent='📐 座標を入力・修正';
+  cb.onclick=()=>{map.closePopup();openCoordModal(ph);};
+  c.appendChild(cb);
   const db=document.createElement('button');db.className='ph-popup-del';db.textContent='このマーカーを削除';
   db.onclick=()=>removePhoto(ph.id);
   c.appendChild(db);
@@ -713,7 +767,7 @@ function renderSide(){
     pb.onclick=ev=>{ev.stopPropagation();togglePairPhoto(ph.id);};
     d.appendChild(xb);d.appendChild(tw);d.appendChild(nm);d.appendChild(pb);
     if(ph.pairId){
-      const lb=document.createElement('div');lb.className='ph-link-badge';lb.textContent=ph.pairRole==='primary'?'遠景':'近景';
+      const lb=document.createElement('div');lb.className='ph-link-badge';lb.textContent='ペア';
       d.appendChild(lb);
     }
     if(ph.koukuNo){
@@ -738,10 +792,9 @@ function openModal(ph){
     };
     tabsEl.innerHTML='';
     tabsEl.classList.add('show');
-    const pairLabels=['遠景','近景'];
-    pair.forEach((p,i)=>{
+    pair.forEach(p=>{
       const b=document.createElement('button');
-      b.textContent=pairLabels[i]+' No.'+p.num;b.dataset.id=p.id;
+      b.textContent='No.'+p.num;b.dataset.id=p.id;
       b.onclick=ev=>{ev.stopPropagation();show(p);};
       tabsEl.appendChild(b);
     });
@@ -754,6 +807,172 @@ function openModal(ph){
   document.getElementById('modal').classList.add('open');
 }
 function closeModal(){document.getElementById('modal').classList.remove('open');}
+
+// ===== 座標入力・修正モーダル =====
+let _coordTarget=null;
+
+// 平面直角座標系の原点（緯度°、経度°）
+const JPC_ORIGINS={
+  1:[33,129+30/60],2:[33,131],3:[36,132+10/60],4:[33,133+30/60],
+  5:[36,134+20/60],6:[36,136],7:[36,137+10/60],8:[36,138+30/60],
+  9:[36,139+50/60],10:[40,140+50/60],11:[44,140+15/60],12:[44,142+15/60],
+  13:[44,144+15/60],14:[26,142],15:[26,127+30/60],16:[26,124],17:[26,131],
+  18:[20,136],19:[26,154]
+};
+
+function jpcToLatLon(x, y, kei){
+  // 国土地理院公式アルゴリズム（測地成果2011）
+  const phi0=JPC_ORIGINS[kei][0]*Math.PI/180;
+  const lam0=JPC_ORIGINS[kei][1]*Math.PI/180;
+  const a=6378137.0, f=1/298.257222101;
+  const n=f/(2-f);
+  const A_=a/(1+n)*(1+n*n/4+n*n*n*n/64);
+  const al=[
+    1/2*n-2/3*n*n+5/16*n*n*n+41/180*n*n*n*n,
+    13/48*n*n-3/5*n*n*n+557/1440*n*n*n*n,
+    61/240*n*n*n-103/140*n*n*n*n,
+    49561/161280*n*n*n*n
+  ];
+  const be=[
+    1/2*n-2/3*n*n+37/96*n*n*n-1/360*n*n*n*n,
+    1/48*n*n+1/15*n*n*n-437/1440*n*n*n*n,
+    17/480*n*n*n-37/840*n*n*n*n,
+    4397/161280*n*n*n*n
+  ];
+  const de=[
+    2*n-2/3*n*n-2*n*n*n+116/45*n*n*n*n,
+    7/3*n*n-8/5*n*n*n-227/45*n*n*n*n,
+    56/15*n*n*n-136/35*n*n*n*n,
+    4279/630*n*n*n*n
+  ];
+  const m0=0.9999;
+  const S=A_*(phi0+al.reduce((s,a,i)=>s+a*Math.sin(2*(i+1)*phi0),0));
+  const xi=(x+m0*S)/(m0*A_);
+  const et=y/(m0*A_);
+  const xi2=xi-be.reduce((s,b,i)=>s+b*Math.sin(2*(i+1)*xi)*Math.cosh(2*(i+1)*et),0);
+  const et2=et-be.reduce((s,b,i)=>s+b*Math.cos(2*(i+1)*xi)*Math.sinh(2*(i+1)*et),0);
+  const chi=Math.asin(Math.sin(xi2)/Math.cosh(et2));
+  const lat=chi+de.reduce((s,d,i)=>s+d*Math.sin(2*(i+1)*chi),0);
+  const lon=lam0+Math.atan2(Math.sinh(et2),Math.cos(xi2));
+  return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
+}
+
+function switchCoordTab(tab){
+  document.querySelectorAll('.coord-tab').forEach((b,i)=>{
+    b.classList.toggle('on',['latlon','xy','paste'][i]===tab);
+  });
+  document.querySelectorAll('.coord-section').forEach(s=>s.classList.remove('show'));
+  document.getElementById('coord-sec-'+tab).classList.add('show');
+  document.getElementById('coord-result').className='coord-result';
+  document.getElementById('coord-result').textContent='';
+}
+
+function convertXYtoLatLon(){
+  const x=parseFloat(document.getElementById('coord-x').value);
+  const y=parseFloat(document.getElementById('coord-y').value);
+  const kei=parseInt(document.getElementById('coord-kei').value);
+  const res=document.getElementById('coord-result');
+  if(isNaN(x)||isNaN(y)){
+    res.className='coord-result ng';res.textContent='× X・Y座標を入力してください';return;
+  }
+  try{
+    const ll=jpcToLatLon(x,y,kei);
+    document.getElementById('coord-lat').value=ll.lat.toFixed(6);
+    document.getElementById('coord-lng').value=ll.lng.toFixed(6);
+    res.className='coord-result ok';
+    res.textContent='✓ 変換成功: 緯度 '+ll.lat.toFixed(6)+' / 経度 '+ll.lng.toFixed(6);
+    document.getElementById('coord-preview').style.display='block';
+    document.getElementById('coord-preview').textContent='「この座標を適用」ボタンで地図に反映します';
+  }catch(e){
+    res.className='coord-result ng';res.textContent='× 変換エラー: '+e.message;
+  }
+}
+
+function parseCoordText(text){
+  // 小数点形式 "33.255505, 131.022907"
+  const dec=/(-?\d{1,3}\.\d+)[,\s\/\t]+(-?\d{1,3}\.\d+)/;
+  let m=text.match(dec);
+  if(m){const la=parseFloat(m[1]),lo=parseFloat(m[2]);if(la>=-90&&la<=90&&lo>=-180&&lo<=180)return{lat:la,lng:lo};}
+  // 度分秒 "33°15'19.8"N 131°01'22.5"E"
+  const dms=/(\d+)[°d]\s*(\d+)['′]\s*(\d+\.?\d*)["″]\s*([NS])\s+(\d+)[°d]\s*(\d+)['′]\s*(\d+\.?\d*)["″]\s*([EW])/i;
+  m=text.match(dms);
+  if(m){
+    const la=(+m[1]+(+m[2])/60+(+m[3])/3600)*(m[4].toUpperCase()==='S'?-1:1);
+    const lo=(+m[5]+(+m[6])/60+(+m[7])/3600)*(m[8].toUpperCase()==='W'?-1:1);
+    if(la>=-90&&la<=90&&lo>=-180&&lo<=180)return{lat:la,lng:lo};
+  }
+  // X= Y= 形式（XY座標を自動変換・第II系デフォルト）
+  const xy=/[Xx][=:：\s]\s*(-?\d+\.?\d*)\D+[Yy][=:：\s]\s*(-?\d+\.?\d*)/;
+  m=text.match(xy);
+  if(m){
+    try{const ll=jpcToLatLon(parseFloat(m[1]),parseFloat(m[2]),2);if(ll.lat>=-90&&ll.lat<=90)return ll;}catch(e){}
+  }
+  // 緯度・経度キーワード形式
+  const kv=/(?:lat(?:itude)?|緯度)[=:：\s]\s*(-?\d+\.?\d*)\D+(?:lo?n(?:gitude)?|経度)[=:：\s]\s*(-?\d+\.?\d*)/i;
+  m=text.match(kv);
+  if(m){const la=parseFloat(m[1]),lo=parseFloat(m[2]);if(la>=-90&&la<=90&&lo>=-180&&lo<=180)return{lat:la,lng:lo};}
+  return null;
+}
+
+document.getElementById('coord-paste').addEventListener('input',function(){
+  const text=this.textContent||this.innerText||'';
+  if(!text.trim()){document.getElementById('coord-result').className='coord-result';return;}
+  const coord=parseCoordText(text);
+  const res=document.getElementById('coord-result');
+  if(coord){
+    document.getElementById('coord-lat').value=coord.lat.toFixed(6);
+    document.getElementById('coord-lng').value=coord.lng.toFixed(6);
+    res.className='coord-result ok';
+    res.textContent='✓ 解析成功: 緯度 '+coord.lat.toFixed(6)+' / 経度 '+coord.lng.toFixed(6);
+  }else{
+    res.className='coord-result ng';
+    res.textContent='× 座標を認識できません';
+  }
+});
+
+function openCoordModal(ph){
+  _coordTarget=ph;
+  if(ph.latlng){
+    document.getElementById('coord-lat').value=ph.latlng.lat.toFixed(6);
+    document.getElementById('coord-lng').value=ph.latlng.lng.toFixed(6);
+  }
+  document.getElementById('coord-paste').textContent='';
+  document.getElementById('coord-result').className='coord-result';
+  document.getElementById('coord-result').textContent='';
+  document.getElementById('coord-preview').style.display='none';
+  switchCoordTab('latlon');
+  document.getElementById('coord-modal').classList.add('open');
+}
+function closeCoordModal(){
+  document.getElementById('coord-modal').classList.remove('open');
+  _coordTarget=null;
+}
+
+function applyCoord(){
+  if(!_coordTarget){closeCoordModal();return;}
+  const lat=parseFloat(document.getElementById('coord-lat').value);
+  const lng=parseFloat(document.getElementById('coord-lng').value);
+  const res=document.getElementById('coord-result');
+  if(isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){
+    res.className='coord-result ng';
+    res.textContent='× 有効な緯度（-90〜90）・経度（-180〜180）を入力してください';
+    return;
+  }
+  const ph=_coordTarget;
+  const newPos=L.latLng(lat,lng);
+  ph.origLatlng={lat,lng};
+  ph.latlng=newPos;
+  ph.manuallyMoved=true;
+  if(ph.marker){ph.marker.setLatLng(newPos);}
+  else{placeMarker(ph,newPos);}
+  updateLeaderVisual(ph);
+  map.setView(newPos,17);
+  renderSide();
+  scheduleDeclutter();
+  closeCoordModal();
+  setStatus('No.'+ph.num+' 座標を更新（緯度:'+lat.toFixed(6)+' 経度:'+lng.toFixed(6)+'）');
+}
+document.getElementById('coord-modal').addEventListener('click',function(e){if(e.target===this)closeCoordModal();});
 
 // HTML出力（写真をBase64埋め込み）
 function exportHTML(){
@@ -971,7 +1190,7 @@ function renderMarkers(){
       L.circleMarker([p.origLat,p.origLng],{radius:5,color:'#fff',weight:2,fillColor:'#185FA5',fillOpacity:1}).addTo(window._lineLayer);
     }
     const sz=68;
-    const pairBadge=p.pairRole==='primary'?'<div class="ph-mk2">遠景+近景</div>':'';
+    const pairBadge=p.pairRole==='primary'?'<div class="ph-mk2">2枚</div>':'';
     const icon=L.divIcon({className:'',html:'<div class="ph-mw" style="width:'+sz+'px"><div class="ph-mn">'+p.num+'</div>'+pairBadge+'<img src="'+p.b64+'" style="width:'+sz+'px;height:'+(sz*3/4|0)+'px"><div class="ph-ml">'+p.name+'</div></div>',iconSize:[sz+4,(sz*3/4|0)+20],iconAnchor:[sz/2+2,(sz*3/4|0)/2+10]});
     L.marker(disp,{icon}).addTo(window._markerLayer).on('click',()=>openPhotoModal(p.id));
   });
