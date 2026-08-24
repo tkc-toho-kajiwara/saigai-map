@@ -69,7 +69,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #coord-result.ng{background:#fff3f3;color:#c0392b;display:block}
 .coord-section{display:none}
 .coord-section.show{display:flex;flex-direction:column;gap:10px}
-/* 手動タップモード */
 #tap-move-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9600;background:#E67E22;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 #tap-move-banner button{margin-left:12px;padding:4px 14px;border:1.5px solid #fff;border-radius:8px;background:none;color:#fff;font-size:12px;cursor:pointer;font-family:inherit}
 #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
@@ -231,27 +230,19 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
       <button class="coord-tab" onclick="switchCoordTab('xy')">XY平面直角</button>
       <button class="coord-tab" onclick="switchCoordTab('paste')">貼り付け</button>
     </div>
-
-    <!-- 手動タップタブ -->
     <div id="coord-sec-manual" class="coord-section show">
-      <div class="coord-desc">地図上をタップした場所にマーカーを移動します。<br>配置モード以外でも使えます。</div>
-      <button onclick="startTapMove()" style="padding:12px;background:#E67E22;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;width:100%">
-        🗺 地図をタップして位置を指定
-      </button>
-      <div class="coord-desc" style="color:#E67E22">タップするとモーダルが閉じ、地図タップモードになります。オレンジのバナーが表示されている間は地図タップで位置が決まります。</div>
+      <div class="coord-desc">地図上をタップした場所にマーカーを移動します。配置モード以外でも使えます。</div>
+      <button onclick="startTapMove()" style="padding:12px;background:#E67E22;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;width:100%">🗺 地図をタップして位置を指定</button>
+      <div class="coord-desc" style="color:#E67E22">タップするとモーダルが閉じ、オレンジのバナーが表示されます。地図をタップすると位置が確定します。</div>
     </div>
-
-    <!-- 緯度経度タブ -->
     <div id="coord-sec-latlon" class="coord-section">
       <div class="coord-row"><label>緯度（Latitude）</label>
         <input type="number" id="coord-lat" step="0.000001" placeholder="例: 33.255505"></div>
       <div class="coord-row"><label>経度（Longitude）</label>
         <input type="number" id="coord-lng" step="0.000001" placeholder="例: 131.022907"></div>
     </div>
-
-    <!-- XYタブ -->
     <div id="coord-sec-xy" class="coord-section">
-      <div class="coord-desc">平面直角座標（X=北、Y=東）を入力。大分県は第II系。</div>
+      <div class="coord-desc">平面直角座標（X=北、Y=東）。大分県は第II系。</div>
       <div class="coord-row"><label>系番号</label>
         <select id="coord-kei">
           <option value="1">第I系（長崎・鹿児島南部）</option>
@@ -274,15 +265,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         <input type="number" id="coord-y" step="0.001" placeholder="例: 12456.789"></div>
       <button onclick="convertXYtoLatLon()" style="padding:8px;background:#2D6A11;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">XY → 緯度経度に変換</button>
     </div>
-
-    <!-- 貼り付けタブ -->
     <div id="coord-sec-paste" class="coord-section">
-      <div class="coord-desc">CSV・テキスト・座標を貼り付けると自動解析します。<br>
-      例: <b>33.255, 131.022</b> / <b>X=-45231 Y=12456</b> / <b>33°15'N 131°01'E</b></div>
+      <div class="coord-desc">CSV・テキストを貼り付けると自動解析します。<br>例: <b>33.255, 131.022</b> / <b>X=-45231 Y=12456</b> / <b>33°15'N 131°01'E</b></div>
       <div class="coord-row"><label>貼り付けエリア</label>
         <div class="coord-paste-area" id="coord-paste" contenteditable="true"></div></div>
     </div>
-
     <div id="coord-result"></div>
     <div id="coord-preview" style="font-size:11px;color:#185FA5;display:none;padding:2px 0"></div>
     <div class="coord-btns">
@@ -755,6 +742,23 @@ function toggleMode(){
 }
 
 map.on('click',e=>{
+  // 手動タップ位置修正モード（配置モードより優先）
+  if(_tapMoveActive&&_coordTarget){
+    const ph=_coordTarget;
+    const newPos=e.latlng;
+    ph.origLatlng={lat:newPos.lat,lng:newPos.lng};
+    ph.latlng=newPos;
+    ph.manuallyMoved=true;
+    if(ph.marker){ph.marker.setLatLng(newPos);}
+    else{placeMarker(ph,newPos);}
+    updateLeaderVisual(ph);
+    map.setView(newPos,map.getZoom());
+    renderSide();
+    scheduleDeclutter();
+    cancelTapMove();
+    setStatus('No.'+ph.num+' 位置を手動で修正しました（ドラッグでさらに微調整可）');
+    return;
+  }
   if(!placeMode)return;
   if(!selId){setStatus('写真リストから写真を選んでください');return;}
   const ph=photos.find(p=>p.id===selId);if(!ph)return;
@@ -826,18 +830,16 @@ function openModal(ph){
 }
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 
-// ===== 座標入力・手動位置修正モーダル =====
+// ===== 座標入力・手動位置修正 =====
 let _coordTarget=null;
 let _tapMoveActive=false;
 
-// 平面直角座標系原点
 const JPC_ORIGINS={
   1:[33,129+30/60],2:[33,131],3:[36,132+10/60],4:[33,133+30/60],
   5:[36,134+20/60],6:[36,136],7:[36,137+10/60],8:[36,138+30/60],
   9:[36,139+50/60],10:[40,140+50/60],12:[44,142+15/60],
   13:[44,144+15/60],14:[26,142]
 };
-
 function jpcToLatLon(x,y,kei){
   const phi0=JPC_ORIGINS[kei][0]*Math.PI/180;
   const lam0=JPC_ORIGINS[kei][1]*Math.PI/180;
@@ -866,9 +868,8 @@ function switchCoordTab(tab){
     const s=document.getElementById('coord-sec-'+t);
     if(s)s.classList.toggle('show',t===tab);
   });
-  // 手動タップ以外は「適用」ボタンを表示
-  const applyBtn=document.getElementById('coord-apply-btn');
-  if(applyBtn)applyBtn.style.display=tab==='manual'?'none':'block';
+  const ab=document.getElementById('coord-apply-btn');
+  if(ab)ab.style.display=tab==='manual'?'none':'block';
   document.getElementById('coord-result').className='coord-result';
   document.getElementById('coord-result').textContent='';
 }
@@ -881,15 +882,13 @@ function convertXYtoLatLon(){
   if(isNaN(x)||isNaN(y)){res.className='coord-result ng';res.textContent='× X・Y座標を入力してください';return;}
   try{
     const ll=jpcToLatLon(x,y,kei);
+    switchCoordTab('latlon');
     document.getElementById('coord-lat').value=ll.lat.toFixed(6);
     document.getElementById('coord-lng').value=ll.lng.toFixed(6);
-    res.className='coord-result ok';
-    res.textContent='✓ 変換成功: 緯度 '+ll.lat.toFixed(6)+' / 経度 '+ll.lng.toFixed(6);
-    document.getElementById('coord-preview').style.display='block';
-    document.getElementById('coord-preview').textContent='「この座標を適用」ボタンで地図に反映します';
-    switchCoordTab('latlon');
     document.getElementById('coord-result').className='coord-result ok';
     document.getElementById('coord-result').textContent='✓ 変換成功: 緯度 '+ll.lat.toFixed(6)+' / 経度 '+ll.lng.toFixed(6);
+    document.getElementById('coord-preview').style.display='block';
+    document.getElementById('coord-preview').textContent='「この座標を適用」ボタンで地図に反映します';
   }catch(e){res.className='coord-result ng';res.textContent='× 変換エラー: '+e.message;}
 }
 
@@ -906,13 +905,12 @@ function parseCoordText(text){
   }
   const xy=/[Xx][=:\s]\s*(-?\d+\.?\d*)\D+[Yy][=:\s]\s*(-?\d+\.?\d*)/;
   m=text.match(xy);
-  if(m){try{const ll=jpcToLatLon(parseFloat(m[1]),parseFloat(m[2]),2);if(ll.lat>=-90&&ll.lat<=90)return ll;}catch(e){}}
+  if(m){try{const ll=jpcToLatLon(parseFloat(m[1]),parseFloat(m[2]),2);if(ll.lat>=-90)return ll;}catch(e){}}
   const kv=/(?:lat(?:itude)?|緯度)[=:\s]\s*(-?\d+\.?\d*)\D+(?:lon(?:gitude)?|経度)[=:\s]\s*(-?\d+\.?\d*)/i;
   m=text.match(kv);
   if(m){const la=parseFloat(m[1]),lo=parseFloat(m[2]);if(la>=-90&&la<=90&&lo>=-180&&lo<=180)return{lat:la,lng:lo};}
   return null;
 }
-
 document.getElementById('coord-paste').addEventListener('input',function(){
   const text=this.textContent||this.innerText||'';
   if(!text.trim()){document.getElementById('coord-result').className='coord-result';return;}
@@ -924,8 +922,7 @@ document.getElementById('coord-paste').addEventListener('input',function(){
     res.className='coord-result ok';
     res.textContent='✓ 解析成功: 緯度 '+coord.lat.toFixed(6)+' / 経度 '+coord.lng.toFixed(6);
   }else{
-    res.className='coord-result ng';
-    res.textContent='× 座標を認識できません';
+    res.className='coord-result ng';res.textContent='× 座標を認識できません';
   }
 });
 
@@ -946,8 +943,6 @@ function closeCoordModal(){
   document.getElementById('coord-modal').classList.remove('open');
   _coordTarget=null;
 }
-
-// 手動タップモード
 function startTapMove(){
   if(!_coordTarget){closeCoordModal();return;}
   closeCoordModal();
@@ -963,48 +958,21 @@ function cancelTapMove(){
   map.getContainer().style.cursor='';
   setStatus('位置指定をキャンセルしました');
 }
-
-// 既存のmap.on('click')を拡張するため、タップ移動処理をmapClickHandlerとして追加
-map.on('click',function(e){
-  if(_tapMoveActive&&_coordTarget){
-    const ph=_coordTarget;
-    const newPos=e.latlng;
-    ph.origLatlng={lat:newPos.lat,lng:newPos.lng};
-    ph.latlng=newPos;
-    ph.manuallyMoved=true;
-    if(ph.marker){ph.marker.setLatLng(newPos);}
-    else{placeMarker(ph,newPos);}
-    updateLeaderVisual(ph);
-    map.setView(newPos,map.getZoom());
-    renderSide();
-    scheduleDeclutter();
-    cancelTapMove();
-    setStatus('No.'+ph.num+' 位置を手動で修正しました（ドラッグでさらに微調整可）');
-    return;
-  }
-});
-
 function applyCoord(){
   if(!_coordTarget){closeCoordModal();return;}
   const lat=parseFloat(document.getElementById('coord-lat').value);
   const lng=parseFloat(document.getElementById('coord-lng').value);
   const res=document.getElementById('coord-result');
   if(isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){
-    res.className='coord-result ng';
-    res.textContent='× 有効な緯度（-90〜90）・経度（-180〜180）を入力してください';
-    return;
+    res.className='coord-result ng';res.textContent='× 有効な緯度・経度を入力してください';return;
   }
   const ph=_coordTarget;
   const newPos=L.latLng(lat,lng);
-  ph.origLatlng={lat,lng};
-  ph.latlng=newPos;
-  ph.manuallyMoved=true;
-  if(ph.marker){ph.marker.setLatLng(newPos);}
-  else{placeMarker(ph,newPos);}
+  ph.origLatlng={lat,lng};ph.latlng=newPos;ph.manuallyMoved=true;
+  if(ph.marker)ph.marker.setLatLng(newPos);else placeMarker(ph,newPos);
   updateLeaderVisual(ph);
   map.setView(newPos,17);
-  renderSide();
-  scheduleDeclutter();
+  renderSide();scheduleDeclutter();
   closeCoordModal();
   setStatus('No.'+ph.num+' 座標を更新（緯度:'+lat.toFixed(6)+' 経度:'+lng.toFixed(6)+'）');
 }
