@@ -996,21 +996,79 @@ function declutterExport(){
       const p=group[0].p;
       p._disp=p.manuallyMoved?[p.lat,p.lng]:[p.origLat,p.origLng];
     }else{
-      const n=group.length;
-      const radius=58+Math.min(n,6)*10;
-      const spread=Math.min(300,40*n);
-      const start=-90-spread/2;
-      group.forEach((g,idx)=>{
-        const p=g.p;
-        if(p.manuallyMoved){p._disp=[p.lat,p.lng];return;}
-        const angleDeg=start+(n>1?(spread/(n-1))*idx:0);
-        const rad=angleDeg*Math.PI/180;
-        const offPt=L.point(g.pt.x+radius*Math.cos(rad),g.pt.y+radius*Math.sin(rad));
-        const newLatLng=map.layerPointToLatLng(offPt);
-        g.p._disp=[newLatLng.lat,newLatLng.lng];
-      });
+      // 密集グループの扇状配置：写真カード(約68px)同士が重ならないよう、
+      // 1本のリングに詰め込まず「同心円状の複数リング」に振り分ける。
+      // 各リングに載る枚数は 弧長(R×角度) ÷ カード間隔 で決まり、あふれた分を外側リングへ回すため、
+      // 遊歩道沿い56枚のような多枚数グループでもカード間隔が確保される。
+      // ※手動で動かした写真(manuallyMoved)は従来どおり自分の位置を尊重し、自動配置の対象から外す。
+      const CARD_STEP=84;                 // リング上で隣り合うカードの最小中心間隔（弦長）。カード幅68px＋余白
+      const RING_GAP=84;                  // リング間の半径差（カード高さ71px以上を確保）
+      const R0=94;                        // 最内リング半径（カード幅より大きくとり中心付近の重なりを防ぐ）
+      const MAX_SPREAD=300*Math.PI/180;   // 扇の最大角（真上を中心に広げる）
+      group.forEach(g=>{ if(g.p.manuallyMoved) g.p._disp=[g.p.lat,g.p.lng]; });
+      let rest=group.filter(g=>!g.p.manuallyMoved), ring=0;
+      // 基準はグループ中心（自動配置対象の元座標の重心）。各写真の元座標が数pxずれていても
+      // 扇が乱れず、リング間隔どおりの均等な間隔を保てる（引き出し線は各写真の元座標へ個別に戻る）。
+      const cx=rest.reduce((s,g)=>s+g.pt.x,0)/(rest.length||1);
+      const cy=rest.reduce((s,g)=>s+g.pt.y,0)/(rest.length||1);
+      while(rest.length){
+        const R=R0+ring*RING_GAP;
+        // 弦長=CARD_STEP となる角度ステップ。弧長ではなく弦で計算するため、
+        // 少枚数で角度が開くリングでもカード同士が実際に重ならない。
+        const dTheta=2*Math.asin(Math.min(1,CARD_STEP/(2*R)));
+        const cap=Math.max(1,Math.floor(MAX_SPREAD/dTheta)+1);      // このリングに載る最大枚数
+        const row=rest.splice(0,Math.min(cap,rest.length));
+        const k=row.length;
+        const span=(k-1)*dTheta;                                    // 実際に使う扇の角度（真上を中心に）
+        const startRad=-Math.PI/2-span/2;
+        row.forEach((g,idx)=>{
+          const rad=startRad+dTheta*idx;
+          const offPt=L.point(cx+R*Math.cos(rad),cy+R*Math.sin(rad));
+          const ll=map.layerPointToLatLng(offPt);
+          g.p._disp=[ll.lat,ll.lng];
+        });
+        ring++;
+      }
     }
   });
+  // ===== 全カード横断の重なり解消 =====
+  // グループごとの扇はグループ「内」の重なりだけを防ぐため、遊歩道沿いのように密集グループが
+  // 隣接する場面では扇「同士」が重なってしまう。そこで扇の配置を初期値として、全自動カードを
+  // 対象に軽い反発（最小侵入方向へ押し離す）を反復し、グループ間の重なりも解消する。
+  // ・手動配置(manuallyMoved)は動かさず、障害物として扱う（位置修正モードの結果を尊重）。
+  // ・密集していない単独クラスタでは扇が既に重ならないため、この処理は実質何もしない（扇の見た目を維持）。
+  const SEP_W=76,SEP_H=76;   // 分離に必要な最小中心間隔（カード72x71pxが重ならない値）
+  const movable=items.filter(p=>!p.manuallyMoved);
+  const fixed=items.filter(p=>p.manuallyMoved)
+                   .map(p=>{const q=map.latLngToLayerPoint(L.latLng(p._disp[0],p._disp[1]));return{x:q.x,y:q.y};});
+  const nodes=movable.map((p,i)=>{const q=map.latLngToLayerPoint(L.latLng(p._disp[0],p._disp[1]));return{p,x:q.x,y:q.y,i};});
+  for(let it=0;it<200;it++){
+    let moved=false;
+    for(let a=0;a<nodes.length;a++){
+      const A=nodes[a];
+      for(let b=a+1;b<nodes.length;b++){
+        const B=nodes[b];
+        let dx=B.x-A.x,dy=B.y-A.y;
+        if(dx===0&&dy===0){dx=(A.i-B.i)||1;dy=0;} // 完全一致は決定的に微小分離
+        const ox=SEP_W-Math.abs(dx),oy=SEP_H-Math.abs(dy);
+        if(ox>0&&oy>0){
+          moved=true;
+          // 最小侵入方向へ押し離しつつ、直交方向へごく僅かにずらして
+          // 固定カード等に挟まれた一直線状のデッドロックをほどく（決定的な向き）。
+          const t=((A.i+B.i)&1?0.6:-0.6);
+          if(ox<=oy){const s=(dx<0?-1:1)*ox/2;A.x-=s;B.x+=s;A.y-=t;B.y+=t;}
+          else{const s=(dy<0?-1:1)*oy/2;A.y-=s;B.y+=s;A.x-=t;B.x+=t;}
+        }
+      }
+      for(let f=0;f<fixed.length;f++){          // 手動カードは不動。可動カードだけが避ける
+        const F=fixed[f];let dx=F.x-A.x,dy=F.y-A.y;
+        const ox=SEP_W-Math.abs(dx),oy=SEP_H-Math.abs(dy);
+        if(ox>0&&oy>0){if(ox<=oy){A.x-=(dx<0?-1:1)*ox;}else{A.y-=(dy<0?-1:1)*oy;}}
+      }
+    }
+    if(!moved)break;
+  }
+  nodes.forEach(nd=>{const ll=map.layerPointToLatLng(L.point(nd.x,nd.y));nd.p._disp=[ll.lat,ll.lng];});
 }
 function renderMarkers(){
   if(window._markerLayer)map.removeLayer(window._markerLayer);
