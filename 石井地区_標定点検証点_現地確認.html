@@ -923,9 +923,22 @@ const center = [
   POINTS.reduce((s,p)=>s+p.lon,0)/POINTS.length
 ];
 const map = L.map("map", {zoomControl:true}).setView(center, 17);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom:20, attribution:"&copy; OpenStreetMap contributors"
-}).addTo(map);
+const baseLayers = {
+  "標準地図(地理院)": L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
+    maxZoom:20, maxNativeZoom:18, attribution:"地理院タイル"
+  }),
+  "淡色地図(地理院)": L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+    maxZoom:20, maxNativeZoom:18, attribution:"地理院タイル"
+  }),
+  "航空写真(地理院)": L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
+    maxZoom:20, maxNativeZoom:18, attribution:"地理院タイル(オルソ画像)"
+  }),
+  "OpenStreetMap": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom:20, attribution:"&copy; OpenStreetMap contributors"
+  })
+};
+baseLayers["航空写真(地理院)"].addTo(map);
+L.control.layers(baseLayers, null, {position:"topright", collapsed:true}).addTo(map);
 
 const markers = {};
 function iconFor(p){
