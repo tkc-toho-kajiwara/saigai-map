@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>タデ原湿原現地調査 配置図</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+
+  :root { --bg: #f5f5f2; --card-bg:#ffffff; --text:#222; --sub:#555; --border:#ddd; }
+  * { box-sizing: border-box; }
+  body { font-family:"Meiryo","Hiragino Kaku Gothic ProN",sans-serif; background:var(--bg); margin:0; padding:24px; color:var(--text); }
+  h1 { font-size:1.5em; border-bottom:3px solid #4a7c59; padding-bottom:10px; margin-bottom:4px; }
+  .subtitle { color:var(--sub); font-size:0.9em; margin-bottom:20px; }
+  .summary { background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:10px 18px; margin-bottom:24px; font-size:0.9em; line-height:1.7; }
+  .summary > summary { cursor:pointer; font-weight:700; padding:4px 0; list-style:none; }
+  .summary > summary::-webkit-details-marker { display:none; }
+  .summary > summary::before { content:'▶'; display:inline-block; margin-right:6px; font-size:0.8em; transition:transform .15s; }
+  .summary[open] > summary::before { transform:rotate(90deg); }
+  .summary-body { padding-top:10px; }
+  .map-wrap { background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:28px; }
+  .map-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .map-toolbar select, .map-toolbar button { font-size:12px; padding:6px 10px; border:1px solid #c9c9c0; border-radius:8px; background:#fff; cursor:pointer; color:#333; }
+  .map-toolbar button.on { background:#E8F5E9; border-color:#1D7A3A; color:#1D7A3A; }
+  #map-outer { position:relative; }
+  #site-map { width:100%; height:560px; border-radius:6px; }
+  #fix-banner { display:none; position:absolute; top:8px; left:8px; right:8px; z-index:900; padding:8px 12px; font-size:12.5px; font-weight:600; text-align:center; border-radius:8px; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+  #fix-banner.step1 { background:#1D7A3A; }
+  #fix-banner.step2 { background:#E67E22; }
+  #fix-banner button { margin-left:10px; padding:3px 10px; border:1.5px solid #fff; border-radius:8px; background:none; color:#fff; font-size:11.5px; cursor:pointer; }
+  #fix-highlight { display:none; position:absolute; pointer-events:none; border:3px solid #E67E22; border-radius:8px; box-shadow:0 0 0 4px rgba(230,126,34,.3); z-index:850; transition:all .15s; }
+  #map-status { font-size:0.78em; color:var(--sub); margin-top:8px; min-height:1.4em; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:0.85em; }
+  .legend-item { display:flex; align-items:center; gap:6px; }
+  .swatch { width:14px; height:14px; border-radius:3px; display:inline-block; }
+  .swatch.circle { border-radius:50%; }
+  h2 { font-size:1.15em; margin-top:2.2em; padding:6px 12px; border-left:6px solid var(--accent); background:color-mix(in srgb, var(--accent) 10%, transparent); border-radius:0 4px 4px 0; }
+  .section-desc { font-size:0.88em; color:var(--sub); margin:6px 4px 16px; }
+  .item { border:1px solid var(--border); border-left:5px solid var(--accent); border-radius:6px; background:var(--card-bg); padding:14px 16px; margin:14px 0; scroll-margin-top:16px; transition:box-shadow .3s, background .3s; }
+  .item.flash { box-shadow:0 0 0 3px var(--accent); background:color-mix(in srgb, var(--accent) 8%, var(--card-bg)); }
+  .item-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .item-head h3 { font-size:1em; margin:0; }
+  .code { font-family:monospace; font-weight:700; background:var(--accent); color:#fff; padding:2px 8px; border-radius:4px; font-size:0.85em; }
+  .tag { font-size:0.72em; padding:2px 8px; border-radius:10px; border:1px solid; }
+  .tag-video { color:#2f6b3a; border-color:#2f6b3a; background:#eaf5ec; }
+  .tag-photo { color:#1d5aa3; border-color:#1d5aa3; background:#e9f1fb; }
+  .tag-depth { color:#8a4b13; border-color:#8a4b13; background:#fbeee0; }
+  video { width:640px; max-width:100%; display:block; background:#000; border-radius:4px; }
+  .photo-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .photo-row figure { margin:0; width:300px; max-width:47%; }
+  .photo-row img { width:100%; border-radius:4px; display:block; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+  .photo-row figcaption { font-size:0.8em; color:var(--sub); text-align:center; margin-top:4px; }
+  .meta { font-size:0.8em; color:var(--sub); margin-top:8px; }
+  .meta a { color:#1d5aa3; }
+  /* --- map marker bubbles (haichizu.html方式を踏襲) --- */
+  .mk-bubble { background:#fff; border:2px solid #999; border-radius:6px; padding:2px; box-shadow:0 2px 6px rgba(0,0,0,.35); cursor:pointer; width:56px; }
+  .mk-bubble img { display:block; width:52px; height:39px; object-fit:cover; border-radius:3px; }
+  .mk-bubble .mk-label { font-size:9px; text-align:center; background:rgba(0,0,0,.65); color:#fff; padding:1px 2px; border-radius:2px; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mk-code { position:absolute; top:-8px; left:-8px; min-width:18px; height:18px; padding:0 3px; color:#fff; border-radius:9px; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; line-height:1; }
+  .mk-kind { position:absolute; top:-6px; right:-6px; width:16px; height:16px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:9px; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  .mk-anchor-tooltip { font-size:10px !important; padding:2px 6px !important; }
+  .leaflet-popup-content-wrapper { border-radius:10px; }
+  .mk-pop img { display:block; width:100%; max-width:220px; border-radius:6px; margin-bottom:6px; }
+  .mk-pop b { font-size:12.5px; }
+  .mk-pop a { display:block; font-size:12px; margin-top:4px; color:#1d5aa3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1c1e1b; --card-bg:#262824; --text:#eee; --sub:#aaa; --border:#3a3d38; }
+  }
+
+</style>
+</head>
+<body>
+
+<h1>タデ原湿原現地調査 配置図</h1>
+<div class="subtitle">現地調査日：2026年9月4日（バリアフリー化設計 現況確認）</div>
+
+<details class="summary" open="">
+  <summary>説明を表示/非表示</summary>
+  <div class="summary-body">
+  写真・動画のGPS座標（Exif／QuickTimeメタデータ）と撮影時刻から、現地調査ルートを北西（長者原ヘルスセンター側）から南東（工事用道路予定地側）へと再構成しています。<br>
+  <strong>スロープ設置予定地区間</strong>（階段・地下流出口周辺、S-1〜S-7・F-1〜F-5）→
+  <strong>散策道区間</strong>（木道アーチ舗装接合部含む、P-1〜P-5・F-6）→
+  <strong>舗装道・工事用道路予定地区間</strong>（F-7〜F-9・R-1〜R-2）の順に配置。<br>
+  凡例：<strong>▶＝現況動画、💧＝浸水状況写真</strong>（バブルの色は区間を表す）。地図が混み合う場所は自動で扇状に開き、青い点線＋点が元のGPS位置を示します。マーカーはドラッグ、または「位置修正」モードで後から微調整できます。
+  </div>
+</details>
+
+<div class="map-wrap">
+  <div class="map-toolbar">
+    <select onchange="changeLayer(this.value)">
+      <option value="ort">🗾 地理院地図（空中写真）</option>
+      <option value="std">📍 地理院地図（標準地図）</option>
+    </select>
+    <button id="btn-fix" onclick="toggleFixMode()">✏️ 位置修正モード</button>
+    <button onclick="resetAll()">↺ 自動配置に戻す</button>
+    <button onclick="saveHTML()">💾 位置を保存（HTML書き出し）</button>
+  </div>
+  <div class="map-note" style="font-size:0.78em;color:var(--sub);margin-bottom:8px;">
+    ※ マーカーをドラッグまたは「位置修正モード」で動かした後、「💾 位置を保存」を押すと調整済みのHTMLファイルがダウンロードされます。ダウンロードした<code>タデ原湿原現地調査配置図.html</code>を、元のファイルと同じフォルダ（<code>I:\ダウンロード\タデ原湿原現地調査\</code>）に上書き保存してください（写真・動画フォルダは移動しないでください）。保存しない限り、位置の調整はこのタブを閉じると失われます。
+  </div>
+  <div id="map-outer">
+    <div id="site-map"></div>
+    <div id="fix-banner"></div>
+    <div id="fix-highlight"></div>
+  </div>
+  <div id="map-status">地図を読み込み中...</div>
+  <div class="map-note" style="font-size:0.78em;color:var(--sub);margin-top:4px;">
+    ※ 表示にはインターネット接続が必要です（国土地理院タイルを使用）。空撮図が入手でき次第、差し替え・重ね合わせが可能です。
+  </div>
+  <div class="legend">
+    <div class="legend-item"><span class="swatch circle" style="background:#6b6b6b"></span>起点・アクセスルート</div>
+    <div class="legend-item"><span class="swatch circle" style="background:#d9822b"></span>スロープ設置予定地区間</div>
+    <div class="legend-item"><span class="swatch circle" style="background:#8656c7"></span>散策道区間</div>
+    <div class="legend-item"><span class="swatch circle" style="background:#d1453b"></span>舗装道・工事用道路予定地区間</div>
+  </div>
+</div>
+
+<h2 style="--accent:#6b6b6b">起点・アクセスルート</h2>
+<p class="section-desc">長者原ヘルスセンターからスロープ設置予定地までの移動ルート動画。</p>
+
+<div class="item video-item" id="loc_v_start" style="--accent:#6b6b6b">
+  <div class="item-head"><span class="code">起</span><h3>長者原ヘルスセンター→スロープ設置予定地(ルート)</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/長者原ヘルスセンターからスロープ設置予定地まで.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：299.5 MB → 59.2 MB（80.2%削減）　/　GPS：33.11820, 131.22980
+    　<a href="https://www.google.com/maps/@33.1182,131.2298,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1182/131.2298/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_start')">地図上で確認</a>
+  </div>
+</div>
+<h2 style="--accent:#d9822b">スロープ設置予定地区間</h2>
+<p class="section-desc">バリアフリー化に伴うスロープ設置を予定している区間。階段・地下流出口周辺の浸水状況とあわせて現況を確認。</p>
+
+<div class="item video-item" id="loc_v_slope1" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">S-1</span><h3>スロープ設置予定地1</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/スロープ設置予定地1.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：58.6 MB → 11.0 MB（81.2%削減）　/　GPS：33.11790, 131.23070
+    　<a href="https://www.google.com/maps/@33.1179,131.2307,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1179/131.2307/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_slope1')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_slope2" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">S-2</span><h3>スロープ設置予定地2</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/スロープ設置予定地2.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：44.8 MB → 8.7 MB（80.6%削減）　/　GPS：33.11790, 131.23060
+    　<a href="https://www.google.com/maps/@33.1179,131.2306,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1179/131.2306/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_slope2')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_slope3" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">S-3</span><h3>スロープ設置予定地3</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/スロープ設置予定地3.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：26.7 MB → 5.2 MB（80.6%削減）　/　GPS：33.11780, 131.23070
+    　<a href="https://www.google.com/maps/@33.1178,131.2307,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1178/131.2307/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_slope3')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_flow" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">F-1</span><h3>地下より流出地点</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.09 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/01地下より流出地点0.09近景.JPG" alt="地下より流出地点 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/02地下より流出地点0.09遠景.JPG" alt="地下より流出地点 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11816, 131.23085
+    　<a href="https://www.google.com/maps/@33.118164,131.23085,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.118164/131.23085/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_flow')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_slope4" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">S-4</span><h3>スロープ設置予定地4</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/スロープ設置予定地4.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：30.4 MB → 5.6 MB（81.7%削減）　/　GPS：33.11790, 131.23070
+    　<a href="https://www.google.com/maps/@33.1179,131.2307,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1179/131.2307/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_slope4')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_slope5" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">S-5</span><h3>スロープ設置予定地5</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/スロープ設置予定地5.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：48.7 MB → 9.2 MB（81.2%削減）　/　GPS：33.11790, 131.23090
+    　<a href="https://www.google.com/maps/@33.1179,131.2309,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1179/131.2309/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_slope5')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_slope6" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">S-6</span><h3>スロープ設置予定地6</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/スロープ設置予定地6.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：22.0 MB → 3.9 MB（82.2%削減）　/　GPS：33.11820, 131.23090
+    　<a href="https://www.google.com/maps/@33.1182,131.2309,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1182/131.2309/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_slope6')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_stair_e" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">F-2</span><h3>階段東側</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.1 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/03階段東側0.1近景.JPG" alt="階段東側 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/04階段東側0.1遠景.JPG" alt="階段東側 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11787, 131.23087
+    　<a href="https://www.google.com/maps/@33.117867,131.230872,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.117867/131.230872/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_stair_e')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_stair_sed" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">F-3</span><h3>階段東側 土砂堆積</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.35 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/05階段東側土砂堆積0.35近景.JPG" alt="階段東側 土砂堆積 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/06階段東側土砂堆積0.35遠景.JPG" alt="階段東側 土砂堆積 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11786, 131.23087
+    　<a href="https://www.google.com/maps/@33.117857,131.230873,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.117857/131.230873/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_stair_sed')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_scale" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">F-4</span><h3>標尺（水位計測用）</h3><span class="tag tag-photo">浸水状況写真</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/07標尺.JPG" alt="標尺（水位計測用） 標尺" loading="lazy"><figcaption>標尺</figcaption></figure></div>
+  <div class="meta">GPS：33.11790, 131.23081
+    　<a href="https://www.google.com/maps/@33.117897,131.230806,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.117897/131.230806/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_scale')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_stair_low" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">F-5</span><h3>階段下</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.04 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/08階段下0.04近景.JPG" alt="階段下 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/09階段下0.04遠景.JPG" alt="階段下 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11789, 131.23070
+    　<a href="https://www.google.com/maps/@33.117888,131.230697,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.117888/131.230697/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_stair_low')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_slope7" style="--accent:#d9822b">
+  <div class="item-head"><span class="code">S-7</span><h3>スロープ設置予定地7</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/スロープ設置予定地7.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：28.4 MB → 5.5 MB（80.6%削減）　/　GPS：33.11780, 131.23090
+    　<a href="https://www.google.com/maps/@33.1178,131.2309,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1178/131.2309/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_slope7')">地図上で確認</a>
+  </div>
+</div>
+<h2 style="--accent:#8656c7">散策道区間</h2>
+<p class="section-desc">木道と舗装路の接合部を含む散策道の現況動画。</p>
+
+<div class="item video-item" id="loc_v_walk1" style="--accent:#8656c7">
+  <div class="item-head"><span class="code">P-1</span><h3>散策道1</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/散策道1.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：65.3 MB → 12.4 MB（81.0%削減）　/　GPS：33.11740, 131.23130
+    　<a href="https://www.google.com/maps/@33.1174,131.2313,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1174/131.2313/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_walk1')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_walk2" style="--accent:#8656c7">
+  <div class="item-head"><span class="code">P-2</span><h3>散策道2</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/散策道2.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：123.3 MB → 22.9 MB（81.5%削減）　/　GPS：33.11720, 131.23140
+    　<a href="https://www.google.com/maps/@33.1172,131.2314,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1172/131.2314/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_walk2')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_arch" style="--accent:#8656c7">
+  <div class="item-head"><span class="code">F-6</span><h3>木道アーチ舗装接合地点</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.15 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/10木道アーチ舗装接合地点0.15近景.JPG" alt="木道アーチ舗装接合地点 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/11木道アーチ舗装接合地点0.15遠景.JPG" alt="木道アーチ舗装接合地点 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11711, 131.23146
+    　<a href="https://www.google.com/maps/@33.117106,131.23146,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.117106/131.23146/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_arch')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_walk3" style="--accent:#8656c7">
+  <div class="item-head"><span class="code">P-3</span><h3>散策道3</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/散策道3.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：20.7 MB → 3.7 MB（82.1%削減）　/　GPS：33.11710, 131.23150
+    　<a href="https://www.google.com/maps/@33.1171,131.2315,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1171/131.2315/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_walk3')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_walk4" style="--accent:#8656c7">
+  <div class="item-head"><span class="code">P-4</span><h3>散策道4</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/散策道4.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：132.5 MB → 26.5 MB（80.0%削減）　/　GPS：33.11700, 131.23150
+    　<a href="https://www.google.com/maps/@33.117,131.2315,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.117/131.2315/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_walk4')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_walk5" style="--accent:#8656c7">
+  <div class="item-head"><span class="code">P-5</span><h3>散策道5</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/散策道5.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：197.9 MB → 38.9 MB（80.4%削減）　/　GPS：33.11670, 131.23180
+    　<a href="https://www.google.com/maps/@33.1167,131.2318,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1167/131.2318/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_walk5')">地図上で確認</a>
+  </div>
+</div>
+<h2 style="--accent:#d1453b">舗装道・工事用道路予定地区間</h2>
+<p class="section-desc">舗装／未舗装区間の浸水状況と、工事用道路予定地の現況動画。</p>
+
+<div class="item photo-item" id="loc_p_pave_a" style="--accent:#d1453b">
+  <div class="item-head"><span class="code">F-7</span><h3>舗装道 A</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.09 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/12舗装道0.09近景.JPG" alt="舗装道 A 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/13舗装道0.09遠景.JPG" alt="舗装道 A 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11664, 131.23184
+    　<a href="https://www.google.com/maps/@33.116639,131.231842,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.116639/131.231842/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_pave_a')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_pave_b" style="--accent:#d1453b">
+  <div class="item-head"><span class="code">F-8</span><h3>舗装道 B</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.09 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/14舗装道0.09近景.JPG" alt="舗装道 B 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/15舗装道0.09遠景.JPG" alt="舗装道 B 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11652, 131.23194
+    　<a href="https://www.google.com/maps/@33.116518,131.23194,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.116518/131.23194/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_pave_b')">地図上で確認</a>
+  </div>
+</div>
+<div class="item photo-item" id="loc_p_unpaved" style="--accent:#d1453b">
+  <div class="item-head"><span class="code">F-9</span><h3>舗装なし区間</h3><span class="tag tag-photo">浸水状況写真</span><span class="tag tag-depth">浸水深 0.16 m</span></div>
+  <div class="photo-row"><figure><img src="浸水状況_解凍/浸水状況/16舗装なし0.16近景.JPG" alt="舗装なし区間 近景" loading="lazy"><figcaption>近景</figcaption></figure>
+<figure><img src="浸水状況_解凍/浸水状況/17舗装なし0.16遠景.JPG" alt="舗装なし区間 遠景" loading="lazy"><figcaption>遠景</figcaption></figure></div>
+  <div class="meta">GPS：33.11626, 131.23216
+    　<a href="https://www.google.com/maps/@33.116265,131.232161,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.116265/131.232161/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('p_unpaved')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_road1" style="--accent:#d1453b">
+  <div class="item-head"><span class="code">R-1</span><h3>工事用道路予定地1</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/工事用道路予定地1.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：20.9 MB → 4.0 MB（81.0%削減）　/　GPS：33.11630, 131.23200
+    　<a href="https://www.google.com/maps/@33.1163,131.232,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1163/131.232/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_road1')">地図上で確認</a>
+  </div>
+</div>
+<div class="item video-item" id="loc_v_road2" style="--accent:#d1453b">
+  <div class="item-head"><span class="code">R-2</span><h3>工事用道路予定地2</h3><span class="tag tag-video">現況動画</span></div>
+  <video width="640" controls="" preload="metadata">
+    <source src="動画_mp4/工事用道路予定地2.mp4" type="video/mp4">
+    お使いのブラウザは動画タグに対応していません。
+  </video>
+  <div class="meta">サイズ：611.5 MB → 120.5 MB（80.3%削減）　/　GPS：33.11630, 131.23210
+    　<a href="https://www.google.com/maps/@33.1163,131.2321,20z/data=!3m1!1e3" target="_blank" rel="noopener">Googleマップ(航空写真)</a>
+    　<a href="https://maps.gsi.go.jp/#19/33.1163/131.2321/&amp;base=ort&amp;ls=ort&amp;disp=1&amp;vs=c1j0h0k0l0u0t0z0r0s0m0f1" target="_blank" rel="noopener">地理院地図</a>
+    　<a href="javascript:void(0)" onclick="focusPoint('v_road2')">地図上で確認</a>
+  </div>
+</div>
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const DATA = [{"id":"v_start","code":"起","kind":"video","label":"長者原ヘルスセンター→スロープ設置予定地(ルート)","lat":33.1182,"lng":131.2298,"color":"#6b6b6b","thumb":"動画_mp4/thumb/長者原ヘルスセンターからスロープ設置予定地まで.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_slope1","code":"S-1","kind":"video","label":"スロープ設置予定地1","lat":33.1179,"lng":131.2307,"color":"#d9822b","thumb":"動画_mp4/thumb/スロープ設置予定地1.jpg","manuallyMoved":true,"dispLat":33.1185,"dispLng":131.2313},{"id":"v_slope2","code":"S-2","kind":"video","label":"スロープ設置予定地2","lat":33.1179,"lng":131.2306,"color":"#d9822b","thumb":"動画_mp4/thumb/スロープ設置予定地2.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_slope3","code":"S-3","kind":"video","label":"スロープ設置予定地3","lat":33.1178,"lng":131.2307,"color":"#d9822b","thumb":"動画_mp4/thumb/スロープ設置予定地3.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_slope4","code":"S-4","kind":"video","label":"スロープ設置予定地4","lat":33.1179,"lng":131.2307,"color":"#d9822b","thumb":"動画_mp4/thumb/スロープ設置予定地4.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_slope5","code":"S-5","kind":"video","label":"スロープ設置予定地5","lat":33.1179,"lng":131.2309,"color":"#d9822b","thumb":"動画_mp4/thumb/スロープ設置予定地5.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_flow","code":"F-1","kind":"photo","label":"地下より流出地点(浸水0.09m)","lat":33.118164,"lng":131.23085,"color":"#d9822b","thumb":"浸水状況_解凍/浸水状況/thumb/01地下より流出地点0.09近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_slope6","code":"S-6","kind":"video","label":"スロープ設置予定地6","lat":33.1182,"lng":131.2309,"color":"#d9822b","thumb":"動画_mp4/thumb/スロープ設置予定地6.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_stair_e","code":"F-2","kind":"photo","label":"階段東側(浸水0.1m)","lat":33.117867,"lng":131.230872,"color":"#d9822b","thumb":"浸水状況_解凍/浸水状況/thumb/03階段東側0.1近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_stair_sed","code":"F-3","kind":"photo","label":"階段東側土砂堆積(浸水0.35m)","lat":33.117857,"lng":131.230873,"color":"#d9822b","thumb":"浸水状況_解凍/浸水状況/thumb/05階段東側土砂堆積0.35近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_scale","code":"F-4","kind":"photo","label":"標尺","lat":33.117897,"lng":131.230806,"color":"#d9822b","thumb":"浸水状況_解凍/浸水状況/thumb/07標尺.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_stair_low","code":"F-5","kind":"photo","label":"階段下(浸水0.04m)","lat":33.117888,"lng":131.230697,"color":"#d9822b","thumb":"浸水状況_解凍/浸水状況/thumb/08階段下0.04近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_slope7","code":"S-7","kind":"video","label":"スロープ設置予定地7","lat":33.1178,"lng":131.2309,"color":"#d9822b","thumb":"動画_mp4/thumb/スロープ設置予定地7.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_walk1","code":"P-1","kind":"video","label":"散策道1","lat":33.1174,"lng":131.2313,"color":"#8656c7","thumb":"動画_mp4/thumb/散策道1.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_walk2","code":"P-2","kind":"video","label":"散策道2","lat":33.1172,"lng":131.2314,"color":"#8656c7","thumb":"動画_mp4/thumb/散策道2.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_arch","code":"F-6","kind":"photo","label":"木道アーチ舗装接合地点(浸水0.15m)","lat":33.117106,"lng":131.23146,"color":"#8656c7","thumb":"浸水状況_解凍/浸水状況/thumb/10木道アーチ舗装接合地点0.15近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_walk3","code":"P-3","kind":"video","label":"散策道3","lat":33.1171,"lng":131.2315,"color":"#8656c7","thumb":"動画_mp4/thumb/散策道3.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_walk4","code":"P-4","kind":"video","label":"散策道4","lat":33.117,"lng":131.2315,"color":"#8656c7","thumb":"動画_mp4/thumb/散策道4.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_walk5","code":"P-5","kind":"video","label":"散策道5","lat":33.1167,"lng":131.2318,"color":"#8656c7","thumb":"動画_mp4/thumb/散策道5.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_pave_a","code":"F-7","kind":"photo","label":"舗装道A(浸水0.09m)","lat":33.116639,"lng":131.231842,"color":"#d1453b","thumb":"浸水状況_解凍/浸水状況/thumb/12舗装道0.09近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_pave_b","code":"F-8","kind":"photo","label":"舗装道B(浸水0.09m)","lat":33.116518,"lng":131.23194,"color":"#d1453b","thumb":"浸水状況_解凍/浸水状況/thumb/14舗装道0.09近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"p_unpaved","code":"F-9","kind":"photo","label":"舗装なし(浸水0.16m)","lat":33.116265,"lng":131.232161,"color":"#d1453b","thumb":"浸水状況_解凍/浸水状況/thumb/16舗装なし0.16近景.JPG","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_road1","code":"R-1","kind":"video","label":"工事用道路予定地1","lat":33.1163,"lng":131.232,"color":"#d1453b","thumb":"動画_mp4/thumb/工事用道路予定地1.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null},{"id":"v_road2","code":"R-2","kind":"video","label":"工事用道路予定地2","lat":33.1163,"lng":131.2321,"color":"#d1453b","thumb":"動画_mp4/thumb/工事用道路予定地2.jpg","manuallyMoved":false,"dispLat":null,"dispLng":null}];
+
+const mapOuter = document.getElementById('map-outer');
+const mapEl = document.getElementById('site-map');
+const map = L.map('site-map', { scrollWheelZoom:false }).setView([33.117408375000004, 131.23117920833334], 18);
+
+const TILES = {
+  ort: { url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', attr:'地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>（空中写真）', max:19 },
+  std: { url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', attr:'地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>（標準地図）', max:19 },
+};
+let curLayer = L.tileLayer(TILES.ort.url, { attribution:TILES.ort.attr, maxZoom:TILES.ort.max }).addTo(map);
+function changeLayer(k){
+  const t = TILES[k]; if(!t) return;
+  map.removeLayer(curLayer);
+  curLayer = L.tileLayer(t.url, { attribution:t.attr, maxZoom:t.max }).addTo(map);
+  fixRep();
+}
+
+// ----- 地図タイル表示崩れ対策：複数タイミングでinvalidateSizeを呼ぶ -----
+function fixMapSize(){
+  const w = mapOuter.offsetWidth, h = mapEl.offsetHeight;
+  if(w>0 && h>0) map.invalidateSize(true);
+}
+function fixRep(){ fixMapSize(); [200,500,1000,2000].forEach(t=>setTimeout(fixMapSize,t)); }
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') fixRep(); });
+
+const markerLayer = L.layerGroup().addTo(map);
+const dotLayer = L.layerGroup().addTo(map);
+const routeLine = L.polyline(DATA.map(d=>[d.lat,d.lng]), { color:'#444', weight:3, dashArray:'6 6', opacity:0.7 }).addTo(map);
+
+DATA.forEach(d=>{
+  d.origLatLng = L.latLng(d.lat, d.lng);
+  d.manuallyMoved = !!d.manuallyMoved;
+  d.latlng = (d.manuallyMoved && d.dispLat!=null && d.dispLng!=null)
+    ? L.latLng(d.dispLat, d.dispLng)
+    : L.latLng(d.lat, d.lng);
+});
+
+function setStatus(msg){ document.getElementById('map-status').textContent = msg; }
+
+// ----- 1. divIconによるカスタムマーカー（サムネイル＋区間コード＋種別アイコン） -----
+function buildIcon(d){
+  const kindIcon = d.kind === 'video' ? '▶' : '💧';
+  const html = `<div class="mk-bubble" style="border-color:${d.color}">`
+    + `<div class="mk-code" style="background:${d.color}">${d.code}</div>`
+    + `<div class="mk-kind">${kindIcon}</div>`
+    + `<img src="${d.thumb}" loading="lazy">`
+    + `</div>`;
+  return L.divIcon({ className:'', html, iconSize:[56,56], iconAnchor:[28,50] });
+}
+
+function mountMarker(d){
+  if(d.marker) markerLayer.removeLayer(d.marker);
+  d.marker = L.marker(d.latlng, { icon:buildIcon(d), draggable:true }).addTo(markerLayer);
+  d.marker.on('click', ()=>showPopup(d));
+  d.marker.on('dragend', e=>{
+    d.latlng = e.target.getLatLng();
+    d.manuallyMoved = true;
+    setStatus(d.code + ' ' + d.label + ' の表示位置を移動しました（元のGPS位置は青い点で残ります）');
+    updateLeaderVisual(d);
+    scheduleDeclutter();
+  });
+  updateLeaderVisual(d);
+}
+
+// ----- 2. 引き出し線：表示位置が元GPS位置からずれた場合、点線＋青丸で接続 -----
+const EPS = 1e-8;
+function updateLeaderVisual(d){
+  const differs = Math.abs(d.origLatLng.lat-d.latlng.lat)>EPS || Math.abs(d.origLatLng.lng-d.latlng.lng)>EPS;
+  if(!differs){
+    if(d.leaderLine){ markerLayer.removeLayer(d.leaderLine); d.leaderLine=null; }
+    if(d.anchorDot){ dotLayer.removeLayer(d.anchorDot); d.anchorDot=null; }
+    return;
+  }
+  if(!d.leaderLine){
+    d.leaderLine = L.polyline([d.origLatLng, d.latlng], { color:d.color, weight:2, opacity:.85, dashArray: d.manuallyMoved ? '4,4' : null }).addTo(markerLayer);
+  } else {
+    d.leaderLine.setLatLngs([d.origLatLng, d.latlng]);
+    d.leaderLine.setStyle({ dashArray: d.manuallyMoved ? '4,4' : null });
+  }
+  if(!d.anchorDot){
+    d.anchorDot = L.circleMarker(d.origLatLng, { radius:5, color:'#fff', weight:2, fillColor:d.color, fillOpacity:1 }).addTo(dotLayer);
+  } else {
+    d.anchorDot.setLatLng(d.origLatLng);
+  }
+}
+
+// ----- 3. 重なり回避：近接ポイントを実距離(m)でグループ化し扇状に自動散らす -----
+const DECLUTTER_GEO_THRESH_M = 14;
+let declutterTimer = null;
+function scheduleDeclutter(){ clearTimeout(declutterTimer); declutterTimer = setTimeout(declutterMarkers, 60); }
+function declutterMarkers(){
+  const items = DATA.filter(d=>d.marker);
+  const pts = items.map(d=>({ d, pt: map.latLngToLayerPoint(d.origLatLng) }));
+  const used = new Array(pts.length).fill(false);
+  const groups = [];
+  for(let i=0;i<pts.length;i++){
+    if(used[i]) continue;
+    const group=[pts[i]]; used[i]=true;
+    for(let j=i+1;j<pts.length;j++){
+      if(used[j]) continue;
+      if(pts[i].d.origLatLng.distanceTo(pts[j].d.origLatLng) < DECLUTTER_GEO_THRESH_M){ group.push(pts[j]); used[j]=true; }
+    }
+    groups.push(group);
+  }
+  groups.forEach(group=>{
+    if(group.length===1){
+      const d = group[0].d;
+      if(!d.manuallyMoved && (d.latlng.lat!==d.origLatLng.lat || d.latlng.lng!==d.origLatLng.lng)){
+        d.latlng = d.origLatLng; d.marker.setLatLng(d.latlng); updateLeaderVisual(d);
+      }
+      return;
+    }
+    const n = group.length;
+    const radius = 46 + Math.min(n,6)*9;
+    const spread = Math.min(320, 46*n);
+    const start = -90 - spread/2;
+    group.forEach((g,idx)=>{
+      const d = g.d;
+      if(d.manuallyMoved) return;
+      const angleDeg = start + (n>1 ? (spread/(n-1))*idx : 0);
+      const rad = angleDeg*Math.PI/180;
+      const offPt = L.point(g.pt.x + radius*Math.cos(rad), g.pt.y + radius*Math.sin(rad));
+      const newLatLng = map.layerPointToLatLng(offPt);
+      d.latlng = newLatLng; d.marker.setLatLng(newLatLng); updateLeaderVisual(d);
+    });
+  });
+}
+map.on('zoomend', scheduleDeclutter);
+map.on('moveend', scheduleDeclutter);
+
+function showPopup(d){
+  const c = document.createElement('div'); c.className='mk-pop';
+  const img = document.createElement('img'); img.src = d.thumb;
+  const b = document.createElement('b'); b.textContent = d.code + ' ' + d.label;
+  const jump = document.createElement('a'); jump.href='#loc_'+d.id; jump.textContent='▼ 詳細（写真・動画）を見る';
+  jump.onclick = ()=>{ setTimeout(()=>flashItem(d.id), 50); };
+  const gmap = document.createElement('a'); gmap.href='https://www.google.com/maps/@'+d.lat+','+d.lng+',20z/data=!3m1!1e3'; gmap.target='_blank'; gmap.rel='noopener'; gmap.textContent='Googleマップ(航空写真)で開く';
+  const gsi = document.createElement('a'); gsi.href='https://maps.gsi.go.jp/#19/'+d.lat+'/'+d.lng+'/&base=ort&ls=ort&disp=1'; gsi.target='_blank'; gsi.rel='noopener'; gsi.textContent='地理院地図で開く';
+  c.appendChild(img); c.appendChild(b); c.appendChild(jump); c.appendChild(gmap); c.appendChild(gsi);
+  if(d.manuallyMoved){
+    const rb = document.createElement('a'); rb.href='javascript:void(0)'; rb.textContent='📍 元のGPS位置に戻す';
+    rb.onclick = ()=>{ resetPoint(d.id); map.closePopup(); };
+    c.appendChild(rb);
+  }
+  L.popup({ maxWidth:240 }).setLatLng(d.latlng).setContent(c).openOn(map);
+}
+
+function resetPoint(id){
+  const d = DATA.find(x=>x.id===id); if(!d) return;
+  d.latlng = d.origLatLng; d.manuallyMoved = false;
+  d.marker.setLatLng(d.latlng); updateLeaderVisual(d);
+  setStatus(d.code + ' ' + d.label + ' を元のGPS位置に戻しました');
+  scheduleDeclutter();
+}
+function resetAll(){
+  DATA.forEach(d=>{ d.manuallyMoved=false; });
+  scheduleDeclutter();
+  setStatus('すべてのマーカーを自動配置（重なり回避）にリセットしました');
+}
+
+function focusPoint(id){
+  const d = DATA.find(x=>x.id===id); if(!d) return;
+  document.getElementById('site-map').scrollIntoView({ behavior:'smooth', block:'center' });
+  setTimeout(()=>{ map.setView(d.latlng, 19); d.marker.openPopup(); }, 350);
+}
+function flashItem(id){
+  const el = document.getElementById('loc_'+id); if(!el) return;
+  el.classList.add('flash');
+  setTimeout(()=>el.classList.remove('flash'), 1600);
+}
+
+// ----- 4. 手動位置修正：ドラッグ、または✏️位置修正モード（タップ→タップの2ステップ） -----
+let fixMode = false, fixStep = 1, fixTarget = null;
+function toggleFixMode(){
+  if(fixMode){ cancelFixMode(); return; }
+  fixMode = true; fixStep = 1; fixTarget = null;
+  document.getElementById('btn-fix').classList.add('on');
+  const banner = document.getElementById('fix-banner');
+  banner.style.display='block'; banner.className='step1';
+  banner.innerHTML = '✏️ 位置修正モード — 移動したいマーカーの近くをタップ <button onclick="cancelFixMode()">終了</button>';
+  map.getContainer().style.cursor = 'crosshair';
+  setStatus('位置修正モードON — 移動したいマーカーの近くをタップしてください');
+}
+function cancelFixMode(){
+  fixMode = false; fixStep = 1; fixTarget = null;
+  document.getElementById('btn-fix').classList.remove('on');
+  document.getElementById('fix-banner').style.display='none';
+  document.getElementById('fix-highlight').style.display='none';
+  map.getContainer().style.cursor='';
+  setStatus('位置修正モードを終了しました');
+}
+map.on('click', e=>{
+  if(!fixMode) return;
+  if(fixStep===1){
+    let nearest=null, minDist=Infinity;
+    DATA.forEach(d=>{
+      const dist = map.latLngToLayerPoint(e.latlng).distanceTo(map.latLngToLayerPoint(d.latlng));
+      if(dist<minDist){ minDist=dist; nearest=d; }
+    });
+    if(!nearest || minDist>70){ setStatus('⚠ マーカーの近くをタップしてください'); return; }
+    fixTarget = nearest; fixStep = 2;
+    const pt = map.latLngToContainerPoint(nearest.latlng);
+    const hl = document.getElementById('fix-highlight');
+    hl.style.display='block'; hl.style.left=(pt.x-30)+'px'; hl.style.top=(pt.y-28)+'px'; hl.style.width='60px'; hl.style.height='56px';
+    const banner = document.getElementById('fix-banner');
+    banner.className='step2';
+    banner.innerHTML = '📍 '+nearest.code+' 「'+nearest.label+'」を選択 → 新しい位置をタップ <button onclick="cancelFixMode()">キャンセル</button>';
+    setStatus(nearest.code+' を選択しました → 新しい位置をタップしてください');
+    return;
+  }
+  if(fixStep===2 && fixTarget){
+    const d = fixTarget;
+    d.latlng = e.latlng; d.manuallyMoved = true;
+    d.marker.setLatLng(d.latlng); updateLeaderVisual(d);
+    fixStep = 1; fixTarget = null;
+    document.getElementById('fix-highlight').style.display='none';
+    const banner = document.getElementById('fix-banner');
+    banner.className='step1';
+    banner.innerHTML = '✏️ 位置修正モード — 移動したいマーカーの近くをタップ <button onclick="cancelFixMode()">終了</button>';
+    setStatus(d.code+' の位置を修正しました ✓ 続けて他のマーカーも修正できます');
+  }
+});
+
+// ----- 位置修正の保存：現在のマーカー位置を書き込んだHTMLファイルをダウンロード -----
+function saveHTML(){
+  const newData = DATA.map(d=>({
+    id: d.id, code: d.code, kind: d.kind, label: d.label,
+    lat: d.lat, lng: d.lng, color: d.color, thumb: d.thumb,
+    manuallyMoved: d.manuallyMoved,
+    dispLat: d.manuallyMoved ? d.latlng.lat : null,
+    dispLng: d.manuallyMoved ? d.latlng.lng : null,
+  }));
+  const clone = document.cloneNode(true);
+  const mapDiv = clone.getElementById('site-map');
+  if(mapDiv){ mapDiv.innerHTML=''; mapDiv.removeAttribute('class'); mapDiv.removeAttribute('style'); mapDiv.removeAttribute('tabindex'); }
+  const statusDiv = clone.getElementById('map-status');
+  if(statusDiv) statusDiv.textContent = '地図を読み込み中...';
+  const fixBanner = clone.getElementById('fix-banner');
+  if(fixBanner){ fixBanner.removeAttribute('class'); fixBanner.removeAttribute('style'); fixBanner.innerHTML=''; }
+  const fixHighlight = clone.getElementById('fix-highlight');
+  if(fixHighlight) fixHighlight.removeAttribute('style');
+  let dataScript = null;
+  clone.querySelectorAll('script').forEach(s=>{ if(s.textContent.indexOf('const DATA = [')>=0) dataScript = s; });
+  if(!dataScript){ alert('保存用データが見つかりませんでした'); return; }
+  dataScript.textContent = dataScript.textContent.replace(/const DATA = \[[\s\S]*?\];/, 'const DATA = '+JSON.stringify(newData)+';');
+  const htmlStr = '<!DOCTYPE html>\n' + clone.documentElement.outerHTML;
+  const blob = new Blob([htmlStr], { type:'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'タデ原湿原現地調査配置図.html';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  const movedCount = DATA.filter(d=>d.manuallyMoved).length;
+  setStatus('HTMLファイルをダウンロードしました(手動調整 '+movedCount+'件を含む)。元のファイルに上書き保存してください。');
+}
+
+// 初期化
+DATA.forEach(mountMarker);
+scheduleDeclutter();
+
+// ----- 5. 地図タイル表示崩れ対策の初回発火 -----
+fixRep();
+</script>
+
+
+
+</body></html>
