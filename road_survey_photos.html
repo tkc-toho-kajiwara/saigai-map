@@ -74,6 +74,8 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 .sbt-btn.on{border-color:var(--acc);background:var(--acc);color:#fff}
 .sbt-btn.warn-btn{border-color:var(--warn);color:var(--warn)}
 .sbt-btn.warn-btn.on{background:var(--warn);color:#fff;border-color:var(--warn)}
+#sbt-other-btn{border-color:var(--ink3);color:var(--ink2)}
+#sbt-other-btn.on{border-color:var(--ink);background:var(--ink);color:#fff}
 .sbt-wide{grid-column:1/-1}
 
 /* 寸法 */
@@ -225,9 +227,27 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
   <div class="card">
     <div class="card-head">📍 箇所情報</div>
     <div class="card-body">
-      <div class="field"><label>箇所 No.</label><input type="text" id="f-no" placeholder="例: 001" inputmode="numeric"></div>
-      <div class="field"><label>路線名</label><input type="text" id="f-rosen" placeholder="例: R8道路/208 物見塚釘野線"></div>
-      <div class="field"><label>調査日</label><input type="date" id="f-date"></div>
+      <div style="display:flex;gap:10px">
+        <div class="field" style="flex:1"><label>箇所 No.</label><input type="text" id="f-no" placeholder="例: 001" inputmode="numeric"></div>
+        <div class="field" style="flex:1"><label>調査日</label><input type="date" id="f-date"></div>
+      </div>
+      <!-- 路線名：GeoJSON照合で自動取得 -->
+      <div class="field">
+        <label>路線名　<span id="rosen-status" style="font-weight:400;color:var(--ink3);font-size:10px">GPS取得後に自動入力</span></label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="f-rosen" placeholder="GeoJSON読込でGPSから自動取得" style="flex:1">
+          <button onclick="lookupRosen()" style="flex:0 0 56px;padding:9px 6px;border:1.5px solid var(--acc);border-radius:7px;background:var(--bg);color:var(--acc);font-size:12px;font-weight:700;cursor:pointer">再検索</button>
+        </div>
+      </div>
+      <!-- GeoJSON読込ボタン -->
+      <div id="geojson-area" style="background:var(--bg2);border-radius:7px;padding:8px 10px;font-size:12px;color:var(--ink2)">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span id="geojson-status">📂 道路台帳GeoJSONが未読込（路線名は手動入力）</span>
+          <button onclick="document.getElementById('geojson-file').click()" style="padding:5px 12px;border:1.5px solid var(--acc);border-radius:6px;background:#fff;color:var(--acc);font-size:12px;font-weight:700;cursor:pointer">GeoJSON読込</button>
+        </div>
+        <div style="margin-top:4px;font-size:10px;color:var(--ink3)">QGISで路線ShapeファイルをGeoJSON出力→このボタンで読込→GPSから路線名を自動取得</div>
+      </div>
+      <input type="file" id="geojson-file" accept=".geojson,.json" style="display:none" onchange="loadGeoJSON(this)">
     </div>
   </div>
 
@@ -241,6 +261,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
         <button class="sbt-btn" onclick="selSbt(this,'陥没補修工')">陥没補修工</button>
         <button class="sbt-btn" onclick="selSbt(this,'クラック補修')">クラック補修</button>
         <button class="sbt-btn" onclick="selSbt(this,'アスカーブ')">アスカーブ</button>
+        <button class="sbt-btn sbt-wide" onclick="selSbt(this,'その他')" id="sbt-other-btn">その他</button>
         <button class="sbt-btn warn-btn sbt-wide" onclick="selSbt(this,'判定不可・要確認')">⚠️ 判定不可・要確認</button>
       </div>
     </div>
@@ -359,6 +380,7 @@ let groups = [];   // 登録済みグループ
 let pending = [];  // 入力中の写真（{dataUrl, lat, lon, hasGps, name}）
 let curSbt = '';
 let gLat = null, gLon = null;
+let roadGeoJSON = null;  // 道路台帳GeoJSONデータ
 
 function save(){ localStorage.setItem(KEY, JSON.stringify(groups)); }
 function load(){ const d=localStorage.getItem(KEY); groups=d?JSON.parse(d):[]; }
@@ -383,13 +405,84 @@ function startGPS(){
   if(!navigator.geolocation){ setStatus('GPS非対応','warn'); return; }
   const dot=document.getElementById('gps-dot');
   navigator.geolocation.watchPosition(
-    pos=>{ gLat=pos.coords.latitude; gLon=pos.coords.longitude;
+    pos=>{
+      gLat=pos.coords.latitude; gLon=pos.coords.longitude;
       dot.classList.add('on');
       document.getElementById('gps-txt').textContent = gLat.toFixed(6)+', '+gLon.toFixed(6);
+      // GeoJSON読込済みなら路線名を自動検索
+      if(roadGeoJSON && !document.getElementById('f-rosen').value){
+        lookupRosen();
+      }
     },
     err=>{ setStatus('GPS: '+err.message,'warn'); },
     {enableHighAccuracy:true, maximumAge:5000}
   );
+}
+
+// ===== GeoJSON読込 =====
+function loadGeoJSON(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      roadGeoJSON=JSON.parse(e.target.result);
+      const cnt=roadGeoJSON.features?roadGeoJSON.features.length:0;
+      document.getElementById('geojson-status').textContent=`✅ 道路台帳読込済み（${cnt}路線）`;
+      setStatus(`GeoJSON読込完了：${cnt}路線`,'ok');
+      if(gLat) lookupRosen();
+    }catch(e){
+      setStatus('GeoJSON読込エラー: '+e.message,'err');
+    }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+// ===== 最近傍路線名検索（GPS→GeoJSON照合）=====
+function lookupRosen(){
+  if(!roadGeoJSON){ document.getElementById('rosen-status').textContent='GeoJSON未読込'; return; }
+  if(!gLat){ document.getElementById('rosen-status').textContent='GPS待機中...'; return; }
+
+  const features=roadGeoJSON.features||[];
+  let minDist=Infinity, bestName='';
+
+  features.forEach(f=>{
+    const name=f.properties&&(
+      f.properties['路線名']||f.properties['rosen']||f.properties['name']||
+      f.properties['N01_001']||f.properties['road_name']||Object.values(f.properties)[0]||''
+    );
+    const geom=f.geometry;
+    if(!geom) return;
+
+    // LineStringとMultiLineStringに対応
+    const coords=geom.type==='LineString'?[geom.coordinates]:
+                  geom.type==='MultiLineString'?geom.coordinates:[];
+
+    coords.forEach(line=>{
+      for(let i=0;i<line.length-1;i++){
+        const d=distToSegment(gLat,gLon,line[i][1],line[i][0],line[i+1][1],line[i+1][0]);
+        if(d<minDist){ minDist=d; bestName=name; }
+      }
+    });
+  });
+
+  const distM=Math.round(minDist*111320); // 度→m概算
+  if(bestName && distM<200){
+    document.getElementById('f-rosen').value=bestName;
+    document.getElementById('rosen-status').textContent=`✅ 自動取得（約${distM}m）`;
+  } else if(bestName){
+    document.getElementById('rosen-status').textContent=`⚠️ 最近傍:${bestName}（${distM}m・遠すぎる場合は手入力）`;
+  } else {
+    document.getElementById('rosen-status').textContent='路線が見つかりません';
+  }
+}
+
+// 点からセグメントへの最短距離（度単位）
+function distToSegment(plat,plon,alat,alon,blat,blon){
+  const dx=blon-alon, dy=blat-alat;
+  if(dx===0&&dy===0) return Math.hypot(plon-alon,plat-alat);
+  const t=Math.max(0,Math.min(1,((plon-alon)*dx+(plat-alat)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(plon-(alon+t*dx), plat-(alat+t*dy));
 }
 
 // ===== 細別 =====
