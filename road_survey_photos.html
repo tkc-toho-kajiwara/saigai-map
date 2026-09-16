@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1c3d5a">
+<title>道路補修 写真記録</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.js"></script>
+<style>
+:root {
+  --ink:   #1c2b38;
+  --ink2:  #4a5f70;
+  --ink3:  #8fa3b0;
+  --bg:    #f3f6f8;
+  --bg2:   #e6ecf0;
+  --surf:  #ffffff;
+  --acc:   #1c7ed6;
+  --acc2:  #0f5fa8;
+  --ok:    #2f9e44;
+  --warn:  #f08c00;
+  --danger:#c92a2a;
+  --r:     10px;
+  --sh:    0 2px 10px rgba(0,0,0,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding-bottom:80px}
+
+/* ヘッダー */
+#hdr{
+  background:var(--ink);color:#fff;
+  padding:12px 14px 0;
+  position:sticky;top:0;z-index:100;
+}
+#hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px}
+#hdr h1{font-size:15px;font-weight:700;letter-spacing:.04em}
+#hdr-sub{font-size:11px;opacity:.55;margin-top:1px}
+#tabs{display:flex;overflow-x:auto;scrollbar-width:none;margin:0 -14px}
+#tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:9px 18px;font-size:13px;font-weight:600;color:rgba(255,255,255,.5);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s}
+.tab.on{color:#fff;border-bottom-color:var(--acc)}
+
+/* コンテンツ */
+.pane{display:none;padding:14px 12px}
+.pane.on{display:block}
+
+/* カード */
+.card{background:var(--surf);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:12px;overflow:hidden}
+.card-head{background:var(--ink);color:#fff;padding:9px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-body{padding:12px 14px}
+
+/* フォーム */
+.field{margin-bottom:10px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:4px;letter-spacing:.04em}
+.field input,.field select,.field textarea{
+  width:100%;padding:9px 11px;
+  border:1.5px solid var(--bg2);border-radius:7px;
+  font-size:15px;color:var(--ink);background:var(--bg);
+  appearance:none;outline:none;transition:border-color .15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--acc);background:#fff}
+.field textarea{height:56px;resize:none;line-height:1.5}
+
+/* 細別グリッド */
+.sbt-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.sbt-btn{
+  padding:10px 6px;border-radius:8px;
+  border:1.5px solid var(--bg2);background:var(--bg);
+  font-size:12px;font-weight:700;color:var(--ink2);
+  cursor:pointer;text-align:center;transition:all .15s;
+}
+.sbt-btn.on{border-color:var(--acc);background:var(--acc);color:#fff}
+.sbt-btn.warn-btn{border-color:var(--warn);color:var(--warn)}
+.sbt-btn.warn-btn.on{background:var(--warn);color:#fff;border-color:var(--warn)}
+.sbt-wide{grid-column:1/-1}
+
+/* 寸法 */
+.dims{display:flex;gap:8px}
+.dim{flex:1}
+.dim label{display:block;font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:4px}
+.dim input{width:100%;padding:9px 6px;border:1.5px solid var(--bg2);border-radius:7px;font-size:17px;font-weight:700;color:var(--acc2);text-align:center;background:var(--bg);outline:none}
+.dim input:focus{border-color:var(--acc);background:#fff}
+.dim-u{font-size:10px;color:var(--ink3);text-align:center;margin-top:2px}
+
+/* 写真エリア */
+#photo-area{
+  background:var(--bg);border:2px dashed var(--bg2);
+  border-radius:var(--r);padding:14px;margin-bottom:10px;
+}
+#photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.photo-thumb{position:relative;aspect-ratio:1;border-radius:7px;overflow:hidden;cursor:pointer}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-thumb .gps-dot{
+  position:absolute;top:4px;right:4px;
+  width:10px;height:10px;border-radius:50%;
+  border:1.5px solid #fff;
+}
+.photo-thumb .gps-dot.ok{background:var(--ok)}
+.photo-thumb .gps-dot.ng{background:var(--danger)}
+.photo-thumb .seq{
+  position:absolute;bottom:3px;left:4px;
+  background:rgba(0,0,0,.6);color:#fff;
+  font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;
+}
+.photo-thumb .del{
+  position:absolute;top:3px;left:3px;
+  background:rgba(0,0,0,.55);color:#fff;
+  border:none;border-radius:50%;width:20px;height:20px;
+  font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.photo-btns{display:flex;gap:8px}
+.photo-btn{
+  flex:1;padding:11px 8px;
+  border-radius:8px;border:1.5px solid var(--acc);
+  background:#fff;color:var(--acc);
+  font-size:13px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.photo-btn:active{background:var(--acc);color:#fff}
+.photo-hint{font-size:11px;color:var(--ink3);margin-top:8px;text-align:center;line-height:1.6}
+
+/* GPS情報 */
+.gps-row{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--bg);border-radius:7px;font-size:12px;color:var(--ink2)}
+#gps-dot{width:9px;height:9px;border-radius:50%;background:var(--ink3);flex-shrink:0;transition:background .3s}
+#gps-dot.on{background:var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* 登録ボタン */
+#btn-reg{
+  width:100%;padding:15px;
+  background:var(--acc);color:#fff;
+  border:none;border-radius:var(--r);
+  font-size:16px;font-weight:800;cursor:pointer;
+  box-shadow:0 4px 14px rgba(28,126,214,.35);
+  transition:transform .1s;
+}
+#btn-reg:active{transform:scale(.98)}
+
+/* グループ一覧 */
+.group-card{background:var(--surf);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:10px;overflow:hidden}
+.group-head{
+  padding:10px 12px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--bg2);cursor:pointer;
+}
+.group-no{background:var(--acc);color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:20px;min-width:48px;text-align:center}
+.group-sbt{font-weight:700;font-size:14px;color:var(--acc2);flex:1}
+.group-cnt{font-size:12px;color:var(--ink3);background:var(--bg2);padding:2px 8px;border-radius:20px}
+.group-del{background:none;border:none;color:var(--ink3);font-size:18px;cursor:pointer;padding:4px}
+.group-body{padding:10px 12px}
+.group-dims{font-size:12px;color:var(--ink2);margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap}
+.group-dims strong{color:var(--ink);font-weight:700}
+.group-bikou{font-size:12px;color:var(--ink2);font-style:italic;margin-bottom:8px}
+.thumb-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.thumb-row::-webkit-scrollbar{display:none}
+.thumb-item{flex:0 0 72px;position:relative;cursor:pointer}
+.thumb-item img{width:72px;height:72px;object-fit:cover;border-radius:6px}
+.thumb-item .gps-badge{position:absolute;bottom:2px;right:2px;font-size:9px;padding:1px 4px;border-radius:3px;font-weight:700;color:#fff}
+.thumb-item .gps-badge.ok{background:var(--ok)}
+.thumb-item .gps-badge.ng{background:var(--danger)}
+.thumb-item .seq-badge{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;padding:1px 4px;border-radius:3px;font-weight:700}
+.group-meta{font-size:11px;color:var(--ink3);margin-top:6px}
+
+/* フィルター */
+.filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter-sel{flex:1;min-width:100px;padding:8px 10px;border:1.5px solid var(--bg2);border-radius:7px;font-size:13px;color:var(--ink);background:var(--bg);appearance:none}
+
+/* 出力 */
+.out-card{background:var(--surf);border-radius:var(--r);box-shadow:var(--sh);padding:14px;margin-bottom:12px}
+.out-card h3{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:10px}
+.out-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.out-btn{
+  flex:1;min-width:120px;padding:11px 10px;
+  border:1.5px solid var(--acc);border-radius:8px;
+  background:var(--bg);color:var(--acc);
+  font-size:13px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.out-btn:active{background:var(--acc);color:#fff}
+.out-hint{font-size:11px;color:var(--ink3);margin-top:4px;line-height:1.6}
+
+/* インポート */
+.import-btn{width:100%;padding:12px;border:2px dashed var(--bg2);border-radius:8px;background:var(--bg);color:var(--ink2);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px}
+
+/* ステータスバー */
+#sbar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--ink);color:#fff;
+  padding:11px 16px;font-size:13px;
+  display:flex;align-items:center;gap:8px;
+  z-index:200;transition:background .3s;
+}
+#sbar.ok{background:var(--ok)}
+#sbar.warn{background:var(--warn)}
+#sbar.err{background:var(--danger)}
+
+/* モーダル */
+#modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:300;align-items:center;justify-content:center}
+#modal-bg.on{display:flex}
+#modal-img{max-width:96vw;max-height:90vh;border-radius:8px;object-fit:contain}
+#modal-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:24px;cursor:pointer;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center}
+#modal-info{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;font-size:12px;padding:6px 14px;border-radius:20px;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div id="hdr-top">
+    <div>
+      <h1>📷 道路補修 写真記録</h1>
+      <div id="hdr-sub">テスト版 v1.0　—　調査票＋写真グループ管理</div>
+    </div>
+  </div>
+  <div id="tabs">
+    <button class="tab on" onclick="showTab('input',this)">➕ 記録</button>
+    <button class="tab" onclick="showTab('list',this)">📋 一覧</button>
+    <button class="tab" onclick="showTab('export',this)">💾 出力</button>
+  </div>
+</div>
+
+<!-- ===== 記録タブ ===== -->
+<div class="pane on" id="pane-input">
+
+  <div class="card">
+    <div class="card-head">📍 箇所情報</div>
+    <div class="card-body">
+      <div class="field"><label>箇所 No.</label><input type="text" id="f-no" placeholder="例: 001" inputmode="numeric"></div>
+      <div class="field"><label>路線名</label><input type="text" id="f-rosen" placeholder="例: R8道路/208 物見塚釘野線"></div>
+      <div class="field"><label>調査日</label><input type="date" id="f-date"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">🔧 細別</div>
+    <div class="card-body">
+      <div class="sbt-grid">
+        <button class="sbt-btn" onclick="selSbt(this,'パッチング')">パッチング</button>
+        <button class="sbt-btn" onclick="selSbt(this,'オーバーレイ工')">オーバーレイ工</button>
+        <button class="sbt-btn" onclick="selSbt(this,'打換工')">打換工</button>
+        <button class="sbt-btn" onclick="selSbt(this,'陥没補修工')">陥没補修工</button>
+        <button class="sbt-btn" onclick="selSbt(this,'クラック補修')">クラック補修</button>
+        <button class="sbt-btn" onclick="selSbt(this,'アスカーブ')">アスカーブ</button>
+        <button class="sbt-btn warn-btn sbt-wide" onclick="selSbt(this,'判定不可・要確認')">⚠️ 判定不可・要確認</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">📐 寸法</div>
+    <div class="card-body">
+      <div class="dims">
+        <div class="dim"><label>L 延長</label><input type="number" id="f-L" placeholder="0.0" step="0.1" inputmode="decimal"><div class="dim-u">m</div></div>
+        <div class="dim"><label>W 幅</label><input type="number" id="f-W" placeholder="0.0" step="0.1" inputmode="decimal"><div class="dim-u">m</div></div>
+        <div class="dim"><label>H 深さ</label><input type="number" id="f-H" placeholder="0.0" step="0.1" inputmode="decimal"><div class="dim-u">m</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">📷 写真（1枚〜複数枚）</div>
+    <div class="card-body">
+      <div id="photo-area">
+        <div id="photo-grid"></div>
+        <div class="photo-btns">
+          <button class="photo-btn" onclick="takePhoto()">📷 撮影</button>
+          <button class="photo-btn" onclick="pickPhoto()">🖼️ ギャラリー</button>
+        </div>
+        <div class="photo-hint">
+          📍 撮影はGPS保持　／　ギャラリーはGPS消える場合あり→自動補完<br>
+          複数枚OK・タップで拡大・長押しで削除
+        </div>
+      </div>
+      <div class="gps-row">
+        <div id="gps-dot"></div>
+        <span id="gps-txt">GPS取得中...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">💬 備考</div>
+    <div class="card-body">
+      <div class="field"><textarea id="f-bikou" placeholder="損傷状況・特記事項・写真枚数など"></textarea></div>
+    </div>
+  </div>
+
+  <button id="btn-reg" onclick="register()">✅ このグループを登録</button>
+</div>
+
+<!-- ===== 一覧タブ ===== -->
+<div class="pane" id="pane-list">
+  <div class="filter-row">
+    <select class="filter-sel" id="fil-date" onchange="renderList()"><option value="">全期間</option></select>
+    <select class="filter-sel" id="fil-sbt" onchange="renderList()"><option value="">全細別</option></select>
+  </div>
+  <div id="list-body"></div>
+</div>
+
+<!-- ===== 出力タブ ===== -->
+<div class="pane" id="pane-export">
+  <div class="out-card">
+    <h3>📤 CSV出力（調査票データ）</h3>
+    <div class="out-row">
+      <button class="out-btn" onclick="exportCSV('all')">📄 全件</button>
+      <button class="out-btn" onclick="exportCSV('today')">📅 本日分</button>
+    </div>
+    <div class="out-hint">列：箇所No・日付・細別・L・W・H・写真枚数・GPS有無・備考</div>
+  </div>
+
+  <div class="out-card">
+    <h3>🗜️ 写真ZIP出力（GPS付き）</h3>
+    <div class="out-row">
+      <button class="out-btn" onclick="exportZip('all')">📦 全件ZIP</button>
+      <button class="out-btn" onclick="exportZip('today')">📦 本日分ZIP</button>
+    </div>
+    <div class="out-hint">
+      フォルダ構成：箇所No_細別 / 写真ファイル<br>
+      GPS補完済み写真はExifに座標を書き込んでZIP化<br>
+      Boxに直接アップロード → 位置情報保持
+    </div>
+  </div>
+
+  <div class="out-card">
+    <h3>📦 JSON全件バックアップ</h3>
+    <div class="out-row">
+      <button class="out-btn" onclick="exportJSON()">💾 保存</button>
+      <button class="out-btn" onclick="document.getElementById('import-file').click()">📂 読込（他班）</button>
+    </div>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this)">
+    <div class="out-hint">他班JSONを読込→重複スキップして統合</div>
+  </div>
+
+  <div class="out-card">
+    <h3>🗑️ データ管理</h3>
+    <div class="out-row">
+      <button class="out-btn" style="border-color:var(--danger);color:var(--danger)" onclick="clearAll()">全件削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル -->
+<div id="modal-bg" onclick="closeModal()">
+  <button id="modal-close" onclick="closeModal()">✕</button>
+  <img id="modal-img" src="">
+  <div id="modal-info"></div>
+</div>
+
+<!-- 非表示input -->
+<input type="file" id="cam-input" accept="image/*" capture="environment" multiple style="display:none" onchange="handlePhotos(this,true)">
+<input type="file" id="gal-input" accept="image/*" multiple style="display:none" onchange="handlePhotos(this,false)">
+
+<div id="sbar"><span id="sbar-msg">準備完了</span></div>
+
+<script>
+// ===== 状態管理 =====
+const KEY = 'rsp_v1';
+let groups = [];   // 登録済みグループ
+let pending = [];  // 入力中の写真（{dataUrl, lat, lon, hasGps, name}）
+let curSbt = '';
+let gLat = null, gLon = null;
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(groups)); }
+function load(){ const d=localStorage.getItem(KEY); groups=d?JSON.parse(d):[]; }
+
+// ===== 初期化 =====
+load();
+document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+startGPS();
+setStatus(groups.length + '件のグループを読み込みました');
+
+// ===== タブ =====
+function showTab(id, btn){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('pane-'+id).classList.add('on');
+  btn.classList.add('on');
+  if(id==='list') renderList();
+}
+
+// ===== GPS =====
+function startGPS(){
+  if(!navigator.geolocation){ setStatus('GPS非対応','warn'); return; }
+  const dot=document.getElementById('gps-dot');
+  navigator.geolocation.watchPosition(
+    pos=>{ gLat=pos.coords.latitude; gLon=pos.coords.longitude;
+      dot.classList.add('on');
+      document.getElementById('gps-txt').textContent = gLat.toFixed(6)+', '+gLon.toFixed(6);
+    },
+    err=>{ setStatus('GPS: '+err.message,'warn'); },
+    {enableHighAccuracy:true, maximumAge:5000}
+  );
+}
+
+// ===== 細別 =====
+function selSbt(btn, sbt){
+  document.querySelectorAll('.sbt-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); curSbt=sbt;
+}
+
+// ===== 写真取り込み =====
+function takePhoto(){ document.getElementById('cam-input').click(); }
+function pickPhoto(){ document.getElementById('gal-input').click(); }
+
+function handlePhotos(input, isCamera){
+  const files = [...input.files];
+  if(!files.length) return;
+  let done=0;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const dataUrl=e.target.result;
+      // ExifからGPS抽出
+      let lat=null, lon=null, hasGps=false;
+      try{
+        const exif=piexif.load(dataUrl);
+        const gps=exif['GPS'];
+        if(gps && gps[piexif.GPSIFD.GPSLatitude]){
+          const latD=gps[piexif.GPSIFD.GPSLatitude];
+          const lonD=gps[piexif.GPSIFD.GPSLongitude];
+          lat=dmsToDecimal(latD); lon=dmsToDecimal(lonD); hasGps=true;
+        }
+      }catch(e){}
+
+      // GPS無し→スマホGPSで補完
+      if(!hasGps && gLat){
+        lat=gLat; lon=gLon;
+        // Exifに書き込み
+        try{
+          const exif=piexif.load(dataUrl);
+          exif['GPS'][piexif.GPSIFD.GPSLatitude]=decimalToDms(Math.abs(lat));
+          exif['GPS'][piexif.GPSIFD.GPSLatitudeRef]=lat>=0?'N':'S';
+          exif['GPS'][piexif.GPSIFD.GPSLongitude]=decimalToDms(Math.abs(lon));
+          exif['GPS'][piexif.GPSIFD.GPSLongitudeRef]=lon>=0?'E':'W';
+          const exifStr=piexif.dump(exif);
+          const inserted=piexif.insert(exifStr,dataUrl);
+          pending.push({dataUrl:inserted,lat,lon,hasGps:false,name:file.name,supplemented:true});
+        }catch(e){
+          pending.push({dataUrl,lat,lon,hasGps:false,name:file.name,supplemented:false});
+        }
+      } else {
+        pending.push({dataUrl,lat,lon,hasGps,name:file.name,supplemented:false});
+      }
+
+      done++;
+      if(done===files.length){ renderPhotoGrid(); input.value=''; }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function dmsToDecimal(dms){
+  return dms[0][0]/dms[0][1] + dms[1][0]/dms[1][1]/60 + dms[2][0]/dms[2][1]/3600;
+}
+function decimalToDms(d){
+  const deg=Math.floor(d);
+  const minF=(d-deg)*60;
+  const min=Math.floor(minF);
+  const sec=(minF-min)*60;
+  return [[deg,1],[min,1],[Math.round(sec*100),100]];
+}
+
+function renderPhotoGrid(){
+  const grid=document.getElementById('photo-grid');
+  grid.innerHTML=pending.map((p,i)=>`
+    <div class="photo-thumb" onclick="openModal('${p.dataUrl}','${p.name}',${p.lat},${p.lon})">
+      <img src="${p.dataUrl}">
+      <div class="gps-dot ${p.lat?'ok':'ng'}"></div>
+      <span class="seq">${i+1}</span>
+      <button class="del" onclick="event.stopPropagation();delPhoto(${i})">✕</button>
+    </div>
+  `).join('');
+  const gpsOk=pending.filter(p=>p.lat).length;
+  setStatus(`写真 ${pending.length}枚（GPS付き${gpsOk}枚）`);
+}
+
+function delPhoto(i){ pending.splice(i,1); renderPhotoGrid(); }
+
+// ===== 登録 =====
+function register(){
+  const no=document.getElementById('f-no').value.trim();
+  const rosen=document.getElementById('f-rosen').value.trim();
+  const date=document.getElementById('f-date').value;
+  const L=document.getElementById('f-L').value;
+  const W=document.getElementById('f-W').value;
+  const H=document.getElementById('f-H').value;
+  const bikou=document.getElementById('f-bikou').value.trim();
+
+  if(!curSbt){ setStatus('⚠️ 細別を選択してください','warn'); return; }
+  if(!pending.length){ setStatus('⚠️ 写真を追加してください','warn'); return; }
+
+  const group={
+    id: Date.now(),
+    no, rosen, date, sbt:curSbt,
+    L, W, H, bikou,
+    photos: pending.map(p=>({
+      dataUrl:p.dataUrl, lat:p.lat, lon:p.lon,
+      hasGps:p.hasGps, name:p.name, supplemented:p.supplemented||false
+    })),
+    gpsLat: gLat, gpsLon: gLon,
+    createdAt: new Date().toISOString()
+  };
+  groups.push(group);
+  save();
+
+  // フォームリセット
+  const nextNo=no?String(parseInt(no.replace(/\D/g,''))+1).padStart(no.replace(/\D/g,'').length,'0'):'';
+  document.getElementById('f-no').value=nextNo;
+  document.getElementById('f-L').value='';
+  document.getElementById('f-W').value='';
+  document.getElementById('f-H').value='';
+  document.getElementById('f-bikou').value='';
+  document.getElementById('photo-grid').innerHTML='';
+  document.querySelectorAll('.sbt-btn').forEach(b=>b.classList.remove('on'));
+  curSbt=''; pending=[];
+
+  setStatus(`✅ No.${no||'--'}「${group.sbt}」写真${group.photos.length}枚を登録`,'ok');
+  setTimeout(()=>setStatus(groups.length+'グループ登録済み'),2500);
+}
+
+// ===== 一覧 =====
+function renderList(){
+  // フィルター選択肢更新
+  const dates=[...new Set(groups.map(g=>g.date))].sort().reverse();
+  const sbts=[...new Set(groups.map(g=>g.sbt))].sort();
+  const selDate=document.getElementById('fil-date');
+  const selSbt=document.getElementById('fil-sbt');
+  const cd=selDate.value, cs=selSbt.value;
+  selDate.innerHTML='<option value="">全期間</option>'+dates.map(d=>`<option value="${d}" ${d===cd?'selected':''}>${fmtDate(d)}</option>`).join('');
+  selSbt.innerHTML='<option value="">全細別</option>'+sbts.map(s=>`<option value="${s}" ${s===cs?'selected':''}>${s}</option>`).join('');
+
+  const fd=selDate.value, fs=selSbt.value;
+  const filtered=groups.filter(g=>(!fd||g.date===fd)&&(!fs||g.sbt===fs));
+  const body=document.getElementById('list-body');
+  if(!filtered.length){ body.innerHTML='<p style="text-align:center;color:var(--ink3);padding:30px">データなし</p>'; return; }
+
+  body.innerHTML=filtered.slice().reverse().map(g=>{
+    const dims=[g.L?'L='+g.L+'m':'',g.W?'W='+g.W+'m':'',g.H?'H='+g.H+'m':''].filter(Boolean).join('　');
+    const gpsOk=g.photos.filter(p=>p.lat).length;
+    const thumbs=g.photos.slice(0,6).map((p,i)=>`
+      <div class="thumb-item" onclick="openModal('${p.dataUrl}','${p.name}',${p.lat},${p.lon})">
+        <img src="${p.dataUrl}">
+        <span class="seq-badge">${i+1}</span>
+        <span class="gps-badge ${p.lat?'ok':'ng'}">${p.lat?(p.supplemented?'補':'GPS'):'無'}</span>
+      </div>
+    `).join('');
+    return `
+    <div class="group-card">
+      <div class="group-head">
+        <span class="group-no">No.${g.no||'--'}</span>
+        <span class="group-sbt">${g.sbt}</span>
+        <span class="group-cnt">📷 ${g.photos.length}枚</span>
+        <button class="group-del" onclick="delGroup(${g.id})">✕</button>
+      </div>
+      <div class="group-body">
+        ${dims?`<div class="group-dims">${dims}</div>`:''}
+        ${g.rosen?`<div class="group-bikou">📍 ${g.rosen}</div>`:''}
+        ${g.bikou?`<div class="group-bikou">💬 ${g.bikou}</div>`:''}
+        <div class="thumb-row">${thumbs}${g.photos.length>6?`<div style="flex:0 0 72px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink3)">+${g.photos.length-6}枚</div>`:''}</div>
+        <div class="group-meta">${fmtDate(g.date)}　GPS付き ${gpsOk}/${g.photos.length}枚　${g.createdAt.slice(11,16)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function delGroup(id){
+  if(!confirm('このグループを削除しますか？')) return;
+  groups=groups.filter(g=>g.id!==id); save(); renderList();
+  setStatus('削除しました','warn');
+}
+
+// ===== モーダル =====
+function openModal(src,name,lat,lon){
+  document.getElementById('modal-img').src=src;
+  document.getElementById('modal-info').textContent=
+    name+(lat?' | GPS: '+Number(lat).toFixed(5)+', '+Number(lon).toFixed(5):' | GPS無し');
+  document.getElementById('modal-bg').classList.add('on');
+}
+function closeModal(){ document.getElementById('modal-bg').classList.remove('on'); }
+
+// ===== CSV出力 =====
+function exportCSV(mode){
+  const today=new Date().toISOString().slice(0,10);
+  const data=mode==='today'?groups.filter(g=>g.date===today):groups;
+  if(!data.length){ setStatus('データなし','warn'); return; }
+  const hdr=['箇所No','調査日','細別','L_m','W_m','H_m','写真枚数','GPS付き枚数','GPS補完枚数','路線名','備考'];
+  const rows=data.map(g=>[
+    g.no,g.date,g.sbt,g.L,g.W,g.H,
+    g.photos.length,
+    g.photos.filter(p=>p.lat).length,
+    g.photos.filter(p=>p.supplemented).length,
+    g.rosen,g.bikou
+  ].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"'));
+  const csv='\uFEFF'+[hdr,...rows].map(r=>r.join(',')).join('\n');
+  dlBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),`道路補修写真記録_${mode==='today'?today:'全件'}.csv`);
+  setStatus('CSV出力しました','ok');
+}
+
+// ===== ZIP出力（GPS保持写真）=====
+async function exportZip(mode){
+  const today=new Date().toISOString().slice(0,10);
+  const data=mode==='today'?groups.filter(g=>g.date===today):groups;
+  if(!data.length){ setStatus('データなし','warn'); return; }
+  setStatus('ZIP作成中...（写真が多い場合少し時間がかかります）');
+  const zip=new JSZip();
+  data.forEach(g=>{
+    const folder=`${String(g.no||'000').padStart(3,'0')}_${g.sbt}`;
+    g.photos.forEach((p,i)=>{
+      const ext=p.name.split('.').pop()||'jpg';
+      const fname=`${String(i+1).padStart(2,'0')}_${p.name||('photo'+(i+1)+'.'+ext)}`;
+      // base64からblobバイト
+      const b64=p.dataUrl.split(',')[1];
+      zip.file(folder+'/'+fname, b64, {base64:true});
+    });
+    // 調査票テキストも添付
+    const memo=[
+      `箇所No: ${g.no}`,`路線: ${g.rosen}`,`細別: ${g.sbt}`,
+      `L=${g.L}m W=${g.W}m H=${g.H}m`,`備考: ${g.bikou}`,
+      `写真: ${g.photos.length}枚（GPS付き${g.photos.filter(p=>p.lat).length}枚）`
+    ].join('\n');
+    zip.file(folder+'/調査票.txt', memo);
+  });
+  const blob=await zip.generateAsync({type:'blob'});
+  dlBlob(blob,`道路補修写真_${mode==='today'?today:'全件'}_${new Date().toISOString().slice(0,10)}.zip`);
+  setStatus('ZIP出力しました','ok');
+}
+
+// ===== JSON バックアップ =====
+function exportJSON(){
+  const data={meta:{exportedAt:new Date().toISOString(),count:groups.length},groups};
+  dlBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),
+    `道路補修写真記録_${new Date().toISOString().slice(0,10)}.json`);
+  setStatus('JSON出力しました','ok');
+}
+function importJSON(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      const incoming=(d.groups||d);
+      if(!Array.isArray(incoming)){ setStatus('フォーマットエラー','err'); return; }
+      const existIds=new Set(groups.map(g=>g.id));
+      const newGs=incoming.filter(g=>!existIds.has(g.id));
+      groups.push(...newGs);
+      groups.sort((a,b)=>a.id-b.id);
+      save();
+      setStatus(`✅ ${newGs.length}件取り込み（重複${incoming.length-newGs.length}件スキップ）`,'ok');
+    }catch(e){ setStatus('読込エラー: '+e.message,'err'); }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+function clearAll(){
+  if(!confirm('全件削除します。バックアップしましたか？')) return;
+  if(!confirm('本当に削除しますか？')) return;
+  groups=[]; save(); setStatus('全件削除しました','warn');
+}
+
+// ===== ユーティリティ =====
+function fmtDate(d){
+  if(!d) return '';
+  const [y,m,day]=d.split('-');
+  const wd=['日','月','火','水','木','金','土'][new Date(d).getDay()];
+  return `${y}年${m}月${day}日（${wd}）`;
+}
+function dlBlob(blob,fname){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=fname; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function setStatus(msg,type){
+  const bar=document.getElementById('sbar');
+  bar.className=type||'';
+  document.getElementById('sbar-msg').textContent=msg;
+  if(type==='ok'||type==='warn') setTimeout(()=>{ bar.className=''; document.getElementById('sbar-msg').textContent=groups.length+'グループ登録済み'; },3000);
+}
+</script>
+</body>
+</html>
