@@ -197,6 +197,13 @@
         地番ラベルを表示
       </label>
     </div>
+    <div class="legend-row" style="margin-top:6px;"><span class="swatch" style="background:var(--str-color);"></span><span>現況線形（DXF：仮設計）</span></div>
+    <div class="legend-row">
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
+        <input type="checkbox" id="cadToggle" checked style="width:15px; height:15px;">
+        現況線形を表示（三次元測量後の本設計に差替予定）
+      </label>
+    </div>
     <div class="legend-row" style="margin-top:6px;"><span class="swatch" style="background:var(--sim-color); height:12px; border-radius:50%;"></span><span>基準点（SIMデータ）</span></div>
     <div class="legend-row">
       <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
@@ -316,6 +323,13 @@ CAD.polylines.forEach(p=>{
   el('path',{d, fill:'none', stroke:layerColor(p.layer), 'stroke-width':1.1, 'stroke-opacity':0.75}, cadLayer);
 });
 const cadTextLayer = el('g',{id:'cad-text-layer'});
+document.getElementById('cadToggle').addEventListener('change', e=>{
+  cadLayer.style.display = e.target.checked ? '' : 'none';
+  if(mapCadLayerGroup){
+    if(e.target.checked) leafletMap && leafletMap.addLayer(mapCadLayerGroup);
+    else leafletMap && leafletMap.removeLayer(mapCadLayerGroup);
+  }
+});
 const noSvgEls = [];
 CAD.texts.forEach((t,i)=>{
   if(!t.s){ noSvgEls.push(null); return; }
@@ -329,6 +343,9 @@ CAD.texts.forEach((t,i)=>{
 const simLayer = el('g',{id:'sim-layer'});
 const simLabelLayer = el('g',{id:'sim-label-layer'});
 const simLabelEls = [];
+const simCircleEls = [];
+const simHitEls = [];
+const SIM_R0 = 3.2, SIM_HIT_R0 = 9, SIM_FONT0 = 7, SIM_OFFSET0 = 6;
 let simActiveIdx = null;
 let simLabelsAlwaysOn = document.getElementById('simLabelToggle').checked;
 function showSimLabel(i){
@@ -340,13 +357,23 @@ function hideSimLabels(){
   if(simLabelsAlwaysOn) return;
   if(simActiveIdx !== null){ simLabelEls[simActiveIdx].style.display = 'none'; simActiveIdx = null; }
 }
+/* keep marker/label size roughly constant on screen regardless of current zoom level */
+function updateSimMarkerScale(){
+  const s = vb.w / 1000;
+  SIM_POINTS.forEach((p,i)=>{
+    simCircleEls[i].setAttribute('r', (SIM_R0*s).toFixed(3));
+    simHitEls[i].setAttribute('r', (SIM_HIT_R0*s).toFixed(3));
+    simLabelEls[i].setAttribute('font-size', (SIM_FONT0*s).toFixed(3));
+    simLabelEls[i].setAttribute('y', (toScreenY(p.y) - SIM_OFFSET0*s).toFixed(3));
+  });
+}
 SIM_POINTS.forEach((p,i)=>{
-  const c = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:3.2, fill:'var(--sim-color)', stroke:'#fff', 'stroke-width':0.8, style:'cursor:pointer;'}, simLayer);
-  const hit = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:9, fill:'transparent', style:'cursor:pointer;'}, simLayer);
-  const label = el('text',{x:toScreenX(p.x), y:toScreenY(p.y)-6, 'text-anchor':'middle', 'font-size':7, 'font-weight':700,
+  const c = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:SIM_R0, fill:'var(--sim-color)', stroke:'#fff', 'stroke-width':0.8, style:'cursor:pointer;'}, simLayer);
+  const hit = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:SIM_HIT_R0, fill:'transparent', style:'cursor:pointer;'}, simLayer);
+  const label = el('text',{x:toScreenX(p.x), y:toScreenY(p.y)-SIM_OFFSET0, 'text-anchor':'middle', 'font-size':SIM_FONT0, 'font-weight':700,
     fill:'var(--sim-color)', 'font-family':'JetBrains Mono,monospace', style: simLabelsAlwaysOn ? '' : 'display:none;'}, simLabelLayer);
   label.textContent = p.name;
-  simLabelEls.push(label);
+  simCircleEls.push(c); simHitEls.push(hit); simLabelEls.push(label);
   hit.addEventListener('mouseenter', ()=> showSimLabel(i));
   hit.addEventListener('mouseleave', ()=> hideSimLabels());
   hit.addEventListener('touchstart', (e)=>{ e.stopPropagation(); showSimLabel(i); }, {passive:true});
@@ -485,7 +512,7 @@ function renderPtList(){
 /* ---------- pan / zoom (schematic) ---------- */
 let vb = {x:0, y:0, w:1000, h:VB_H};
 const vb0 = {...vb};
-function applyVB(){ svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+function applyVB(){ svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); if(typeof updateSimMarkerScale==='function') updateSimMarkerScale(); }
 applyVB();
 const stageEl = document.getElementById('stage');
 let isPan=false, panStart={x:0,y:0}, vbStart={x:0,y:0};
@@ -588,7 +615,8 @@ function initMap(){
   if(!document.getElementById('parcelToggle').checked) leafletMap.removeLayer(mapParcelLayerGroup);
   if(document.getElementById('parcelLabelToggle').checked) leafletMap.addLayer(mapParcelLabelLayerGroup);
 
-  mapCadLayerGroup = L.layerGroup().addTo(leafletMap);
+  mapCadLayerGroup = L.layerGroup();
+  if(document.getElementById('cadToggle').checked) mapCadLayerGroup.addTo(leafletMap);
   CAD.lines.forEach(l=>{
     L.polyline([[l.lat1,l.lon1],[l.lat2,l.lon2]], {color:layerColor(l.layer), weight:1.4, opacity:0.75}).addTo(mapCadLayerGroup);
   });
