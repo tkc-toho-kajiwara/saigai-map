@@ -369,7 +369,7 @@ function updateSimMarkerScale(){
 }
 SIM_POINTS.forEach((p,i)=>{
   const c = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:SIM_R0, fill:'var(--sim-color)', stroke:'#fff', 'stroke-width':0.8, style:'cursor:pointer;'}, simLayer);
-  const hit = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:SIM_HIT_R0, fill:'transparent', style:'cursor:pointer;'}, simLayer);
+  const hit = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:SIM_HIT_R0, fill:'transparent', 'pointer-events':'all', style:'cursor:pointer;'}, simLayer);
   const label = el('text',{x:toScreenX(p.x), y:toScreenY(p.y)-SIM_OFFSET0, 'text-anchor':'middle', 'font-size':SIM_FONT0, 'font-weight':700,
     fill:'var(--sim-color)', 'font-family':'JetBrains Mono,monospace', style: simLabelsAlwaysOn ? '' : 'display:none;'}, simLabelLayer);
   label.textContent = p.name;
