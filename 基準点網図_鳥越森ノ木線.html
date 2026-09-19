@@ -376,7 +376,8 @@ SIM_POINTS.forEach((p,i)=>{
   simCircleEls.push(c); simHitEls.push(hit); simLabelEls.push(label);
   hit.addEventListener('mouseenter', ()=> showSimLabel(i));
   hit.addEventListener('mouseleave', ()=> hideSimLabels());
-  hit.addEventListener('touchstart', (e)=>{ e.stopPropagation(); showSimLabel(i); }, {passive:true});
+  hit.addEventListener('touchstart', (e)=>{ e.preventDefault(); e.stopPropagation(); showSimLabel(i); }, {passive:false});
+  hit.addEventListener('click', (e)=>{ e.stopPropagation(); });
 });
 svg.addEventListener('touchstart', ()=> hideSimLabels());
 svg.addEventListener('click', (e)=>{ if(e.target.tagName !== 'circle') hideSimLabels(); });
