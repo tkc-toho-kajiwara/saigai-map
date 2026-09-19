@@ -345,7 +345,8 @@ const simLabelLayer = el('g',{id:'sim-label-layer'});
 const simLabelEls = [];
 const simCircleEls = [];
 const simHitEls = [];
-const SIM_R0 = 3.2, SIM_HIT_R0 = 9, SIM_FONT0 = 7, SIM_OFFSET0 = 6;
+/* target sizes in actual CSS pixels on screen — kept constant regardless of current zoom level */
+const SIM_R_PX = 5, SIM_HIT_R_PX = 15, SIM_FONT_PX = 13, SIM_OFFSET_PX = 14;
 let simActiveIdx = null;
 let simLabelsAlwaysOn = document.getElementById('simLabelToggle').checked;
 function showSimLabel(i){
@@ -357,20 +358,24 @@ function hideSimLabels(){
   if(simLabelsAlwaysOn) return;
   if(simActiveIdx !== null){ simLabelEls[simActiveIdx].style.display = 'none'; simActiveIdx = null; }
 }
-/* keep marker/label size roughly constant on screen regardless of current zoom level */
+/* keep marker/label size a constant number of CSS pixels on screen, regardless of current zoom level */
 function updateSimMarkerScale(){
-  const s = vb.w / 1000;
+  const rect = svg.getBoundingClientRect();
+  const pxPerUnit = rect.width ? (rect.width / vb.w) : (1000/worldW);
+  const toUnits = px => px / pxPerUnit;
+  const rUnits = toUnits(SIM_R_PX), hitUnits = toUnits(SIM_HIT_R_PX), fontUnits = toUnits(SIM_FONT_PX), offUnits = toUnits(SIM_OFFSET_PX);
   SIM_POINTS.forEach((p,i)=>{
-    simCircleEls[i].setAttribute('r', (SIM_R0*s).toFixed(3));
-    simHitEls[i].setAttribute('r', (SIM_HIT_R0*s).toFixed(3));
-    simLabelEls[i].setAttribute('font-size', (SIM_FONT0*s).toFixed(3));
-    simLabelEls[i].setAttribute('y', (toScreenY(p.y) - SIM_OFFSET0*s).toFixed(3));
+    simCircleEls[i].setAttribute('r', rUnits.toFixed(3));
+    simHitEls[i].setAttribute('r', hitUnits.toFixed(3));
+    simLabelEls[i].setAttribute('font-size', fontUnits.toFixed(3));
+    simLabelEls[i].setAttribute('y', (toScreenY(p.y) - offUnits).toFixed(3));
   });
 }
+window.addEventListener('resize', ()=>{ if(typeof updateSimMarkerScale==='function') updateSimMarkerScale(); });
 SIM_POINTS.forEach((p,i)=>{
-  const c = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:SIM_R0, fill:'var(--sim-color)', stroke:'#fff', 'stroke-width':0.8, style:'cursor:pointer;'}, simLayer);
-  const hit = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:SIM_HIT_R0, fill:'transparent', 'pointer-events':'all', style:'cursor:pointer;'}, simLayer);
-  const label = el('text',{x:toScreenX(p.x), y:toScreenY(p.y)-SIM_OFFSET0, 'text-anchor':'middle', 'font-size':SIM_FONT0, 'font-weight':700,
+  const c = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:3, fill:'var(--sim-color)', stroke:'#fff', 'stroke-width':1, 'vector-effect':'non-scaling-stroke', style:'cursor:pointer;'}, simLayer);
+  const hit = el('circle',{cx:toScreenX(p.x), cy:toScreenY(p.y), r:9, fill:'transparent', 'pointer-events':'all', style:'cursor:pointer;'}, simLayer);
+  const label = el('text',{x:toScreenX(p.x), y:toScreenY(p.y)-6, 'text-anchor':'middle', 'font-size':7, 'font-weight':700,
     fill:'var(--sim-color)', 'font-family':'JetBrains Mono,monospace', style: simLabelsAlwaysOn ? '' : 'display:none;'}, simLabelLayer);
   label.textContent = p.name;
   simCircleEls.push(c); simHitEls.push(hit); simLabelEls.push(label);
