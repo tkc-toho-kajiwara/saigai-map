@@ -95,6 +95,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #pf-panel .pf-title{font-weight:700;font-size:13px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
 #pf-panel .pf-title button{border:none;background:none;font-size:16px;cursor:pointer;color:#888}
 #pf-panel .pf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+#pf-panel input.pf-in{width:150px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;font-size:12px;box-sizing:border-box}
 #pf-panel select{width:150px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;font-size:12px}
 #pf-panel .pf-btns{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px}
 #pf-panel .pf-btns button{padding:6px 4px;border:1px solid #185FA5;border-radius:6px;background:#fff;color:#185FA5;font-size:11px;cursor:pointer;font-family:inherit}
@@ -172,7 +173,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
       <span id="toggle-side-txt">一覧を隠す</span>
     </button>
   </div>
-  <div id="print-header" style="display:none"><b>災害調査 写真配置図</b><span id="print-header-meta"></span></div>
+  <div id="print-header" style="display:none"><b id="print-header-title">災害調査 写真配置図</b><span id="print-header-meta"></span></div>
   <div id="main">
     <div id="map-wrap"><div id="map"></div><div id="pf-overlay"><div id="pf-north">▲<br>N</div><div id="pf-scalebar"></div></div></div>
     <div id="side">
@@ -235,15 +236,17 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 <!-- 用紙枠印刷の設定パネル -->
 <div id="pf-panel">
   <div class="pf-title"><span>🖨 印刷設定（用紙枠）</span><button onclick="closePrintSetup()" title="閉じる">×</button></div>
+  <div class="pf-row"><span>タイトル</span><input class="pf-in" id="pf-title" value="災害調査 写真配置図" oninput="pfSavePrefs()"></div>
   <div class="pf-row"><span>用紙</span><select id="pf-paper" onchange="pfOnChange()"><option value="A4">A4</option><option value="A3">A3</option><option value="A2">A2</option><option value="A1">A1</option></select></div>
   <div class="pf-row"><span>向き</span><select id="pf-orient" onchange="pfOnChange()"><option value="landscape">横</option><option value="portrait">縦</option></select></div>
   <div class="pf-row"><span>縮尺</span><select id="pf-scale" onchange="pfOnChange()"><option value="500">1/500</option><option value="1000" selected>1/1,000</option><option value="2500">1/2,500</option><option value="5000">1/5,000</option><option value="10000">1/10,000</option><option value="free">自由（ドラッグで範囲指定）</option></select></div>
+  <div class="pf-row"><span>印刷倍率</span><span><input class="pf-in" id="pf-zoom" type="number" min="50" max="200" step="1" value="104" style="width:70px" onchange="pfSavePrefs();pfOnChange()"> %</span></div>
   <div class="pf-btns">
     <button onclick="pfShow(true)">枠を画面中央へ</button>
     <button onclick="pfClear()">枠を消す</button>
     <button class="main" onclick="pfPrint()">この枠で印刷</button>
   </div>
-  <div class="pf-note">赤い枠をドラッグして印刷範囲に合わせてください。印刷画面では「倍率：100%（実際のサイズ）」「余白：なし」を選ぶと縮尺どおりに印刷されます（PDF保存も同じ）。</div>
+  <div class="pf-note">赤い枠をドラッグして印刷範囲に合わせてください。印刷画面では「余白：なし」、「倍率：カスタム」に上の印刷倍率（例：104）を入力してください。枠はその倍率で拡大されても用紙に収まる大きさになっています。PDF保存やズレないプリンタでは印刷倍率を100にしてください。</div>
 </div>
 
 <!-- 拡大モーダル -->
@@ -1340,6 +1343,7 @@ function toggleSidePanel(){
 
 function exportPrint(){
   if(pf.active){pfPrint();return;}
+  pfApplyTitle();
   if(!photos.filter(p=>p.latlng).length){alert('写真を配置してから印刷してください');return;}
   if(printAreaMode)togglePrintAreaMode();
   const n=photos.filter(p=>p.latlng).length;
@@ -1402,8 +1406,30 @@ function pfSettings(){
   const scaleV=document.getElementById('pf-scale').value;
   let [pw,ph]=PF_PAPERS[paper];
   if(orient==='portrait'){[pw,ph]=[ph,pw];}
-  const fw=pw-PF_MARGIN*2, fh=ph-PF_MARGIN*2-PF_HEADER;               // 地図枠の大きさ(mm)
-  return{paper,orient,scaleV,scale:scaleV==='free'?null:parseInt(scaleV,10),pw,ph,fw,fh};
+  // 印刷倍率：Chromeの印刷画面で指定する倍率（%）。プリンタが紙の端の分だけ縮める場合に、
+  // その分拡大して印刷する前提で、ページの中身を「用紙÷倍率」の大きさで作る。
+  // （例：104%なら中身を用紙の1/1.04で作り、Chromeで104%に拡大→プリンタの縮小で実寸になる）
+  let zp=parseFloat(document.getElementById('pf-zoom').value);
+  if(!(zp>=50&&zp<=200))zp=100;
+  const f=zp/100;
+  const fw=pw/f-PF_MARGIN*2, fh=ph/f-PF_MARGIN*2-PF_HEADER;           // 地図枠の大きさ(mm)
+  return{paper,orient,scaleV,scale:scaleV==='free'?null:parseInt(scaleV,10),pw,ph,fw,fh,zoomPct:zp};
+}
+function pfSavePrefs(){
+  try{
+    localStorage.setItem('pf_title',document.getElementById('pf-title').value);
+    localStorage.setItem('pf_zoom',document.getElementById('pf-zoom').value);
+  }catch(e){}
+}
+(function pfLoadPrefs(){
+  try{
+    const t=localStorage.getItem('pf_title');if(t!==null)document.getElementById('pf-title').value=t;
+    const z=localStorage.getItem('pf_zoom');if(z)document.getElementById('pf-zoom').value=z;
+  }catch(e){}
+})();
+function pfApplyTitle(){
+  const t=(document.getElementById('pf-title').value||'').trim()||'災害調査 写真配置図';
+  document.getElementById('print-header-title').textContent=t;
 }
 function openPrintSetup(){
   if(printAreaMode)togglePrintAreaMode();
@@ -1450,7 +1476,7 @@ function pfShow(recenter){
   // 枠が画面からはみ出す・小さすぎる場合は全体が見えるように
   const vb=map.getBounds();
   if(recenter&&(!vb.contains(b)||map.getZoom()<map.getBoundsZoom(b)-3))map.fitBounds(b,{padding:[30,30]});
-  setStatus('用紙枠：'+s.paper+(s.orient==='landscape'?'横':'縦')+' S=1/'+s.scale.toLocaleString()+'（地上 約'+Math.round(s.fw*s.scale/1000)+'m×'+Math.round(s.fh*s.scale/1000)+'m）。枠をドラッグして範囲を合わせ、「この枠で印刷」を押してください');
+  setStatus('用紙枠：'+s.paper+(s.orient==='landscape'?'横':'縦')+' S=1/'+s.scale.toLocaleString()+'（地上 約'+Math.round(s.fw*s.scale/1000)+'m×'+Math.round(s.fh*s.scale/1000)+'m）。枠をドラッグして範囲を合わせ、「この枠で印刷」を押してください（印刷倍率'+s.zoomPct+'%で印刷）');
 }
 function pfEnableDrag(){
   pf.rect.on('mousedown',e=>{
@@ -1501,6 +1527,7 @@ async function pfPrint(){
   const now=new Date();
   const ts=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
   const n=photos.filter(p=>p.latlng).length;
+  pfApplyTitle();
   document.getElementById('print-header-meta').textContent=ts+'　写真'+n+'枚　'+s.paper+(s.orient==='landscape'?'横':'縦')+'　S=1/'+s.scale.toLocaleString();
   const len=pfNiceLen(s.fw*s.scale/1000/5);                 // 枠幅の約1/5に収まるきりの良い長さ(m)
   const barMm=len*1000/s.scale;
@@ -1529,6 +1556,7 @@ async function pfPrint(){
     setStatus('印刷画面を閉じました（用紙枠はそのまま残っています）');
   };
   window.addEventListener('afterprint',restore);
+  setStatus('印刷画面で「余白：なし」「倍率：カスタム '+s.zoomPct+'」を選んでください');
   window.print();
   setTimeout(restore,500);
 }
