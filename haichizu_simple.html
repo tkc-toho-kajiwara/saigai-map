@@ -484,9 +484,9 @@ function renderPhotoList(){
   const list=document.getElementById('photo-list');
   list.innerHTML=data.map(p=>
     '<div class="pl-item">'
-    +'<input type="checkbox" '+(p._sel?'checked':'')+' onclick="event.stopPropagation();toggleSelPhoto(\''+p.id+'\',this.checked)">'
-    +'<img src="'+p.b64+'" onclick="focusPhoto(\''+p.id+'\')">'
-    +'<span onclick="focusPhoto(\''+p.id+'\')">No.'+p.num+' '+p.name+'</span>'
+    +'<input type="checkbox" '+(p._sel?'checked':'')+' onclick="event.stopPropagation();toggleSelPhoto(\\''+p.id+'\\',this.checked)">'
+    +'<img src="'+p.b64+'" onclick="focusPhoto(\\''+p.id+'\\')">'
+    +'<span onclick="focusPhoto(\\''+p.id+'\\')">No.'+p.num+' '+p.name+'</span>'
     +'</div>'
   ).join('');
 }
