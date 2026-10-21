@@ -240,13 +240,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
   <div class="pf-row"><span>用紙</span><select id="pf-paper" onchange="pfOnChange()"><option value="A4">A4</option><option value="A3">A3</option><option value="A2">A2</option><option value="A1">A1</option></select></div>
   <div class="pf-row"><span>向き</span><select id="pf-orient" onchange="pfOnChange()"><option value="landscape">横</option><option value="portrait">縦</option></select></div>
   <div class="pf-row"><span>縮尺</span><select id="pf-scale" onchange="pfOnChange()"><option value="500">1/500</option><option value="1000" selected>1/1,000</option><option value="2500">1/2,500</option><option value="5000">1/5,000</option><option value="10000">1/10,000</option><option value="free">自由（ドラッグで範囲指定）</option></select></div>
+  <div class="pf-row"><span>左の綴じ代</span><span><input class="pf-in" id="pf-gutter" type="number" min="0" max="50" step="1" value="10" style="width:70px" onchange="pfSavePrefs();pfOnChange()"> mm</span></div>
   <div class="pf-row"><span>印刷倍率</span><span><input class="pf-in" id="pf-zoom" type="number" min="50" max="200" step="1" value="104" style="width:70px" onchange="pfSavePrefs();pfOnChange()"> %</span></div>
   <div class="pf-btns">
     <button onclick="pfShow(true)">枠を画面中央へ</button>
     <button onclick="pfClear()">枠を消す</button>
     <button class="main" onclick="pfPrint()">この枠で印刷</button>
   </div>
-  <div class="pf-note">赤い枠をドラッグして印刷範囲に合わせてください。印刷画面では「余白：なし」、「倍率：カスタム」に上の印刷倍率（例：104）を入力してください。枠はその倍率で拡大されても用紙に収まる大きさになっています。PDF保存やズレないプリンタでは印刷倍率を100にしてください。</div>
+  <div class="pf-note">赤い枠をドラッグして印刷範囲に合わせてください。<br>①Chromeの印刷画面で「PDFに保存」（余白：なし・倍率：デフォルト）<br>②そのPDFを「カスタムスケール：印刷倍率（例：104%）」「中央配置」で印刷<br>枠は、その倍率で中央基準に拡大したときに綴じ代・余白が正しく残る大きさ・位置で作っています。ズレないプリンタでは印刷倍率を100にしてください。</div>
 </div>
 
 <!-- 拡大モーダル -->
@@ -1412,19 +1413,29 @@ function pfSettings(){
   let zp=parseFloat(document.getElementById('pf-zoom').value);
   if(!(zp>=50&&zp<=200))zp=100;
   const f=zp/100;
-  const fw=pw/f-PF_MARGIN*2, fh=ph/f-PF_MARGIN*2-PF_HEADER;           // 地図枠の大きさ(mm)
-  return{paper,orient,scaleV,scale:scaleV==='free'?null:parseInt(scaleV,10),pw,ph,fw,fh,zoomPct:zp};
+  // 綴じ代（左側の余白を広げる。印刷後の実寸mm）
+  let gut=parseFloat(document.getElementById('pf-gutter').value);
+  if(!(gut>=0&&gut<=50))gut=0;
+  // PDFを「倍率○%・中央配置」で印刷する前提で、拡大後に用紙上の正しい位置に来るよう
+  // ページ中央を基準に逆算して配置する（拡大後：左＝余白＋綴じ代、上下右＝余白）
+  const toCss=(X,P)=>P/2+(X-P/2)/f;                                    // 印刷後の位置(mm)→ページ上の位置(mm)
+  const left=toCss(PF_MARGIN+gut,pw), top=toCss(PF_MARGIN,ph);
+  const fw=(pw-PF_MARGIN*2-gut)/f, fh=(ph-PF_MARGIN*2-PF_HEADER)/f;   // 地図枠の大きさ(mm)
+  const hh=PF_HEADER/f;                                                // 見出し（下の隙間込み）の高さ(mm)
+  return{paper,orient,scaleV,scale:scaleV==='free'?null:parseInt(scaleV,10),pw,ph,fw,fh,zoomPct:zp,gutter:gut,left,top,hh};
 }
 function pfSavePrefs(){
   try{
     localStorage.setItem('pf_title',document.getElementById('pf-title').value);
     localStorage.setItem('pf_zoom',document.getElementById('pf-zoom').value);
+    localStorage.setItem('pf_gutter',document.getElementById('pf-gutter').value);
   }catch(e){}
 }
 (function pfLoadPrefs(){
   try{
     const t=localStorage.getItem('pf_title');if(t!==null)document.getElementById('pf-title').value=t;
     const z=localStorage.getItem('pf_zoom');if(z)document.getElementById('pf-zoom').value=z;
+    const g=localStorage.getItem('pf_gutter');if(g!==null&&g!=='')document.getElementById('pf-gutter').value=g;
   }catch(e){}
 })();
 function pfApplyTitle(){
@@ -1517,8 +1528,9 @@ async function pfPrint(){
   st.textContent='@page{size:'+s.paper+' '+s.orient+';margin:0}'
     +'@media print{'
     +'#pf-panel,#fix-banner,#fix-highlight{display:none!important}'
-    +'#print-header{display:flex!important;box-sizing:border-box;width:'+s.fw+'mm!important;height:'+(PF_HEADER-2)+'mm!important;margin:'+PF_MARGIN+'mm '+PF_MARGIN+'mm 2mm '+PF_MARGIN+'mm!important;padding:0 1mm!important;border-bottom:0.3mm solid #000!important;font-size:11pt}'
-    +'#map-wrap{position:relative!important;width:'+s.fw+'mm!important;height:'+s.fh+'mm!important;margin:0 '+PF_MARGIN+'mm!important;overflow:hidden!important;outline:0.3mm solid #000}'
+    +'html,body{width:'+s.pw+'mm!important;height:'+(s.ph-0.5)+'mm!important;overflow:hidden!important;margin:0!important}'
+    +'#print-header{display:flex!important;position:absolute!important;box-sizing:border-box;left:'+s.left+'mm!important;top:'+s.top+'mm!important;width:'+s.fw+'mm!important;height:'+(s.hh*10/12)+'mm!important;margin:0!important;padding:0 1mm!important;border-bottom:0.3mm solid #000!important;font-size:11pt}'
+    +'#map-wrap{position:absolute!important;left:'+s.left+'mm!important;top:'+(s.top+s.hh)+'mm!important;width:'+s.fw+'mm!important;height:'+s.fh+'mm!important;margin:0!important;overflow:hidden!important;outline:0.3mm solid #000}'
     +'#map{position:absolute!important;left:0!important;top:0!important;width:'+s.fw+'mm!important;height:'+s.fh+'mm!important}'
     +'#pf-overlay{display:block!important}'
     +'}';
@@ -1556,7 +1568,7 @@ async function pfPrint(){
     setStatus('印刷画面を閉じました（用紙枠はそのまま残っています）');
   };
   window.addEventListener('afterprint',restore);
-  setStatus('印刷画面で「余白：なし」「倍率：カスタム '+s.zoomPct+'」を選んでください');
+  setStatus('「PDFに保存」→ そのPDFをカスタムスケール'+s.zoomPct+'%・中央配置で印刷してください');
   window.print();
   setTimeout(restore,500);
 }
