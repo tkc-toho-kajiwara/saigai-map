@@ -240,7 +240,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
   <div class="pf-row"><span>用紙</span><select id="pf-paper" onchange="pfOnChange()"><option value="A4">A4</option><option value="A3">A3</option><option value="A2">A2</option><option value="A1">A1</option></select></div>
   <div class="pf-row"><span>向き</span><select id="pf-orient" onchange="pfOnChange()"><option value="landscape">横</option><option value="portrait">縦</option></select></div>
   <div class="pf-row"><span>縮尺</span><select id="pf-scale" onchange="pfOnChange()"><option value="500">1/500</option><option value="1000" selected>1/1,000</option><option value="2500">1/2,500</option><option value="5000">1/5,000</option><option value="10000">1/10,000</option><option value="free">自由（ドラッグで範囲指定）</option></select></div>
-  <div class="pf-row"><span>左の綴じ代</span><span><input class="pf-in" id="pf-gutter" type="number" min="0" max="50" step="1" value="10" style="width:70px" onchange="pfSavePrefs();pfOnChange()"> mm</span></div>
+  <div class="pf-row"><span>綴じ代<br><small style="color:#888">縦:左 / 横:上</small></span><span><input class="pf-in" id="pf-gutter" type="number" min="0" max="50" step="1" value="10" style="width:70px" onchange="pfSavePrefs();pfOnChange()"> mm</span></div>
   <div class="pf-row"><span>印刷倍率</span><span><input class="pf-in" id="pf-zoom" type="number" min="50" max="200" step="1" value="104" style="width:70px" onchange="pfSavePrefs();pfOnChange()"> %</span></div>
   <div class="pf-btns">
     <button onclick="pfShow(true)">枠を画面中央へ</button>
@@ -1418,9 +1418,11 @@ function pfSettings(){
   if(!(gut>=0&&gut<=50))gut=0;
   // PDFを「倍率○%・中央配置」で印刷する前提で、拡大後に用紙上の正しい位置に来るよう
   // ページ中央を基準に逆算して配置する（拡大後：左＝余白＋綴じ代、上下右＝余白）
+  // 綴じ代の位置：A4長辺綴じの前提で、縦印刷は左側、横印刷は上側（ファイルに綴じると上が綴じ側になる）
+  const gL=orient==='portrait'?gut:0, gT=orient==='landscape'?gut:0;
   const toCss=(X,P)=>P/2+(X-P/2)/f;                                    // 印刷後の位置(mm)→ページ上の位置(mm)
-  const left=toCss(PF_MARGIN+gut,pw), top=toCss(PF_MARGIN,ph);
-  const fw=(pw-PF_MARGIN*2-gut)/f, fh=(ph-PF_MARGIN*2-PF_HEADER)/f;   // 地図枠の大きさ(mm)
+  const left=toCss(PF_MARGIN+gL,pw), top=toCss(PF_MARGIN+gT,ph);
+  const fw=(pw-PF_MARGIN*2-gL)/f, fh=(ph-PF_MARGIN*2-PF_HEADER-gT)/f; // 地図枠の大きさ(mm)
   const hh=PF_HEADER/f;                                                // 見出し（下の隙間込み）の高さ(mm)
   return{paper,orient,scaleV,scale:scaleV==='free'?null:parseInt(scaleV,10),pw,ph,fw,fh,zoomPct:zp,gutter:gut,left,top,hh};
 }
