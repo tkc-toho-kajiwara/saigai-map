@@ -89,6 +89,21 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .sheet-sub{font-size:11px;color:#888;display:block;margin-top:2px}
 .sheet-cancel{background:none;border:none;color:#888;font-size:14px;padding:8px;cursor:pointer;width:100%;font-family:inherit}
 #save-info{font-size:12px;color:#666;text-align:center;line-height:1.6;padding:4px 0}
+/* ===== 用紙枠印刷（用紙・向き・縮尺を固定） ===== */
+#pf-panel{display:none;position:fixed;top:110px;right:130px;z-index:9500;background:#fff;border:1px solid #c8c8c0;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);padding:10px 12px;width:250px;font-size:12px;color:#333}
+#pf-panel.open{display:block}
+#pf-panel .pf-title{font-weight:700;font-size:13px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+#pf-panel .pf-title button{border:none;background:none;font-size:16px;cursor:pointer;color:#888}
+#pf-panel .pf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+#pf-panel select{width:150px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;font-size:12px}
+#pf-panel .pf-btns{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px}
+#pf-panel .pf-btns button{padding:6px 4px;border:1px solid #185FA5;border-radius:6px;background:#fff;color:#185FA5;font-size:11px;cursor:pointer;font-family:inherit}
+#pf-panel .pf-btns button.main{background:#185FA5;color:#fff;grid-column:1 / span 2;font-size:12px;padding:8px}
+#pf-panel .pf-note{margin-top:8px;font-size:10.5px;color:#777;line-height:1.5}
+#pf-overlay{display:none;position:absolute;inset:0;pointer-events:none;z-index:1000}
+#pf-north{position:absolute;top:4mm;right:4mm;width:12mm;text-align:center;font:bold 11pt sans-serif;color:#000;background:rgba(255,255,255,.85);border:0.3mm solid #000;border-radius:1mm;padding:1mm 0}
+#pf-scalebar{position:absolute;left:4mm;bottom:4mm;background:rgba(255,255,255,.85);padding:1.5mm 2mm;border:0.3mm solid #000;border-radius:1mm;font:8pt sans-serif;color:#000}
+#pf-scalebar .bar{height:2mm;border:0.3mm solid #000;border-top:none;margin-top:0.5mm}
 #print-header{padding:6px 10px;font-size:13px;border-bottom:1px solid #ccc;display:flex;justify-content:space-between;align-items:center}
 #print-header-meta{color:#888;font-size:11px}
 @media print{
@@ -144,7 +159,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       保存・提出
     </button>
-    <button class="tb-btn" id="btn-print-area" onclick="togglePrintAreaMode()">
+    <button class="tb-btn" id="btn-print-area" onclick="openPrintSetup()">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></svg>
       <span id="print-area-txt">印刷範囲を選ぶ</span>
     </button>
@@ -159,7 +174,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
   </div>
   <div id="print-header" style="display:none"><b>災害調査 写真配置図</b><span id="print-header-meta"></span></div>
   <div id="main">
-    <div id="map-wrap"><div id="map"></div></div>
+    <div id="map-wrap"><div id="map"></div><div id="pf-overlay"><div id="pf-north">▲<br>N</div><div id="pf-scalebar"></div></div></div>
     <div id="side">
       <div id="side-hd">
         <span>写真リスト</span>
@@ -217,6 +232,20 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 <!-- マーカーハイライト -->
 <div id="fix-highlight"></div>
 
+<!-- 用紙枠印刷の設定パネル -->
+<div id="pf-panel">
+  <div class="pf-title"><span>🖨 印刷設定（用紙枠）</span><button onclick="closePrintSetup()" title="閉じる">×</button></div>
+  <div class="pf-row"><span>用紙</span><select id="pf-paper" onchange="pfOnChange()"><option value="A4">A4</option><option value="A3">A3</option><option value="A2">A2</option><option value="A1">A1</option></select></div>
+  <div class="pf-row"><span>向き</span><select id="pf-orient" onchange="pfOnChange()"><option value="landscape">横</option><option value="portrait">縦</option></select></div>
+  <div class="pf-row"><span>縮尺</span><select id="pf-scale" onchange="pfOnChange()"><option value="500">1/500</option><option value="1000" selected>1/1,000</option><option value="2500">1/2,500</option><option value="5000">1/5,000</option><option value="10000">1/10,000</option><option value="free">自由（ドラッグで範囲指定）</option></select></div>
+  <div class="pf-btns">
+    <button onclick="pfShow(true)">枠を画面中央へ</button>
+    <button onclick="pfClear()">枠を消す</button>
+    <button class="main" onclick="pfPrint()">この枠で印刷</button>
+  </div>
+  <div class="pf-note">赤い枠をドラッグして印刷範囲に合わせてください。印刷画面では「倍率：100%（実際のサイズ）」「余白：なし」を選ぶと縮尺どおりに印刷されます（PDF保存も同じ）。</div>
+</div>
+
 <!-- 拡大モーダル -->
 <div id="modal" onclick="if(event.target===this)closeModal()">
   <img id="modal-img" src="" alt="">
@@ -265,9 +294,11 @@ function toggleMarkersVisible(){
   const msgs=['写真マーカーを表示しました','写真は非表示、元GPS位置の青い点のみ表示します','写真マーカー・点ともに非表示にしました（地図・重畳レイヤは操作可能です）'];
   setStatus(msgs[visState]);
 }
-let curLayer=L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:19}).addTo(map);
+let curLayer=L.tileLayer(TILES.osm.url,{attribution:TILES.osm.attr,maxZoom:22,maxNativeZoom:19}).addTo(map);
 
+let pfPrintLock=false; // 用紙枠印刷の準備中は地図サイズを固定する
 function fixMapSize(){
+  if(pfPrintLock)return;
   const w=mapWrap.offsetWidth,h=mapWrap.offsetHeight;
   if(w>0&&h>0){mapEl.style.width=w+'px';mapEl.style.height=h+'px';map.invalidateSize(true);}
 }
@@ -283,7 +314,7 @@ function toggleSidePanelLive(){
 function changeLayer(k){
   const t=TILES[k];if(!t)return;
   map.removeLayer(curLayer);
-  curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:t.max}).addTo(map);
+  curLayer=L.tileLayer(t.url,{attribution:t.attr,maxZoom:22,maxNativeZoom:t.max}).addTo(map);
   fixRep();
 }
 
@@ -1308,6 +1339,7 @@ function toggleSidePanel(){
 }
 
 function exportPrint(){
+  if(pf.active){pfPrint();return;}
   if(!photos.filter(p=>p.latlng).length){alert('写真を配置してから印刷してください');return;}
   if(printAreaMode)togglePrintAreaMode();
   const n=photos.filter(p=>p.latlng).length;
@@ -1359,6 +1391,148 @@ function togglePrintAreaMode(){
     document.addEventListener('pointerup',up);
   });
 })();
+// ===== 用紙枠印刷（用紙・向き・縮尺を固定して、その枠の範囲を縮尺どおりに印刷） =====
+// 地図の縮尺は「CSSの1px = 1/96インチ」を前提に計算する（印刷倍率100%で正確になる）。
+const PF_PAPERS={A4:[297,210],A3:[420,297],A2:[594,420],A1:[841,594]}; // 横向きの[幅,高さ]mm
+const PF_MARGIN=8,PF_HEADER=12;                                         // 余白・見出しの高さ(mm)
+const pf={active:false,center:null,rect:null};
+function pfSettings(){
+  const paper=document.getElementById('pf-paper').value;
+  const orient=document.getElementById('pf-orient').value;
+  const scaleV=document.getElementById('pf-scale').value;
+  let [pw,ph]=PF_PAPERS[paper];
+  if(orient==='portrait'){[pw,ph]=[ph,pw];}
+  const fw=pw-PF_MARGIN*2, fh=ph-PF_MARGIN*2-PF_HEADER;               // 地図枠の大きさ(mm)
+  return{paper,orient,scaleV,scale:scaleV==='free'?null:parseInt(scaleV,10),pw,ph,fw,fh};
+}
+function openPrintSetup(){
+  if(printAreaMode)togglePrintAreaMode();
+  const el=document.getElementById('pf-panel');
+  if(el.classList.contains('open')){closePrintSetup();return;}
+  el.classList.add('open');
+  document.getElementById('btn-print-area').classList.add('mode-on');
+  if(document.getElementById('pf-scale').value!=='free')pfShow(!pf.center);
+}
+function closePrintSetup(){
+  document.getElementById('pf-panel').classList.remove('open');
+  if(!pf.active)document.getElementById('btn-print-area').classList.remove('mode-on');
+}
+function pfOnChange(){
+  if(document.getElementById('pf-scale').value==='free'){
+    pfClear();closePrintSetup();
+    if(!printAreaMode)togglePrintAreaMode();
+    return;
+  }
+  pfShow(!pf.center);
+}
+// 地上の大きさ(m)からWebメルカトル上の枠を作る（緯度による伸びを補正）
+function pfBounds(center,s){
+  const wm=s.fw*s.scale/1000, hm=s.fh*s.scale/1000;
+  const k=1/Math.cos(center.lat*Math.PI/180);
+  const p=L.CRS.EPSG3857.project(center);
+  const sw=L.CRS.EPSG3857.unproject(L.point(p.x-wm*k/2,p.y-hm*k/2));
+  const ne=L.CRS.EPSG3857.unproject(L.point(p.x+wm*k/2,p.y+hm*k/2));
+  return L.latLngBounds(sw,ne);
+}
+function pfShow(recenter){
+  const s=pfSettings();if(!s.scale)return;
+  if(recenter||!pf.center)pf.center=map.getCenter();
+  const b=pfBounds(pf.center,s);
+  if(pf.rect){pf.rect.setBounds(b);}
+  else{
+    pf.rect=L.rectangle(b,{color:'#D7263D',weight:2.5,dashArray:'8,5',fillColor:'#D7263D',fillOpacity:.06,interactive:true}).addTo(map);
+    pfEnableDrag();
+  }
+  pf.rect.unbindTooltip();
+  pf.rect.bindTooltip(s.paper+(s.orient==='landscape'?'横':'縦')+'　S=1/'+s.scale.toLocaleString()+'（ドラッグで移動）',{permanent:true,direction:'top',className:''});
+  pf.active=true;
+  document.getElementById('btn-print-area').classList.add('mode-on');
+  // 枠が画面からはみ出す・小さすぎる場合は全体が見えるように
+  const vb=map.getBounds();
+  if(recenter&&(!vb.contains(b)||map.getZoom()<map.getBoundsZoom(b)-3))map.fitBounds(b,{padding:[30,30]});
+  setStatus('用紙枠：'+s.paper+(s.orient==='landscape'?'横':'縦')+' S=1/'+s.scale.toLocaleString()+'（地上 約'+Math.round(s.fw*s.scale/1000)+'m×'+Math.round(s.fh*s.scale/1000)+'m）。枠をドラッグして範囲を合わせ、「この枠で印刷」を押してください');
+}
+function pfEnableDrag(){
+  pf.rect.on('mousedown',e=>{
+    L.DomEvent.stop(e);
+    map.dragging.disable();
+    const start=e.latlng, c0=pf.center;
+    const move=ev=>{
+      pf.center=L.latLng(c0.lat+(ev.latlng.lat-start.lat),c0.lng+(ev.latlng.lng-start.lng));
+      pf.rect.setBounds(pfBounds(pf.center,pfSettings()));
+    };
+    const up=()=>{map.off('mousemove',move);map.dragging.enable();document.removeEventListener('mouseup',up);};
+    map.on('mousemove',move);
+    document.addEventListener('mouseup',up);
+  });
+}
+function pfClear(){
+  if(pf.rect){map.removeLayer(pf.rect);pf.rect=null;}
+  pf.active=false;pf.center=null;
+  document.getElementById('btn-print-area').classList.remove('mode-on');
+  setStatus('用紙枠を消しました');
+}
+function pfNiceLen(m){
+  const e=Math.pow(10,Math.floor(Math.log10(m)));
+  for(const f of [5,2,1]){if(f*e<=m)return f*e;}
+  return e;
+}
+async function pfPrint(){
+  if(!pf.active){pfShow(true);if(!pf.active){exportPrint();return;}}
+  const s=pfSettings();
+  const MMPX=96/25.4;                                       // 1mmあたりのCSSピクセル
+  const wpx=Math.round(s.fw*MMPX), hpx=Math.round(s.fh*MMPX);
+  // 縮尺どおりになるズーム値（地上のm/px = 156543.03392×cos緯度 / 2^z）
+  const mPerPx=s.scale*25.4/96/1000;
+  const z=Math.log2(156543.03392*Math.cos(pf.center.lat*Math.PI/180)/mPerPx);
+  const saved={c:map.getCenter(),z:map.getZoom(),snap:map.options.zoomSnap};
+  // 印刷用の一時スタイル（用紙サイズ・向き・余白なし・地図枠のmm寸法）
+  const st=document.createElement('style');st.id='pf-print-style';
+  st.textContent='@page{size:'+s.paper+' '+s.orient+';margin:0}'
+    +'@media print{'
+    +'#pf-panel,#fix-banner,#fix-highlight{display:none!important}'
+    +'#print-header{display:flex!important;box-sizing:border-box;width:'+s.fw+'mm!important;height:'+(PF_HEADER-2)+'mm!important;margin:'+PF_MARGIN+'mm '+PF_MARGIN+'mm 2mm '+PF_MARGIN+'mm!important;padding:0 1mm!important;border-bottom:0.3mm solid #000!important;font-size:11pt}'
+    +'#map-wrap{position:relative!important;width:'+s.fw+'mm!important;height:'+s.fh+'mm!important;margin:0 '+PF_MARGIN+'mm!important;overflow:hidden!important;outline:0.3mm solid #000}'
+    +'#map{position:absolute!important;left:0!important;top:0!important;width:'+s.fw+'mm!important;height:'+s.fh+'mm!important}'
+    +'#pf-overlay{display:block!important}'
+    +'}';
+  document.head.appendChild(st);
+  // 見出し・スケールバー
+  const now=new Date();
+  const ts=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
+  const n=photos.filter(p=>p.latlng).length;
+  document.getElementById('print-header-meta').textContent=ts+'　写真'+n+'枚　'+s.paper+(s.orient==='landscape'?'横':'縦')+'　S=1/'+s.scale.toLocaleString();
+  const len=pfNiceLen(s.fw*s.scale/1000/5);                 // 枠幅の約1/5に収まるきりの良い長さ(m)
+  const barMm=len*1000/s.scale;
+  document.getElementById('pf-scalebar').innerHTML='<div>0　　　'+(len>=1000?(len/1000)+'km':len+'m')+'</div><div class="bar" style="width:'+barMm+'mm"></div><div>S=1/'+s.scale.toLocaleString()+'</div>';
+  // 地図を印刷枠と同じピクセル寸法にして、縮尺どおりのズームで表示
+  if(pf.rect)map.removeLayer(pf.rect);
+  document.getElementById('pf-panel').classList.remove('open');
+  pfPrintLock=true;
+  mapEl.style.width=wpx+'px';mapEl.style.height=hpx+'px';
+  map.invalidateSize(false);
+  map.options.zoomSnap=0;
+  map.setView(pf.center,z,{animate:false});
+  setStatus('印刷用の地図を読み込み中...');
+  await new Promise(res=>{let done=false;const f=()=>{if(!done){done=true;res();}};curLayer.once('load',f);setTimeout(f,5000);});
+  await new Promise(r=>setTimeout(r,400));                 // 重なり回避の再計算を待つ
+  const restore=()=>{
+    if(!pfPrintLock)return;
+    window.removeEventListener('afterprint',restore);
+    const el=document.getElementById('pf-print-style');if(el)el.remove();
+    pfPrintLock=false;
+    map.options.zoomSnap=saved.snap;
+    fixMapSize();
+    map.setView(saved.c,Math.round(saved.z),{animate:false});
+    if(pf.rect)pf.rect.addTo(map);
+    fixRep();
+    setStatus('印刷画面を閉じました（用紙枠はそのまま残っています）');
+  };
+  window.addEventListener('afterprint',restore);
+  window.print();
+  setTimeout(restore,500);
+}
+
 function setStatus(msg){document.getElementById('statusbar').textContent=msg;}
 
 window.addEventListener('resize',fixRep);
