@@ -245,7 +245,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
           <span id="geojson-status">📂 道路台帳GeoJSONが未読込（路線名は手動入力）</span>
           <button onclick="document.getElementById('geojson-file').click()" style="padding:5px 12px;border:1.5px solid var(--acc);border-radius:6px;background:#fff;color:var(--acc);font-size:12px;font-weight:700;cursor:pointer">GeoJSON読込</button>
         </div>
-        <div style="margin-top:4px;font-size:10px;color:var(--ink3)">QGISで路線ShapeファイルをGeoJSON出力→このボタンで読込→GPSから路線名を自動取得</div>
+        <div style="margin-top:4px;font-size:10px;color:var(--ink3)">道路台帳は自動で読み込みます（一度読み込めば圏外でも使用可）。読み込めない時だけこのボタンでGeoJSONを選択</div>
       </div>
       <input type="file" id="geojson-file" accept=".geojson,.json" style="display:none" onchange="loadGeoJSON(this)">
     </div>
@@ -382,14 +382,44 @@ let curSbt = '';
 let gLat = null, gLon = null;
 let roadGeoJSON = null;  // 道路台帳GeoJSONデータ
 
-function save(){ localStorage.setItem(KEY, JSON.stringify(groups)); }
-function load(){ const d=localStorage.getItem(KEY); groups=d?JSON.parse(d):[]; }
+// ===== 端末内保存（IndexedDB）=====
+// 写真データを含むため容量の小さいlocalStorageではなくIndexedDBに保存する
+const GEOJSON_URL = 'kokonoe_douro_daicho.geojson';  // 同じフォルダに置いた道路台帳
+function idb(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('rsp_db',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+async function idbGet(k){
+  const db=await idb();
+  return new Promise((res,rej)=>{ const q=db.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); });
+}
+async function idbSet(k,v){
+  const db=await idb();
+  return new Promise((res,rej)=>{ const t=db.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); });
+}
+function save(){
+  idbSet(KEY, groups).catch(e=>setStatus('⚠️ 保存に失敗しました（端末の空き容量を確認し、JSON出力でバックアップしてください）: '+e.message,'err'));
+}
+async function load(){
+  try{
+    groups=(await idbGet(KEY))||[];
+    // 旧版（localStorage保存）からの引き継ぎ
+    const old=localStorage.getItem(KEY);
+    if(old && !groups.length){ groups=JSON.parse(old); await idbSet(KEY,groups); localStorage.removeItem(KEY); }
+  }catch(e){ groups=[]; setStatus('読込エラー: '+e.message,'err'); }
+}
 
 // ===== 初期化 =====
-load();
 document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
-startGPS();
-setStatus(groups.length + '件のグループを読み込みました');
+(async()=>{
+  await load();
+  setStatus(groups.length + '件のグループを読み込みました');
+  startGPS();
+  autoLoadGeoJSON();
+})();
 
 // ===== タブ =====
 function showTab(id, btn){
@@ -419,17 +449,37 @@ function startGPS(){
   );
 }
 
-// ===== GeoJSON読込 =====
+// ===== GeoJSON自動読込 =====
+function setRoadData(gj, src){
+  roadGeoJSON=gj;
+  const cnt=gj.features?gj.features.length:0;
+  document.getElementById('geojson-status').textContent=`✅ 道路台帳読込済み（${cnt}路線・${src}）`;
+  if(gLat) lookupRosen();
+}
+async function autoLoadGeoJSON(){
+  try{
+    const r=await fetch(GEOJSON_URL,{cache:'no-cache'});
+    if(!r.ok) throw new Error(r.status);
+    const txt=await r.text();
+    setRoadData(JSON.parse(txt),'自動');
+    idbSet('geojson',txt).catch(()=>{});      // 圏外用に端末へ保存
+    return;
+  }catch(e){}
+  try{
+    const txt=await idbGet('geojson');        // 圏外：前回保存分を使う
+    if(txt) setRoadData(JSON.parse(txt),'端末保存分');
+  }catch(e){}
+}
+
+// ===== GeoJSON読込（手動）=====
 function loadGeoJSON(input){
   const file=input.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=e=>{
     try{
-      roadGeoJSON=JSON.parse(e.target.result);
-      const cnt=roadGeoJSON.features?roadGeoJSON.features.length:0;
-      document.getElementById('geojson-status').textContent=`✅ 道路台帳読込済み（${cnt}路線）`;
-      setStatus(`GeoJSON読込完了：${cnt}路線`,'ok');
-      if(gLat) lookupRosen();
+      setRoadData(JSON.parse(e.target.result),'手動');
+      idbSet('geojson',e.target.result).catch(()=>{});
+      setStatus(`GeoJSON読込完了：${roadGeoJSON.features?roadGeoJSON.features.length:0}路線`,'ok');
     }catch(e){
       setStatus('GeoJSON読込エラー: '+e.message,'err');
     }
@@ -466,7 +516,7 @@ function lookupRosen(){
     });
   });
 
-  const distM=Math.round(minDist*111320); // 度→m概算
+  const distM=Math.round(minDist); // メートル
   if(bestName && distM<200){
     document.getElementById('f-rosen').value=bestName;
     document.getElementById('rosen-status').textContent=`✅ 自動取得（約${distM}m）`;
@@ -477,12 +527,13 @@ function lookupRosen(){
   }
 }
 
-// 点からセグメントへの最短距離（度単位）
+// 点から線分への垂線距離（メートル。調査点まわりの局所平面で計算）
 function distToSegment(plat,plon,alat,alon,blat,blon){
-  const dx=blon-alon, dy=blat-alat;
-  if(dx===0&&dy===0) return Math.hypot(plon-alon,plat-alat);
-  const t=Math.max(0,Math.min(1,((plon-alon)*dx+(plat-alat)*dy)/(dx*dx+dy*dy)));
-  return Math.hypot(plon-(alon+t*dx), plat-(alat+t*dy));
+  const kx=111320*Math.cos(plat*Math.PI/180), ky=110574;
+  const ax=(alon-plon)*kx, ay=(alat-plat)*ky, bx=(blon-plon)*kx, by=(blat-plat)*ky;
+  const dx=bx-ax, dy=by-ay, L2=dx*dx+dy*dy;
+  const t=L2===0?0:Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L2));
+  return Math.hypot(ax+t*dx, ay+t*dy);
 }
 
 // ===== 細別 =====
@@ -603,6 +654,8 @@ function register(){
   document.getElementById('f-W').value='';
   document.getElementById('f-H').value='';
   document.getElementById('f-bikou').value='';
+  document.getElementById('f-rosen').value='';
+  document.getElementById('rosen-status').textContent='GPS取得後に自動入力';
   document.getElementById('photo-grid').innerHTML='';
   document.querySelectorAll('.sbt-btn').forEach(b=>b.classList.remove('on'));
   curSbt=''; pending=[];
