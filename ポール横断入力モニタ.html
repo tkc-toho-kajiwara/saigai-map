@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ポール横断 入力モニタ（公共用地確定）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF3F4; --surface:#FFFFFF; --ink:#1B2A33; --sub:#5B6B73; --line:#C9D7DC; --grid:#DCE8EB;
+  --L:#1E63B8; --Lbg:#E3EEFB; --R:#C2531C; --Rbg:#FCEBE2; --bp:#D0202E;
+  --water:#2A9CC8; --waterfill:rgba(42,156,200,.18); --stone:#6A5A48; --warn:#B7791F; --warnbg:#FFF4D6;
+  --err:#C0262D; --errbg:#FDE3E3; --ok:#2E7D4F; --okbg:#DFF2E6; --focus:#F2B705;
+  --font:"BIZ UDPGothic","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F171B; --surface:#172228; --ink:#E3ECEF; --sub:#93A5AD; --line:#2C3E46; --grid:#22323A;
+    --L:#73AAF0; --Lbg:#1A2C42; --R:#F0905E; --Rbg:#3A2419; --bp:#FF5A63;
+    --water:#5BC2EA; --waterfill:rgba(91,194,234,.18); --stone:#C9B79F; --warn:#F2C25B; --warnbg:#3A3015;
+    --err:#FF7A7F; --errbg:#3E1C1E; --ok:#7AD39C; --okbg:#173325; --focus:#F2C94C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F171B; --surface:#172228; --ink:#E3ECEF; --sub:#93A5AD; --line:#2C3E46; --grid:#22323A;
+  --L:#73AAF0; --Lbg:#1A2C42; --R:#F0905E; --Rbg:#3A2419; --bp:#FF5A63;
+  --water:#5BC2EA; --waterfill:rgba(91,194,234,.18); --stone:#C9B79F; --warn:#F2C25B; --warnbg:#3A3015;
+  --err:#FF7A7F; --errbg:#3E1C1E; --ok:#7AD39C; --okbg:#173325; --focus:#F2C94C;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;
+  font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select{font:inherit;color:inherit}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:.5rem;padding:.45rem .75rem;max-width:1280px;margin:0 auto}
+.bar h1{font-size:.95rem;margin:0;font-weight:700;white-space:nowrap}
+nav.tabs{display:flex;gap:.25rem;margin-left:auto;overflow-x:auto}
+nav.tabs button{border:0;background:none;padding:.4rem .7rem;border-radius:6px;color:var(--sub);cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+main{max-width:1280px;margin:0 auto;padding:.75rem}
+section[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
+
+/* 入力タブ */
+.ptbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.ptbar .nav{border:1px solid var(--line);background:var(--surface);border-radius:6px;width:2.6rem;height:2.6rem;cursor:pointer;font-size:1.1rem}
+.ptbar select{font-size:1.35rem;font-weight:700;padding:.2rem .4rem;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-width:6rem}
+.route{color:var(--sub)}
+.badge{padding:.15rem .55rem;border-radius:4px;font-size:.85rem;font-weight:700}
+.badge.ok{background:var(--okbg);color:var(--ok)} .badge.ng{background:var(--errbg);color:var(--err)}
+.stand{display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:center;background:var(--surface);border:1px solid var(--line);
+  border-left:6px solid var(--bp);padding:.5rem .75rem;margin-bottom:.6rem}
+.stand strong{font-size:1.02rem}
+.chip{padding:.1rem .5rem;border-radius:4px;font-weight:700;font-size:.9rem}
+.chip.L{background:var(--Lbg);color:var(--L)} .chip.R{background:var(--Rbg);color:var(--R)}
+.work{display:grid;gap:.75rem}
+@media (min-width:980px){.work{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:start}
+  .monitorwrap{position:sticky;top:3.6rem}}
+@media (max-width:979px){.monitorwrap{position:sticky;top:calc(env(safe-area-inset-top,0px) + 3.2rem);z-index:5}}
+table.rows tr.sub td{border-bottom:1px solid var(--line);padding-top:0}
+table.rows tr.main td{border-bottom:0}
+.monitor{background:var(--surface);border:1px solid var(--line);}
+.monitor svg{display:block;width:100%;height:auto;max-height:46vh}
+@media (min-width:980px){.monitor svg{max-height:70vh}}
+.legend{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-size:.78rem;color:var(--sub);padding:.3rem .6rem;border-top:1px solid var(--line)}
+.sides{display:grid;gap:.75rem}
+@media (min-width:640px) and (max-width:979px){.sides{grid-template-columns:1fr 1fr}}
+.side{background:var(--surface);border:1px solid var(--line)}
+.side h2{margin:0;font-size:1rem;padding:.4rem .6rem;display:flex;justify-content:space-between;align-items:baseline}
+.side.L h2{background:var(--Lbg);color:var(--L)} .side.R h2{background:var(--Rbg);color:var(--R)}
+.side h2 small{font-weight:400;font-size:.8rem}
+table.rows{width:100%;border-collapse:collapse}
+table.rows th{font-size:.75rem;color:var(--sub);font-weight:400;text-align:left;padding:.2rem .3rem;border-bottom:1px solid var(--line)}
+table.rows td{padding:.15rem .25rem;border-bottom:1px solid var(--grid);vertical-align:top}
+table.rows td.no{width:2rem;text-align:center;font-weight:700;padding-top:.45rem}
+table.rows tr.focus td{background:color-mix(in srgb,var(--focus) 18%,transparent)}
+.num{display:flex;align-items:center;gap:2px}
+.num input{width:100%;min-width:3.4rem;padding:.35rem .35rem;border:1px solid var(--line);border-radius:5px;background:var(--bg);text-align:right}
+.num button{border:1px solid var(--line);background:var(--surface);border-radius:5px;width:1.8rem;height:2.05rem;cursor:pointer;flex:none;font-size:.85rem}
+.cum{font-size:.72rem;color:var(--sub);text-align:right;padding-right:2.1rem;min-height:1em}
+td select{min-width:5rem}
+td:has(.symc){min-width:9.2rem}
+td select,td input.code{width:100%;padding:.35rem .25rem;border:1px solid var(--line);border-radius:5px;background:var(--bg)}
+td input.code{min-width:4rem}
+input.bad{border-color:var(--err)!important;background:var(--errbg)!important}
+input.neg{border-color:var(--warn)!important;background:var(--warnbg)!important}
+.fixed td{color:var(--sub);font-size:.85rem}
+.nob{border:1px solid var(--line);background:var(--surface);border-radius:5px;min-width:1.9rem;height:2rem;font-weight:700;cursor:pointer;padding:0 .2rem}
+.symc{display:flex;gap:3px}
+.symc select{flex:1}
+button.kl{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:5px;font-size:.75rem;padding:0 .3rem;cursor:pointer;color:var(--sub)}
+button.kl[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:1rem;max-width:min(92vw,26rem)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+dialog h3{margin:0 0 .6rem;font-size:1rem}
+dialog .list{display:grid;gap:.4rem;margin:.4rem 0 .8rem}
+dialog .list button{text-align:left}
+.plan{background:var(--surface);border:1px solid var(--line);touch-action:none;position:relative}
+.plan svg{display:block;width:100%;height:70vh;cursor:grab}
+.plantools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.5rem}
+.plantools input[type=text]{width:8rem;padding:.35rem;border:1px solid var(--line);border-radius:5px;background:var(--bg)}
+.plantools label{display:inline-flex;align-items:center;gap:.3rem}
+.photos{background:var(--surface);border:1px solid var(--line);padding:.5rem .6rem}
+.photos h3,.msgs h3{margin:0 0 .35rem;font-size:.9rem}
+.photos label{display:inline-flex;align-items:center;gap:.3rem;margin:.15rem .7rem .15rem 0;cursor:pointer}
+.photos input{width:1.25rem;height:1.25rem}
+.msgs{background:var(--surface);border:1px solid var(--line);padding:.5rem .6rem}
+.msgs ul{margin:0;padding-left:1.1rem}
+.msgs li.e{color:var(--err)} .msgs li.w{color:var(--warn)}
+.msgs p{margin:0;color:var(--ok)}
+.hint{font-size:.8rem;color:var(--sub);margin:.4rem 0 0}
+
+/* 一覧系 */
+.panel{background:var(--surface);border:1px solid var(--line);padding:.75rem;margin-bottom:.75rem}
+.panel h2{font-size:1.05rem;margin:0 0 .5rem}
+.scroll{overflow-x:auto}
+table.grid{border-collapse:collapse;min-width:100%;font-size:.88rem}
+table.grid th,table.grid td{border:1px solid var(--line);padding:.25rem .4rem;white-space:nowrap}
+table.grid th{background:var(--bg);font-weight:700;font-size:.8rem}
+table.grid input,table.grid select{width:100%;min-width:4.5rem;border:0;background:transparent;padding:.2rem}
+table.grid td.c{color:var(--sub)}
+table.grid tr.click{cursor:pointer}
+table.grid tr.click:hover td{background:var(--bg)}
+.btns{display:flex;flex-wrap:wrap;gap:.5rem;margin:.5rem 0}
+.btn{border:1px solid var(--ink);background:var(--surface);padding:.45rem .8rem;border-radius:6px;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--surface)}
+.btn.danger{border-color:var(--err);color:var(--err)}
+.sum{display:flex;gap:1.2rem;flex-wrap:wrap;margin-bottom:.5rem;font-size:1rem}
+.sum b{font-size:1.4rem}
+.field{display:flex;align-items:center;gap:.5rem;margin:.3rem 0}
+.field input{width:6rem;padding:.3rem;border:1px solid var(--line);border-radius:5px;background:var(--bg)}
+.field input.w{width:12rem}
+.toast{position:fixed;left:50%;bottom:calc(1rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:var(--ink);color:var(--surface);padding:.5rem 1rem;border-radius:6px;z-index:20;font-size:.9rem}
+@media (prefers-reduced-motion:no-preference){.toast{transition:opacity .3s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <h1>ポール横断 入力モニタ</h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="input" aria-selected="true">入力</button>
+      <button role="tab" data-tab="points" aria-selected="false">境界点</button>
+      <button role="tab" data-tab="plan" aria-selected="false">配置図</button>
+      <button role="tab" data-tab="check" aria-selected="false">チェック</button>
+      <button role="tab" data-tab="io" aria-selected="false">設定・保存</button>
+    </nav>
+  </div>
+</header>
+<main>
+<!-- 入力 -->
+<section id="tab-input">
+  <div class="ptbar">
+    <button class="nav" id="prev" aria-label="前の境界点">◀</button>
+    <select id="ptsel" aria-label="境界点"></select>
+    <button class="nav" id="next" aria-label="次の境界点">▶</button>
+    <span class="route" id="route"></span>
+    <span class="badge" id="badge"></span>
+  </div>
+  <div class="stand" id="stand"></div>
+  <div class="work">
+    <div class="monitorwrap">
+      <div class="monitor">
+        <svg id="mon" viewBox="0 0 800 360" role="img" aria-label="横断図モニタ"></svg>
+        <div class="legend">
+          <span>起点側から終点側を見た図（左＝L、右＝R）</span><span id="scaleinfo"></span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="sides">
+        <div class="side L"><h2>左（L）<small id="bL"></small></h2><table class="rows" id="tL"></table></div>
+        <div class="side R"><h2>右（R）<small id="bR"></small></h2><table class="rows" id="tR"></table></div>
+      </div>
+      <div class="photos" style="margin-top:.75rem"><h3>水面高</h3>
+        <div class="field" style="margin:0"><label for="wl">境界点からの高さ(m)</label><input id="wl" inputmode="decimal" placeholder="なし">
+        <button type="button" class="btn" id="wlFlip" style="padding:.25rem .6rem">±</button>
+        <button type="button" class="btn" id="wlFocus" style="padding:.25rem .6rem">選択中の点の高さにする</button></div>
+        <p class="hint" style="margin:.2rem 0 0">水面より低い部分を水色で表示します。表の記号「水面」でも指定できます（その点の高さ）。</p></div>
+      <div class="photos" style="margin-top:.75rem"><h3>写真</h3><div id="photoChk"></div></div>
+      <div class="msgs" style="margin-top:.75rem"><h3>この点の確認</h3><div id="ptmsgs"></div></div>
+      <p class="hint">距離・高さは前の点から。上り＋／下り−（±で符号切替）。距離0＝垂直、マイナス＝折り返し。
+        積み・コンクリートは「前の点→この点」の区間に、仕切り線と境線は「この点」に描きます。NOを押すと構造物の挿入・登録、行の挿入・削除ができます。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 境界点 -->
+<section id="tab-points" hidden>
+  <div class="panel">
+    <h2>境界点</h2>
+    <p class="hint" style="margin-top:0">路線ごとに起点から順序1,2,3…を振ると、立ち方とL/Rの方位が決まります（水路は上流→下流を推奨）。</p>
+    <div class="btns">
+      <button class="btn" id="addPt">点を追加</button>
+      <label class="btn">SIMA・CSVを読み込む<input type="file" id="ptFile" accept=".sim,.csv,.txt" hidden></label>
+    </div>
+    <div class="scroll"><table class="grid" id="ptTable"></table></div>
+  </div>
+  <div class="panel">
+    <h2>路線・画地</h2>
+    <p class="hint" style="margin-top:0">閉合にすると最後の点の次が最初の点になり、全点で前点・次点の角の二等分線が横断方向になります。右回りなら画地内＝R、左回りなら画地内＝L。</p>
+    <div class="scroll"><table class="grid" id="rtTable"></table></div>
+  </div>
+  <div class="panel">
+    <h2>SIMAの画地から境界点を作る</h2>
+    <div class="field"><label for="parcelSel">画地</label><select id="parcelSel"></select>
+      <select id="parcelDir"><option value="cw">右回り</option><option value="ccw">左回り</option></select>
+      <button class="btn" id="parcelAdd">境界点として追加</button></div>
+    <p class="hint" id="libInfo"></p>
+    <p class="hint">SIMAはA01の点を「点の一覧」に、D00〜D99の画地を画地一覧に取り込みます（境界点にはまだ入りません）。画地から作るか、配置図で点を選んで追加してください。CSVは「点番,路線名,種別,順序,X,Y,標高」の順で、そのまま境界点に入ります。</p>
+  </div>
+</section>
+
+<!-- 配置図 -->
+<section id="tab-plan" hidden>
+  <div class="plantools">
+    <button class="btn" id="zIn" aria-label="拡大">＋</button><button class="btn" id="zOut" aria-label="縮小">－</button>
+    <button class="btn" id="zFit">全体</button>
+    <label><input type="checkbox" id="selMode">点を選んで路線に追加</label>
+    <label>路線名 <input type="text" id="selRoute" value="画地1"></label>
+    <button class="btn" id="selUndo">最後の点を外す</button>
+    <span id="planInfo" class="route"></span>
+  </div>
+  <div class="plan"><svg id="planSvg" viewBox="0 0 800 600" aria-label="横断配置図"></svg></div>
+  <p class="hint">緑＝完了、赤＝未完了、灰＝未選択の点。青線＝L、橙線＝R（前点・次点の角の二等分線）。点をタップするとその点の入力に移ります。
+    「点を選んで路線に追加」をオンにすると、灰色の点をタップした順に路線へ追加し、最初の点をもう一度タップすると閉合（画地）になります。</p>
+</section>
+
+<!-- チェック -->
+<section id="tab-check" hidden>
+  <div class="panel">
+    <h2>漏れチェック</h2>
+    <div class="sum" id="sum"></div>
+    <div class="scroll"><table class="grid" id="ckTable"></table></div>
+    <p class="hint">行をタップするとその点の入力に移ります。</p>
+  </div>
+</section>
+
+<!-- 設定・保存 -->
+<section id="tab-io" hidden>
+  <div class="panel">
+    <h2>保存と書き出し</h2>
+    <p class="hint" style="margin-top:0">入力内容はこの端末のブラウザに自動保存されます。PCへ移すときや控えには「プロジェクトを書き出す」を使ってください。</p>
+    <div class="btns">
+      <button class="btn primary" id="expJson">プロジェクトを書き出す（JSON）</button>
+      <button class="btn" id="expCsv">横断データを書き出す（CSV）</button>
+      <button class="btn" id="expSvg">表示中の横断図を書き出す（SVG）</button>
+      <label class="btn">プロジェクトを読み込む<input type="file" id="impJson" accept=".json" hidden></label>
+    </div>
+    <p class="hint">DXFはJSONをPCのPython（公共用地確定ツール.py json ファイル名.json）で出力します。</p>
+  </div>
+  <div class="panel">
+    <h2>設定</h2>
+    <div class="field"><label for="sNeed">各側の必要横断延長(m)</label><input id="sNeed" inputmode="decimal"></div>
+    <div class="field"><label for="sThick">積み・コンクリートの記号の厚さ(m)</label><input id="sThick" inputmode="decimal"></div>
+    <div class="field"><label for="sVex">縦倍率</label><input id="sVex" inputmode="decimal"></div>
+    <div class="field"><label for="sScale">図面縮尺 1/</label><input id="sScale" inputmode="decimal"><span class="hint" style="margin:0">境線（縦1mm）の長さに使います</span></div>
+    <h3 style="font-size:.95rem;margin:.8rem 0 .3rem">登録済みの構造物</h3>
+    <div id="sTpl"></div>
+    <h3 style="font-size:.95rem;margin:.8rem 0 .3rem">写真区分（必須にチェック）</h3>
+    <div id="sPhotos"></div>
+  </div>
+  <div class="panel">
+    <h2>プロジェクト</h2>
+    <div class="btns">
+      <button class="btn danger" id="newProj">新しいプロジェクトにする（全消去）</button>
+      <button class="btn" id="loadSample">サンプルを読み込む</button>
+    </div>
+  </div>
+</section>
+</main>
+<div class="toast" id="toast" hidden></div>
+<dialog id="rowMenu">
+  <h3 id="rmTitle"></h3>
+  <div><b style="font-size:.85rem">構造物を挿入（この行から）</b><div class="list" id="rmTpl"></div></div>
+  <div class="btns">
+    <button class="btn" id="rmReg">この行から構造物として登録</button>
+    <button class="btn" id="rmIns">空行を挿入</button>
+    <button class="btn danger" id="rmDel">この行を削除</button>
+    <button class="btn" id="rmClose">閉じる</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const KEY = "pole-oudan-v1";
+const NROW = 19;                    // NO.2〜20
+const SYMS = ["", "ブロック積", "石積", "コンクリート", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
+const CODES = ["道路端","路肩","側溝","水路肩","水路壁","水路底","法肩","法尻","畦畔","擁壁","構造物","田","畑","宅地","山林","地盤"];
+const DIR16 = ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
+
+/* ---------- データ ---------- */
+const blankRow = () => ({d:"", h:"", sym:"", code:"", kl:false});
+function emptyRows(){ return Array.from({length:NROW}, blankRow); }
+const DEFAULT_TEMPLATES = [
+  {name:"U字側溝 300（As端から）", edgeKl:true, rows:[
+    {d:"0.10",h:"0",sym:"",code:"側溝天端",kl:false},{d:"0",h:"-0.30",sym:"",code:"側溝底",kl:false},
+    {d:"0.30",h:"0",sym:"",code:"側溝底",kl:false},{d:"0",h:"0.30",sym:"",code:"側溝天端",kl:false},
+    {d:"0.10",h:"0",sym:"",code:"側溝天端",kl:true}]},
+  {name:"縁石 150", edgeKl:true, rows:[
+    {d:"0",h:"0.15",sym:"",code:"縁石",kl:false},{d:"0.15",h:"0",sym:"",code:"縁石天端",kl:true}]}
+];
+function blankProject(){
+  return { version:1,
+    settings:{ needLen:5, thick:0.35, vexag:1, scale:100, templates:JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)),
+      photoCats:[{name:"近景（境界標）",req:true},{name:"遠景（L方向）",req:true},{name:"遠景（R方向）",req:true},
+                 {name:"路線方向（起点側）",req:true},{name:"路線方向（終点側）",req:true}] },
+    points:[], cross:{}, photos:{}, water:{}, routes:{}, lib:{points:[], parcels:[]}, current:null };
+}
+function sampleProject(){
+  const P = blankProject();
+  P.points = [
+    {id:"K1",route:"里道1",kind:"里道",order:1,x:35200,y:-5600,h:120.5},
+    {id:"K2",route:"里道1",kind:"里道",order:2,x:35210,y:-5592,h:120.95},
+    {id:"K3",route:"里道1",kind:"里道",order:3,x:35222,y:-5588,h:121.4},
+    {id:"S1",route:"水路1",kind:"水路",order:1,x:35180,y:-5590,h:null},
+    {id:"S2",route:"水路1",kind:"水路",order:2,x:35175,y:-5578,h:null},
+  ];
+  const put = (id, L, R) => {
+    const c = {L:emptyRows(), R:emptyRows()};
+    L.forEach((r,i) => c.L[i] = {d:String(r[0]), h:String(r[1]), sym:r[2]||"", code:r[3]||"", kl:!!r[4]});
+    R.forEach((r,i) => c.R[i] = {d:String(r[0]), h:String(r[1]), sym:r[2]||"", code:r[3]||"", kl:!!r[4]});
+    P.cross[id] = c;
+  };
+  put("K1", [[0,0.5,"コンクリート","水路壁"],[1.2,0,"",""],[3,2.2,"石積",""],[-2,3,"","張り出し"]],
+            [[0,2,"ブロック積",""],[1.2,1,"",""],[3,2.2,"",""],[5,3,"",""]]);
+  put("K2", [[1.3,0,"","As端",true],[0.1,0,"","側溝天端"],[0,-0.3,"","側溝底"],[0.3,0,"","側溝底"],[0,0.3,"","側溝天端"],[0.1,0,"","側溝天端",true],[3.5,-0.6,"","田"]],
+            [[2,0.05,"","道路端"],[1.2,1.1,"石積","法肩"],[2.5,0.3,"仕切り線","畑"]]);
+  put("S1", [[0,-0.9,"ブロック積","水路壁"],[1.1,0,"","水路底"],[0,0.9,"ブロック積","水路壁"],[4,0.1,"","田"]],
+            [[1.5,0.05,"","畦畔"],[3.8,0.2,"","田"]]);
+  P.photos = {K1:{"近景（境界標）":true,"遠景（L方向）":true}};
+  P.water = {S1:"-0.5"};
+  P.routes = {"里道1":{closed:false}, "水路1":{closed:false}, "画地A":{closed:true}};
+  // 閉合（画地）のサンプル：右回りで G1→G2→G3→G4→G5
+  [["G1",35150,-5620],["G2",35160,-5600],["G3",35150,-5580],["G4",35130,-5585],["G5",35128,-5612]].forEach((g, i) =>
+    P.points.push({id:g[0], route:"画地A", kind:"画地", order:i+1, x:g[1], y:g[2], h:null}));
+  P.lib.points = [["G6",35120,-5570],["G7",35110,-5600],["G8",35140,-5560]].map(g => ({no:g[0], id:g[0], x:g[1], y:g[2], h:null}));
+  put("G1", [[2,0.1,"","畦畔"],[3.5,0.2,"","田"]], [[1.2,0,"","As端",true],[0.1,0,"","側溝天端"],[0,-0.3,"","側溝底"],[0.3,0,"","側溝底"],[0,0.3,"","側溝天端"],[0.1,0,"","側溝天端",true],[4,0,"","道路"]]);
+  P.current = "K1";
+  return P;
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e) { S = null; }
+if (!S || !S.points) S = sampleProject();
+migrate();
+function migrate(){
+  S.water ||= {}; S.routes ||= {}; S.lib ||= {points:[], parcels:[]};
+  S.settings.scale ||= 100;
+  if (!Array.isArray(S.settings.templates)) S.settings.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+  Object.values(S.cross).forEach(c => ["L","R"].forEach(k => {
+    c[k] = (c[k] || []).map(r => Object.assign(blankRow(), r));
+    while (c[k].length < NROW) c[k].push(blankRow());
+  }));
+}
+let saveTimer = null;
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { /* 保存不可の環境 */ } }, 300); }
+
+/* ---------- 数値 ---------- */
+function norm(v){
+  if (v === null || v === undefined) return "";
+  return String(v).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    .replace(/[．。]/g,".").replace(/[－ー−‐]/g,"-").replace(/[＋]/g,"+").trim();
+}
+function num(v){ const s = norm(v); if (s === "" || s === "-" || s === "+") return null;
+  const n = Number(s); return Number.isFinite(n) ? n : NaN; }
+const f2 = n => (Math.round(n*100)/100).toFixed(2);
+const sgn = n => (n > 0 ? "+" : "") + f2(n);
+
+/* ---------- 方位 ---------- */
+function routeInfo(){
+  const by = {};
+  S.points.forEach(p => { if (p.route && p.order != null && p.order !== "" && num(p.x) != null && num(p.y) != null)
+    (by[p.route] ||= []).push(p); });
+  const info = {};
+  for (const [r, arr] of Object.entries(by)) {
+    arr.sort((a, b) => Number(a.order) - Number(b.order));
+    const closed = !!(S.routes[r] && S.routes[r].closed) && arr.length >= 3;
+    let a2 = 0;
+    if (closed) arr.forEach((p, i) => { const q = arr[(i+1) % arr.length];
+      a2 += num(p.y)*num(q.x) - num(q.y)*num(p.x); });          // x=東(Y), y=北(X)
+    info[r] = {arr, closed, cw: closed ? a2 < 0 : null};
+  }
+  return info;
+}
+function directions(){
+  const info = routeInfo(), out = {};
+  S.points.forEach(p => out[p.id] = {prev:null, next:null, az:null});
+  for (const [r, R] of Object.entries(info)) {
+    const n = R.arr.length;
+    R.arr.forEach((p, j) => {
+      const o = out[p.id];
+      const prv = j > 0 ? R.arr[j-1] : (R.closed ? R.arr[n-1] : null);
+      const nxt = j < n-1 ? R.arr[j+1] : (R.closed ? R.arr[0] : null);
+      o.prev = prv ? prv.id : null; o.next = nxt ? nxt.id : null; o.closed = R.closed; o.cw = R.cw;
+      const unit = q => { const dN = num(q.x)-num(p.x), dE = num(q.y)-num(p.y), l = Math.hypot(dN, dE);
+        return l < 1e-9 ? null : {N:dN/l, E:dE/l}; };
+      const u1 = prv ? unit(prv) : null, u2 = nxt ? unit(nxt) : null;
+      let t = null;
+      if (u1 && u2) t = {N:u2.N-u1.N, E:u2.E-u1.E};
+      else if (u2) t = u2; else if (u1) t = {N:-u1.N, E:-u1.E};
+      if (!t || Math.hypot(t.N, t.E) < 1e-9) return;
+      o.az = ((Math.atan2(t.E, t.N)*180/Math.PI) % 360 + 360) % 360;
+      o.azL = (o.az + 270) % 360; o.azR = (o.az + 90) % 360;
+      if (u1 && u2) {
+        const th = Math.acos(Math.max(-1, Math.min(1, u1.N*u2.N + u1.E*u2.E))) * 180/Math.PI;
+        const rr = o.azR*Math.PI/180, bN = u1.N+u2.N, bE = u1.E+u2.E;
+        const smallOnR = (bN*Math.cos(rr) + bE*Math.sin(rr)) >= 0;
+        if (R.closed) { const inR = R.cw; const inner = (smallOnR === inR) ? th : 360 - th;
+          o.angle = inner; o.inside = inR ? "R" : "L"; }
+        else { o.angle = smallOnR ? th : 360 - th; o.angleSide = "R"; }
+      }
+    });
+  }
+  return out;
+}
+const dir16 = az => DIR16[Math.round(az/22.5) % 16];
+function standText(d){
+  if (!d || d.az == null) return "前後の点がありません。境界点タブで路線名・順序・座標を確認してください";
+  const face = d.next ? `次点 ${d.next} の方を向き` : `前点 ${d.prev} を背にし`;
+  return `${face}、左手＝L／右手＝R。横断は前点・次点の角の二等分線上`;
+}
+function angleText(d){
+  if (!d || d.angle == null) return "";
+  const side = d.inside ? `（画地内＝${d.inside}側）` : "（R側の角）";
+  return `内角 ${d.angle.toFixed(1)}° → 1/2＝${(d.angle/2).toFixed(1)}° ${side}`;
+}
+function crossOf(id){ return S.cross[id] ||= {L:emptyRows(), R:emptyRows()}; }
+function analyze(p){
+  const c = crossOf(p.id), errs = [], warns = [], sides = {};
+  for (const side of ["L","R"]) {
+    const jp = side === "L" ? "左" : "右";
+    let d = 0, h = 0, reach = 0, lastFilled = 0, count = 0;
+    const verts = [];
+    c[side].forEach((r, i) => {
+      const no = i + 2, dn = num(r.d), hn = num(r.h);
+      const filled = norm(r.d) !== "" || norm(r.h) !== "";
+      if (!filled) return;
+      lastFilled = no; count++;
+      if (dn == null || Number.isNaN(dn)) { errs.push(`${jp}NO.${no} 距離が未入力か数値でない`); return; }
+      if (hn == null || Number.isNaN(hn)) { errs.push(`${jp}NO.${no} 高さが未入力か数値でない`); return; }
+      if (dn < 0) warns.push(`${jp}NO.${no} 折り返し（距離マイナス）`);
+      if (dn > 0 && Math.abs(hn) > 3*dn && Math.abs(hn) > 1) warns.push(`${jp}NO.${no} 距離に比べ高さが大きい`);
+      d += dn; h += hn; reach = Math.max(reach, Math.abs(d));
+      verts.push({x:(side==="L"?-1:1)*d, h, side, no, sym:r.sym, code:r.code, kl:!!r.kl, d:dn, cd:d, ch:h});
+    });
+    if (lastFilled - 1 !== count) errs.push(`${jp} 途中に空行があります`);
+    if (!count) errs.push(`${jp}の横断がありません`);
+    else if (reach < S.settings.needLen) errs.push(`${jp}の延長不足（${f2(reach)}m／必要${f2(S.settings.needLen)}m）`);
+    sides[side] = {verts, reach, count};
+  }
+  const ph = S.photos[p.id] || {};
+  const miss = S.settings.photoCats.filter(c => c.req && c.name && !ph[c.name]).map(c => c.name);
+  if (miss.length) errs.push("写真不足：" + miss.join("・"));
+  return {sides, errs, warns};
+}
+function polyline(A){
+  return [...A.sides.L.verts.slice().reverse(), {x:0,h:0,b:true}, ...A.sides.R.verts];
+}
+
+/* 記号ジオメトリ（モデル座標 m、上が＋） */
+function symbols(V, t){
+  const G = {lines:[], polys:[], water:[], labels:[]};
+  const L = (a,b,cls) => G.lines.push({x1:a.x,y1:a.h,x2:b.x,y2:b.h,cls});
+  const klLen = (Number(S.settings.scale) || 100) / 1000;        // 図面上1mm
+  V.forEach(v => { if (v.kl && !v.b) G.lines.push({x1:v.x, y1:v.h, x2:v.x, y2:v.h + klLen, cls:"kl"}); });
+  V.forEach((v, i) => {
+    if (v.b || !v.sym) return;
+    if (v.sym === "水面") return;
+    if (v.sym === "仕切り線") {
+      G.lines.push({x1:v.x,y1:v.h-0.8,x2:v.x,y2:v.h+1.5,cls:"div"});
+      G.labels.push({x:v.x,y:v.h+1.6,t:v.code || "仕切り",cls:"div"}); return;
+    }
+    const A = v.side === "L" ? v : V[i-1], B = v.side === "L" ? V[i+1] : v;
+    if (!A || !B) return;
+    const dx = B.x-A.x, dy = B.h-A.h, len = Math.hypot(dx, dy);
+    if (len < 1e-6) return;
+    const ux = dx/len, uy = dy/len, nx = uy*t, ny = -ux*t;   // 地山側
+    const A2 = {x:A.x+nx, h:A.h+ny}, B2 = {x:B.x+nx, h:B.h+ny};
+    G.polys.push({pts:[A,B,B2,A2], cls:"band"});
+    L(B,B2,"sym"); L(B2,A2,"sym"); L(A2,A,"sym");
+    const at = (k, f) => ({x:A.x+ux*k+nx*f, h:A.h+uy*k+ny*f});
+    if (v.sym === "ブロック積") {
+      for (let k = 0.35; k < len-0.02; k += 0.35) L(at(k,0), at(k,1), "sym");
+      L(at(0,0.5), at(len,0.5), "symthin");
+    } else if (v.sym === "石積") {
+      const m = Math.max(2, Math.round(len/0.3));
+      let pv = at(0, 0.15);
+      for (let j = 1; j <= m; j++) { const q = at(len*j/m, j%2 ? 0.85 : 0.15); L(pv, q, "sym"); pv = q; }
+    } else if (v.sym === "コンクリート") {
+      for (let k = 0.15; k < len; k += 0.3) {
+        const c = at(k, 0.5), s = 0.06;
+        const p1 = {x:c.x, h:c.h+s}, p2 = {x:c.x-s, h:c.h-s*0.7}, p3 = {x:c.x+s, h:c.h-s*0.7};
+        L(p1,p2,"sym"); L(p2,p3,"sym"); L(p3,p1,"sym");
+      }
+    }
+  });
+  return G;
+}
+function waterLevel(p, V){
+  const w = num((S.water||{})[p.id]);
+  if (w != null && !Number.isNaN(w)) return w;
+  const v = V.find(q => q.sym === "水面");
+  return v ? v.h : null;
+}
+/* 水面より低い区間をすべて求める（両岸との交点まで） */
+function waterRegions(V, wl){
+  const out = []; let cur = null;
+  const cross = (a, b) => a.x + (b.x - a.x) * (wl - a.h) / (b.h - a.h);
+  if (V.length && V[0].h < wl) cur = [{x:V[0].x, h:wl}, {x:V[0].x, h:V[0].h}];
+  for (let i = 0; i < V.length - 1; i++) {
+    const a = V[i], b = V[i+1];
+    if (!cur && a.h >= wl && b.h < wl) { const x = cross(a, b); cur = [{x, h:wl}]; }
+    if (cur && b.h < wl) cur.push({x:b.x, h:b.h});
+    if (cur && a.h < wl && b.h >= wl) { const x = cross(a, b); cur.push({x, h:wl}); out.push(cur); cur = null; }
+  }
+  if (cur) { const l = V[V.length-1]; cur.push({x:l.x, h:wl}); out.push(cur); }
+  return out.map(poly => ({x1:Math.min(...poly.map(q=>q.x)), x2:Math.max(...poly.map(q=>q.x)), wl, poly}));
+}
+/* ---------- SVG モニタ ---------- */
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function drawSVG(p, A, dirs, focus){
+  const V = polyline(A), ve = Number(S.settings.vexag) || 1;
+  const t = Number(S.settings.thick) || 0.35;
+  const G = symbols(V, t);
+  const wl = waterLevel(p, V);
+  if (wl != null) G.water = waterRegions(V, wl);
+  const base = num(p.h);
+  const xs = V.map(v=>v.x), hs = V.map(v=>v.h);
+  G.lines.forEach(l => { hs.push(l.y1, l.y2); });
+  let xmin = Math.min(...xs, -1), xmax = Math.max(...xs, 1);
+  let hmin = Math.min(...hs, 0) - t - 0.3, hmax = Math.max(...hs, 0) + 1.8;
+  const W = Math.max(340, Math.min(1000, Math.round(($("mon").clientWidth || 800)))), padL = W < 500 ? 34 : 62, padR = padL, padT = 46, padB = 70;
+  const rx = Math.max(xmax - xmin, 2), ry = Math.max((hmax - hmin)*ve, 1);
+  let s = (W - padL - padR) / rx;
+  const H = Math.min(Math.max(ry*s + padT + padB, 240), W < 500 ? 380 : 560);
+  s = Math.min(s, (H - padT - padB) / ry);
+  const cx = padL + ((W-padL-padR) - rx*s)/2;
+  const X = x => cx + (x - xmin)*s, Y = h => padT + (hmax - h)*ve*s;
+  const css = getComputedStyle(document.documentElement);
+  const col = n => css.getPropertyValue(n).trim();
+  const out = [];
+  out.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="${col("--surface")}"/>`);
+  // 1m方眼
+  const step = rx > 30 ? 5 : (rx > 12 ? 2 : 1);
+  for (let gx = Math.ceil(xmin/step)*step; gx <= xmax; gx += step)
+    out.push(`<line x1="${X(gx)}" y1="${padT-10}" x2="${X(gx)}" y2="${H-padB+6}" stroke="${col("--grid")}" stroke-width="1"/>`);
+  for (let gh = Math.ceil(hmin/step)*step; gh <= hmax; gh += step)
+    out.push(`<line x1="${padL-10}" y1="${Y(gh)}" x2="${W-padR+10}" y2="${Y(gh)}" stroke="${col("--grid")}" stroke-width="1"/>`);
+  // 水
+  G.water.forEach(w => {
+    if (w.poly) out.push(`<polygon points="${w.poly.map(q=>X(q.x)+","+Y(q.h)).join(" ")}" fill="${col("--waterfill")}"/>`);
+    out.push(`<line x1="${X(w.x1)}" y1="${Y(w.wl)}" x2="${X(w.x2)}" y2="${Y(w.wl)}" stroke="${col("--water")}" stroke-width="2"/>`);
+    const mx = X((w.x1+w.x2)/2), my = Y(w.wl);
+    out.push(`<polygon points="${mx-7},${my-13} ${mx+7},${my-13} ${mx},${my-3}" fill="none" stroke="${col("--water")}" stroke-width="1.6"/>`);
+    out.push(`<text x="${mx+10}" y="${my-6}" font-size="12" fill="${col("--water")}">WL ${base!=null?f2(base+w.wl):sgn(w.wl)}</text>`);
+  });
+  // 記号
+  G.polys.forEach(pg => out.push(`<polygon points="${pg.pts.map(q=>X(q.x)+","+Y(q.h)).join(" ")}" fill="${col("--stone")}" fill-opacity=".12"/>`));
+  G.lines.forEach(l => {
+    const dash = l.cls === "div" ? ` stroke-dasharray="6 4"` : "";
+    const w = l.cls === "symthin" ? 0.8 : (l.cls === "kl" ? 2.2 : 1.3);
+    const y2 = l.cls === "kl" ? Math.min(Y(l.y2), Y(l.y1) - 6) : Y(l.y2);     // 画面では最低6pxで表示
+    out.push(`<line x1="${X(l.x1)}" y1="${Y(l.y1)}" x2="${X(l.x2)}" y2="${y2}" stroke="${l.cls==="kl"?col("--ink"):col("--stone")}" stroke-width="${w}"${dash}/>`);
+  });
+  G.labels.forEach(lb => out.push(`<text x="${X(lb.x)}" y="${Y(lb.y)-2}" font-size="12" text-anchor="middle" fill="${col("--stone")}">${esc(lb.t)}</text>`));
+  // 基準線・寸法
+  const dlY = H - padB + 6;
+  out.push(`<line x1="${X(xmin)}" y1="${dlY}" x2="${X(xmax)}" y2="${dlY}" stroke="${col("--sub")}" stroke-width="1"/>`);
+  V.forEach(v => {
+    out.push(`<line x1="${X(v.x)}" y1="${Y(v.h)}" x2="${X(v.x)}" y2="${dlY}" stroke="${col("--line")}" stroke-width="1"/>`);
+    const lab = f2(Math.abs(v.x));
+    out.push(`<text transform="translate(${X(v.x)+4},${dlY+6}) rotate(90)" font-size="11" fill="${col("--sub")}">${lab}</text>`);
+    const el = base != null ? f2(base + v.h) : sgn(v.h);
+    out.push(`<text transform="translate(${X(v.x)-3},${Y(v.h)-6}) rotate(-90)" font-size="10.5" fill="${col("--sub")}">${el}</text>`);
+  });
+  // 地盤線（区間ごとに色）
+  for (let i = 0; i < V.length-1; i++) {
+    const a = V[i], b = V[i+1];
+    const side = b.b ? "L" : (a.b ? "R" : a.side);
+    const isF = focus && ((focus.side==="L" && a.side==="L" && a.no===focus.no) || (focus.side==="R" && b.side==="R" && b.no===focus.no));
+    out.push(`<line x1="${X(a.x)}" y1="${Y(a.h)}" x2="${X(b.x)}" y2="${Y(b.h)}" stroke="${isF?col("--focus"):col(side==="L"?"--L":"--R")}" stroke-width="${isF?5:2.6}" stroke-linecap="round"/>`);
+  }
+  V.forEach(v => {
+    if (v.b) return;
+    const isF = focus && focus.side===v.side && focus.no===v.no;
+    out.push(`<circle cx="${X(v.x)}" cy="${Y(v.h)}" r="${isF?6:3.2}" fill="${col(v.side==="L"?"--L":"--R")}"${isF?` stroke="${col("--focus")}" stroke-width="3"`:""}/>`);
+  });
+  // 境界点
+  out.push(`<line x1="${X(0)}" y1="${Y(0)}" x2="${X(0)}" y2="${Y(0)-34}" stroke="${col("--bp")}" stroke-width="2"/>`);
+  out.push(`<circle cx="${X(0)}" cy="${Y(0)}" r="6" fill="${col("--surface")}" stroke="${col("--bp")}" stroke-width="2.5"/>`);
+  out.push(`<text x="${X(0)+5}" y="${Y(0)-36}" font-size="13" font-weight="700" fill="${col("--bp")}">境界点 ${esc(p.id)}</text>`);
+  // L/R
+  const d = dirs[p.id] || {};
+  const lt = d.az != null ? `L ${dir16(d.azL)}` : "L", rt = d.az != null ? `R ${dir16(d.azR)}` : "R";
+  out.push(`<text x="10" y="26" font-size="17" font-weight="700" fill="${col("--L")}">${lt}</text>`);
+  out.push(`<text x="${W-10}" y="26" font-size="17" font-weight="700" text-anchor="end" fill="${col("--R")}">${rt}</text>`);
+  out.push(`<text x="${W/2}" y="24" font-size="14" text-anchor="middle" fill="${col("--ink")}">${esc(p.id)}　${esc(p.route||"")}</text>`);
+  return {svg:out.join(""), W, H, s, step};
+}
+
+/* ---------- 入力タブ ---------- */
+let focus = null;
+const $ = id => document.getElementById(id);
+function curPoint(){
+  if (!S.points.length) return null;
+  let p = S.points.find(q => q.id === S.current);
+  if (!p) { p = S.points[0]; S.current = p.id; }
+  return p;
+}
+function renderInput(){
+  const sel = $("ptsel");
+  sel.innerHTML = S.points.map(p => `<option value="${esc(p.id)}">${esc(p.id)}</option>`).join("");
+  const p = curPoint();
+  const mon = $("mon");
+  if (!p) {
+    mon.setAttribute("viewBox","0 0 800 200");
+    mon.innerHTML = `<text x="400" y="100" text-anchor="middle" font-size="16" fill="currentColor">境界点タブで点を登録すると、ここに横断図が出ます</text>`;
+    $("tL").innerHTML = $("tR").innerHTML = ""; $("stand").textContent = ""; $("route").textContent = "";
+    $("badge").textContent = ""; $("photoChk").innerHTML = ""; $("ptmsgs").innerHTML = ""; return;
+  }
+  sel.value = p.id;
+  $("route").textContent = [p.route, p.kind].filter(Boolean).join("・");
+  const dirs = directions(), d = dirs[p.id];
+  $("stand").innerHTML = `<strong>${esc(standText(d))}</strong>` + (d && d.angle != null ? `<span>${esc(angleText(d))}</span>` : "") + (d && d.az != null ?
+    `<span class="chip L">L ${dir16(d.azL)} ${d.azL.toFixed(1)}°</span><span class="chip R">R ${dir16(d.azR)} ${d.azR.toFixed(1)}°</span>` : "");
+  $("bL").textContent = d && d.az != null ? `${dir16(d.azL)}（${d.azL.toFixed(1)}°）` : "";
+  $("bR").textContent = d && d.az != null ? `${dir16(d.azR)}（${d.azR.toFixed(1)}°）` : "";
+  buildRows("L", p); buildRows("R", p);
+  $("wl").value = (S.water||{})[p.id] || "";
+  const ph = S.photos[p.id] || {};
+  $("photoChk").innerHTML = S.settings.photoCats.filter(c=>c.name).map((c,i) =>
+    `<label><input type="checkbox" data-cat="${esc(c.name)}" ${ph[c.name]?"checked":""}>${esc(c.name)}${c.req?"":"（任意）"}</label>`).join("");
+  $("photoChk").querySelectorAll("input").forEach(cb => cb.addEventListener("change", () => {
+    (S.photos[p.id] ||= {})[cb.dataset.cat] = cb.checked; save(); refresh();
+  }));
+  refresh();
+}
+function buildRows(side, p){
+  const c = crossOf(p.id);
+  const T = $("t"+side);
+  const narrow = window.innerWidth < 640;
+  const numCell = (f, i, no, r, lab) => `<div class="num"><input data-f="${f}" data-i="${i}" value="${esc(r[f])}" inputmode="decimal" aria-label="${side}NO.${no} ${lab}"><button type="button" data-flip="${f}" data-i="${i}" aria-label="符号切替">±</button></div><div class="cum" data-cum="${f}${i}"></div>`;
+  const symCell = (i, no, r) => `<div class="symc"><select data-f="sym" data-i="${i}" aria-label="${side}NO.${no} 記号">${SYMS.map(s=>`<option value="${s}" ${r.sym===s?"selected":""}>${s||"記号なし"}</option>`).join("")}</select><button type="button" class="kl" data-kl="${i}" aria-pressed="${r.kl?"true":"false"}" title="この点に境線（縦1mm）">境線</button></div>`;
+  const codeCell = (i, no, r) => `<input class="code" data-f="code" data-i="${i}" value="${esc(r.code)}" list="codes" placeholder="地物" aria-label="${side}NO.${no} 地物">`;
+  let h = narrow ? `<tr><th>NO</th><th>距離</th><th>高さ</th></tr>` : `<tr><th>NO</th><th>距離</th><th>高さ</th><th>記号</th><th>地物</th></tr>`;
+  h += `<tr class="fixed"><td class="no">1</td><td colspan="${narrow?2:4}">境界点（0.00・0.00）</td></tr>`;
+  c[side].forEach((r, i) => {
+    const no = i + 2;
+    if (narrow) {
+      h += `<tr class="main" data-no="${no}"><td class="no" rowspan="2"><button type="button" class="nob" data-menu="${i}" aria-label="NO.${no}の操作">${no}</button></td><td>${numCell("d",i,no,r,"距離")}</td><td>${numCell("h",i,no,r,"高さ")}</td></tr>
+        <tr class="sub" data-no2="${no}"><td>${symCell(i,no,r)}</td><td>${codeCell(i,no,r)}</td></tr>`;
+    } else {
+      h += `<tr data-no="${no}"><td class="no"><button type="button" class="nob" data-menu="${i}" aria-label="NO.${no}の操作">${no}</button></td><td>${numCell("d",i,no,r,"距離")}</td><td>${numCell("h",i,no,r,"高さ")}</td>
+        <td>${symCell(i,no,r)}</td><td>${codeCell(i,no,r)}</td></tr>`;
+    }
+  });
+  T.innerHTML = h;
+  T.querySelectorAll("[data-f]").forEach(el => {
+    const ev = el.tagName === "SELECT" ? "change" : "input";
+    el.addEventListener(ev, () => { c[side][el.dataset.i][el.dataset.f] = el.value; save(); refresh(); });
+    el.addEventListener("focus", () => { focus = {side, no:Number(el.dataset.i)+2}; refresh(); });
+  });
+  T.querySelectorAll("[data-kl]").forEach(b => b.addEventListener("click", () => {
+    const r = c[side][b.dataset.kl]; r.kl = !r.kl; b.setAttribute("aria-pressed", r.kl ? "true" : "false");
+    focus = {side, no:Number(b.dataset.kl)+2}; save(); refresh();
+  }));
+  T.querySelectorAll("[data-menu]").forEach(b => b.addEventListener("click", () => openRowMenu(side, Number(b.dataset.menu))));
+  T.querySelectorAll("[data-flip]").forEach(b => b.addEventListener("click", () => {
+    const r = c[side][b.dataset.i], f = b.dataset.flip, v = norm(r[f]);
+    r[f] = v === "" ? "-" : (v.startsWith("-") ? v.slice(1) : "-" + v.replace(/^\+/,""));
+    T.querySelector(`input[data-f="${f}"][data-i="${b.dataset.i}"]`).value = r[f];
+    focus = {side, no:Number(b.dataset.i)+2}; save(); refresh();
+  }));
+}
+function refresh(){
+  const p = curPoint(); if (!p) return;
+  const A = analyze(p), dirs = directions();
+  const r = drawSVG(p, A, dirs, focus);
+  const mon = $("mon");
+  mon.setAttribute("viewBox", `0 0 ${r.W} ${r.H}`);
+  mon.innerHTML = r.svg;
+  $("scaleinfo").textContent = `方眼 ${r.step}m`;
+  for (const side of ["L","R"]) {
+    const c = crossOf(p.id)[side], T = $("t"+side);
+    let d = 0, h = 0;
+    c.forEach((row, i) => {
+      const dn = num(row.d), hn = num(row.h);
+      const ok = dn != null && !Number.isNaN(dn) && hn != null && !Number.isNaN(hn);
+      const ed = T.querySelector(`input[data-f="d"][data-i="${i}"]`), eh = T.querySelector(`input[data-f="h"][data-i="${i}"]`);
+      const filled = norm(row.d) !== "" || norm(row.h) !== "";
+      ed.classList.toggle("bad", filled && (dn == null || Number.isNaN(dn)));
+      eh.classList.toggle("bad", filled && (hn == null || Number.isNaN(hn)));
+      ed.classList.toggle("neg", dn != null && dn < 0);
+      if (ok) { d += dn; h += hn; }
+      T.querySelector(`[data-cum="d${i}"]`).textContent = ok ? "累加 " + f2(d) : "";
+      T.querySelector(`[data-cum="h${i}"]`).textContent = ok ? "累加 " + sgn(h) : "";
+      const tr = T.querySelector(`tr[data-no="${i+2}"]`);
+      const isF = !!focus && focus.side === side && focus.no === i+2;
+      tr.classList.toggle("focus", isF);
+      const tr2 = T.querySelector(`tr[data-no2="${i+2}"]`); if (tr2) tr2.classList.toggle("focus", isF);
+    });
+  }
+  const done = !A.errs.length;
+  $("badge").className = "badge " + (done ? "ok" : "ng");
+  $("badge").textContent = done ? "完了" : "未完了";
+  $("ptmsgs").innerHTML = (A.errs.length || A.warns.length)
+    ? `<ul>${A.errs.map(e=>`<li class="e">${esc(e)}</li>`).join("")}${A.warns.map(w=>`<li class="w">${esc(w)}（確認）</li>`).join("")}</ul>`
+    : `<p>不足はありません</p>`;
+}
+$("wl").addEventListener("input", e => { const p = curPoint(); if (!p) return; S.water[p.id] = e.target.value; save(); refresh(); });
+$("wlFlip").addEventListener("click", () => { const p = curPoint(); if (!p) return; const v = norm(S.water[p.id]||"");
+  S.water[p.id] = v === "" ? "-" : (v.startsWith("-") ? v.slice(1) : "-" + v.replace(/^\+/,"")); $("wl").value = S.water[p.id]; save(); refresh(); });
+$("wlFocus").addEventListener("click", () => { const p = curPoint(); if (!p || !focus) { toast("先に表の行を選んでください"); return; }
+  const v = polyline(analyze(p)).find(q => q.side === focus.side && q.no === focus.no);
+  if (!v) { toast("その行は距離・高さが未入力です"); return; } S.water[p.id] = f2(v.h); $("wl").value = S.water[p.id]; save(); refresh(); });
+$("ptsel").addEventListener("change", e => { S.current = e.target.value; focus = null; save(); renderInput(); });
+function step(k){ const i = S.points.findIndex(p => p.id === S.current); const n = S.points[i+k];
+  if (n) { S.current = n.id; focus = null; save(); renderInput(); window.scrollTo({top:0}); } }
+$("prev").addEventListener("click", () => step(-1));
+$("next").addEventListener("click", () => step(1));
+
+/* ---------- 境界点タブ ---------- */
+const PCOLS = [["id","点番"],["route","路線名"],["kind","種別"],["order","順序"],["x","X"],["y","Y"],["h","標高"]];
+function renderPoints(){
+  const dirs = directions();
+  let h = `<tr>${PCOLS.map(c=>`<th>${c[1]}</th>`).join("")}<th>前点</th><th>次点</th><th>L方位</th><th>R方位</th><th></th></tr>`;
+  S.points.forEach((p, i) => {
+    const d = dirs[p.id] || {};
+    h += `<tr>${PCOLS.map(c => `<td><input data-i="${i}" data-k="${c[0]}" value="${esc(p[c[0]] ?? "")}" ${["order","x","y","h"].includes(c[0])?'inputmode="decimal"':""}></td>`).join("")}
+      <td class="c">${esc(d.prev||"－")}</td><td class="c">${esc(d.next||"－")}</td>
+      <td class="c">${d.az!=null?dir16(d.azL)+" "+d.azL.toFixed(1)+"°":"要確認"}</td>
+      <td class="c">${d.az!=null?dir16(d.azR)+" "+d.azR.toFixed(1)+"°":"要確認"}</td>
+      <td><button class="btn danger" data-del="${i}" style="padding:.15rem .5rem">削除</button></td></tr>`;
+  });
+  const T = $("ptTable"); T.innerHTML = h;
+  T.querySelectorAll("input").forEach(el => el.addEventListener("change", () => {
+    const p = S.points[el.dataset.i], k = el.dataset.k;
+    if (k === "id") {
+      const nv = el.value.trim();
+      if (!nv || S.points.some((q,j) => q.id === nv && j != el.dataset.i)) { toast("点番が空欄か重複しています"); el.value = p.id; return; }
+      if (S.cross[p.id]) { S.cross[nv] = S.cross[p.id]; delete S.cross[p.id]; }
+      if (S.photos[p.id]) { S.photos[nv] = S.photos[p.id]; delete S.photos[p.id]; }
+      if (S.water[p.id] != null) { S.water[nv] = S.water[p.id]; delete S.water[p.id]; }
+      if (S.current === p.id) S.current = nv;
+      p.id = nv;
+    } else p[k] = ["order","x","y","h"].includes(k) ? (num(el.value) ?? null) : el.value.trim();
+    save(); renderPoints();
+  }));
+  renderRoutes();
+  T.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => {
+    const p = S.points[b.dataset.del];
+    if (!confirm(`${p.id} を削除します。横断データも消えます。`)) return;
+    S.points.splice(b.dataset.del, 1); delete S.cross[p.id]; delete S.photos[p.id]; save(); renderPoints();
+  }));
+}
+$("addPt").addEventListener("click", () => {
+  let n = S.points.length + 1; while (S.points.some(p => p.id === "P"+n)) n++;
+  const last = S.points[S.points.length-1];
+  S.points.push({id:"P"+n, route:last?last.route:"", kind:last?last.kind:"", order:last&&last.order!=null?Number(last.order)+1:1, x:null, y:null, h:null});
+  save(); renderPoints();
+});
+$("ptFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const buf = await f.arrayBuffer();
+  let text; try { text = new TextDecoder("utf-8", {fatal:true}).decode(buf); } catch(_) { text = new TextDecoder("shift_jis").decode(buf); }
+  const lines = text.split(/\r?\n/).map(l => l.split(",").map(t => t.trim()));
+  if (/\.sim$/i.test(f.name) || lines.some(c => c[0] === "A01")) {
+    const byNo = {}; let np = 0, nq = 0, cur = null;
+    lines.forEach(c => {
+      if (c[0] === "A01" && c.length >= 5 && num(c[3]) != null) {
+        const q = {no:c[1], id:c[2] || c[1], x:num(c[3]), y:num(c[4]), h:c[5] ? num(c[5]) : null};
+        byNo[q.no] = q;
+        const i = S.lib.points.findIndex(o => o.id === q.id);
+        if (i >= 0) S.lib.points[i] = q; else { S.lib.points.push(q); np++; }
+      } else if (c[0] === "D00") { cur = {name:c[2] || ("画地" + c[1]), ids:[]}; }
+      else if (c[0] === "B01" && cur) { const q = byNo[c[1]]; const id = q ? q.id : (c[2] || c[1]); if (cur.ids[cur.ids.length-1] !== id) cur.ids.push(id); }
+      else if (c[0] === "D99" && cur) {
+        if (cur.ids.length > 1 && cur.ids[0] === cur.ids[cur.ids.length-1]) cur.ids.pop();
+        if (cur.ids.length >= 3) { S.lib.parcels = S.lib.parcels.filter(o => o.name !== cur.name); S.lib.parcels.push(cur); nq++; }
+        cur = null;
+      }
+    });
+    e.target.value = ""; save(); renderPoints();
+    toast(`点 ${np} 点・画地 ${nq} 件を取り込みました`); return;
+  }
+  let added = 0;
+  lines.forEach(c => {
+    if (c.length >= 6 && num(c[4]) != null && !Number.isNaN(num(c[4]))) {
+      const p = {id:c[0], route:c[1]||"", kind:c[2]||"", order:num(c[3]), x:num(c[4]), y:num(c[5]), h:c[6]?num(c[6]):null};
+      if (p.id && !S.points.some(q => q.id === p.id)) { S.points.push(p); added++; }
+    }
+  });
+  e.target.value = ""; save(); renderPoints(); toast(`${added}点を追加しました`);
+});
+function signedArea(pts){ let a = 0; pts.forEach((p, i) => { const q = pts[(i+1) % pts.length]; a += p.y*q.x - q.y*p.x; }); return a; }
+$("parcelAdd").addEventListener("click", () => {
+  const pc = S.lib.parcels[$("parcelSel").value]; if (!pc) { toast("画地がありません。SIMAを読み込んでください"); return; }
+  const pts = pc.ids.map(id => S.lib.points.find(q => q.id === id)).filter(Boolean);
+  if (pts.length < 3) { toast("画地の点が座標一覧に見つかりません"); return; }
+  const cw = signedArea(pts) < 0;
+  if ((cw ? "cw" : "ccw") !== $("parcelDir").value) pts.reverse();
+  let name = pc.name, k = 2; while (S.routes[name] && S.points.some(p => p.route === name)) name = pc.name + "_" + k++;
+  let ord = 1, skipped = [];
+  pts.forEach(q => {
+    if (S.points.some(p => p.id === q.id)) { skipped.push(q.id); return; }
+    S.points.push({id:q.id, route:name, kind:"画地", order:ord++, x:q.x, y:q.y, h:q.h});
+  });
+  S.routes[name] = {closed:true};
+  save(); renderPoints();
+  toast(`${name} に ${ord-1} 点を追加しました` + (skipped.length ? `（既に登録済み：${skipped.join("・")}）` : ""));
+});
+function renderRoutes(){
+  const info = routeInfo();
+  const names = [...new Set(S.points.map(p => p.route).filter(Boolean))];
+  let h = `<tr><th>路線名</th><th>点数</th><th>閉合（画地）</th><th>回り</th><th></th></tr>`;
+  names.forEach(r => {
+    const I = info[r] || {arr:[], closed:false, cw:null};
+    const closed = !!(S.routes[r] && S.routes[r].closed);
+    h += `<tr><td>${esc(r)}</td><td>${S.points.filter(p => p.route === r).length}</td>
+      <td><input type="checkbox" data-rc="${esc(r)}" ${closed?"checked":""} aria-label="${esc(r)} 閉合"></td>
+      <td class="c">${I.closed ? (I.cw ? "右回り（画地内＝R）" : "左回り（画地内＝L）") : "－"}</td>
+      <td><button class="btn" data-rv="${esc(r)}" style="padding:.15rem .5rem">回りを反転</button></td></tr>`;
+  });
+  $("rtTable").innerHTML = names.length ? h : `<tr><td>境界点に路線名を入れると、ここに出ます</td></tr>`;
+  $("rtTable").querySelectorAll("[data-rc]").forEach(cb => cb.addEventListener("change", () => {
+    (S.routes[cb.dataset.rc] ||= {}).closed = cb.checked; save(); renderPoints(); }));
+  $("rtTable").querySelectorAll("[data-rv]").forEach(b => b.addEventListener("click", () => {
+    const arr = S.points.filter(p => p.route === b.dataset.rv && p.order != null).sort((a, c) => a.order - c.order);
+    const n = arr.length;
+    if (S.routes[b.dataset.rv] && S.routes[b.dataset.rv].closed) arr.forEach((p, i) => p.order = i === 0 ? 1 : n - i + 1);
+    else arr.forEach((p, i) => p.order = n - i);
+    toast("回りを反転しました。L・Rが入れ替わるので、入力済みの横断があれば確認してください");
+    save(); renderPoints(); }));
+  $("parcelSel").innerHTML = S.lib.parcels.length ? S.lib.parcels.map((pc, i) => `<option value="${i}">${esc(pc.name)}（${pc.ids.length}点）</option>`).join("")
+    : `<option value="">（画地なし）</option>`;
+  $("libInfo").textContent = `座標一覧 ${S.lib.points.length} 点・画地 ${S.lib.parcels.length} 件`;
+}
+
+/* ---------- 行メニュー（構造物） ---------- */
+let menuCtx = null;
+function openRowMenu(side, i){
+  const p = curPoint(); if (!p) return;
+  menuCtx = {side, i, id:p.id};
+  $("rmTitle").textContent = `${side === "L" ? "左" : "右"} NO.${i+2}`;
+  $("rmTpl").innerHTML = S.settings.templates.length ? S.settings.templates.map((t, k) =>
+    `<button class="btn" data-tpl="${k}">${esc(t.name)}（${t.rows.length}行${t.edgeKl ? "・始点に境線" : ""}）</button>`).join("")
+    : `<span class="hint">登録された構造物はありません</span>`;
+  $("rmTpl").querySelectorAll("[data-tpl]").forEach(b => b.addEventListener("click", () => {
+    insertRows(S.settings.templates[b.dataset.tpl]); $("rowMenu").close(); }));
+  $("rowMenu").showModal();
+}
+function fitRows(rows){
+  const extra = rows.slice(NROW);
+  if (extra.some(r => norm(r.d) !== "" || norm(r.h) !== "")) toast(`NO.${NROW+1}を超えた行は入りきらないため削除しました`);
+  return rows.slice(0, NROW);
+}
+function insertRows(tpl){
+  const c = crossOf(menuCtx.id), rows = c[menuCtx.side];
+  const add = tpl.rows.map(r => Object.assign(blankRow(), JSON.parse(JSON.stringify(r))));
+  rows.splice(menuCtx.i, 0, ...add);
+  if (tpl.edgeKl && menuCtx.i > 0) rows[menuCtx.i - 1].kl = true;
+  c[menuCtx.side] = fitRows(rows);
+  focus = {side:menuCtx.side, no:menuCtx.i + 2}; save(); renderInput();
+  toast(`${tpl.name} を挿入しました`);
+}
+$("rmIns").addEventListener("click", () => { const c = crossOf(menuCtx.id);
+  c[menuCtx.side].splice(menuCtx.i, 0, blankRow()); c[menuCtx.side] = fitRows(c[menuCtx.side]);
+  $("rowMenu").close(); save(); renderInput(); });
+$("rmDel").addEventListener("click", () => { const c = crossOf(menuCtx.id);
+  c[menuCtx.side].splice(menuCtx.i, 1); c[menuCtx.side].push(blankRow());
+  $("rowMenu").close(); save(); renderInput(); });
+$("rmReg").addEventListener("click", () => {
+  const c = crossOf(menuCtx.id), rows = c[menuCtx.side];
+  let n = 0; for (let k = menuCtx.i; k < rows.length && (norm(rows[k].d) !== "" || norm(rows[k].h) !== ""); k++) n++;
+  const cnt = Number(prompt(`NO.${menuCtx.i+2}から何行を登録しますか`, String(n || 1)));
+  if (!cnt || cnt < 1) return;
+  const name = prompt("構造物の名前", rows[menuCtx.i].code || "構造物"); if (!name) return;
+  const tplRows = rows.slice(menuCtx.i, menuCtx.i + cnt).map(r => ({d:r.d, h:r.h, sym:r.sym, code:r.code, kl:!!r.kl}));
+  const edgeKl = menuCtx.i > 0 && !!rows[menuCtx.i - 1].kl;
+  S.settings.templates.push({name, edgeKl, rows:tplRows});
+  $("rowMenu").close(); save(); toast(`「${name}」を登録しました（${cnt}行）`);
+});
+$("rmClose").addEventListener("click", () => $("rowMenu").close());
+
+/* ---------- 配置図 ---------- */
+const PV = {cx:0, cy:0, k:1, fitted:false};
+const pointers = new Map(); let dragMoved = false, pinchD = 0;
+function planPoints(){
+  const act = S.points.filter(p => num(p.x) != null && num(p.y) != null).map(p => ({id:p.id, x:num(p.x), y:num(p.y), act:true, p}));
+  const ids = new Set(act.map(q => q.id));
+  const lib = S.lib.points.filter(q => !ids.has(q.id)).map(q => ({id:q.id, x:q.x, y:q.y, act:false, q}));
+  return [...lib, ...act];
+}
+function planFit(){
+  const P = planPoints(), svg = $("planSvg");
+  const W = svg.clientWidth || 800, H = svg.clientHeight || 600;
+  if (!P.length) { PV.cx = 0; PV.cy = 0; PV.k = 1; return; }
+  const es = P.map(q => q.y), ns = P.map(q => q.x);
+  const e0 = Math.min(...es), e1 = Math.max(...es), n0 = Math.min(...ns), n1 = Math.max(...ns);
+  PV.cx = (e0 + e1)/2; PV.cy = (n0 + n1)/2;
+  PV.k = Math.min((W - 80) / Math.max(e1 - e0, 10), (H - 80) / Math.max(n1 - n0, 10));
+  PV.fitted = true;
+}
+function renderPlan(){
+  const svg = $("planSvg");
+  const W = svg.clientWidth || 800, H = svg.clientHeight || 600;
+  if (!PV.fitted) planFit();
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const sx = e => W/2 + (e - PV.cx)*PV.k, sy = n => H/2 - (n - PV.cy)*PV.k;
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const dirs = directions(), info = routeInfo(), out = [];
+  out.push(`<rect width="${W}" height="${H}" fill="${col("--surface")}"/>`);
+  // スケールバー
+  const target = 120 / PV.k, pw = Math.pow(10, Math.floor(Math.log10(target)));
+  const bar = [1,2,5,10].map(m => m*pw).find(v => v >= target*0.6) || pw;
+  out.push(`<line x1="16" y1="${H-18}" x2="${16+bar*PV.k}" y2="${H-18}" stroke="${col("--ink")}" stroke-width="3"/><text x="16" y="${H-26}" font-size="12" fill="${col("--ink")}">${bar}m</text>`);
+  out.push(`<text x="${W-18}" y="26" font-size="14" text-anchor="middle" fill="${col("--ink")}">N</text><line x1="${W-18}" y1="32" x2="${W-18}" y2="56" stroke="${col("--ink")}" stroke-width="2"/>`);
+  // 路線・画地
+  for (const [r, I] of Object.entries(info)) {
+    const pts = I.arr.map(p => `${sx(num(p.y))},${sy(num(p.x))}`).join(" ");
+    out.push(I.closed ? `<polygon points="${pts}" fill="${col("--Lbg")}" fill-opacity=".45" stroke="${col("--sub")}" stroke-width="1.5"/>`
+                      : `<polyline points="${pts}" fill="none" stroke="${col("--sub")}" stroke-width="1.5"/>`);
+    if (I.arr.length) { const a = I.arr[0];
+      out.push(`<text x="${sx(num(a.y))+8}" y="${sy(num(a.x))+18}" font-size="12" fill="${col("--sub")}">${esc(r)}${I.closed ? (I.cw ? "（右回り）" : "（左回り）") : ""}</text>`); }
+  }
+  // 横断線
+  let nOk = 0, nAct = 0;
+  S.points.forEach(p => {
+    const d = dirs[p.id]; if (!d || d.az == null) return;
+    const A = analyze(p);
+    for (const side of ["L","R"]) {
+      const len = Math.max(A.sides[side].reach, S.settings.needLen), az = (side === "L" ? d.azL : d.azR) * Math.PI/180;
+      const e = num(p.y) + len*Math.sin(az), n = num(p.x) + len*Math.cos(az);
+      const done = A.sides[side].count > 0;
+      out.push(`<line x1="${sx(num(p.y))}" y1="${sy(num(p.x))}" x2="${sx(e)}" y2="${sy(n)}" stroke="${col(side==="L"?"--L":"--R")}" stroke-width="${done?3:1.6}" ${done?"":'stroke-dasharray="5 4"'}/>`);
+      out.push(`<text x="${sx(e)}" y="${sy(n)}" font-size="12" font-weight="700" text-anchor="middle" dy="4" fill="${col(side==="L"?"--L":"--R")}">${side}</text>`);
+    }
+  });
+  // 点
+  planPoints().forEach(q => {
+    const X = sx(q.y), Y = sy(q.x);
+    if (X < -40 || X > W+40 || Y < -40 || Y > H+40) return;
+    if (q.act) {
+      nAct++; const ok = !analyze(q.p).errs.length; if (ok) nOk++;
+      out.push(`<circle cx="${X}" cy="${Y}" r="7" fill="${col(ok?"--ok":"--err")}" stroke="${col("--surface")}" stroke-width="2"/>`);
+      out.push(`<text x="${X+9}" y="${Y-8}" font-size="13" font-weight="700" fill="${col("--ink")}">${esc(q.id)}</text>`);
+    } else {
+      out.push(`<circle cx="${X}" cy="${Y}" r="4.5" fill="${col("--line")}" stroke="${col("--sub")}" stroke-width="1"/>`);
+      if (PV.k > 1.2) out.push(`<text x="${X+6}" y="${Y-5}" font-size="10.5" fill="${col("--sub")}">${esc(q.id)}</text>`);
+    }
+  });
+  svg.innerHTML = out.join("");
+  const all = S.points.length;
+  $("planInfo").textContent = `境界点 ${all}点（完了 ${S.points.filter(p => !analyze(p).errs.length).length}）・未選択 ${S.lib.points.filter(q => !S.points.some(p => p.id === q.id)).length}点`;
+}
+function planHit(ev){
+  const svg = $("planSvg"), r = svg.getBoundingClientRect();
+  const W = svg.clientWidth, H = svg.clientHeight, mx = ev.clientX - r.left, my = ev.clientY - r.top;
+  let best = null, bd = 22;
+  planPoints().forEach(q => { const X = W/2 + (q.y - PV.cx)*PV.k, Y = H/2 - (q.x - PV.cy)*PV.k;
+    const d = Math.hypot(X - mx, Y - my); if (d < bd || (d === bd && q.act)) { bd = d; best = q; } });
+  return best;
+}
+function planTap(q){
+  if (!q) return;
+  const route = $("selRoute").value.trim() || "画地1";
+  if ($("selMode").checked) {
+    const pts = S.points.filter(p => p.route === route).sort((a, b) => a.order - b.order);
+    if (q.act) {
+      if (pts.length >= 3 && pts[0].id === q.id) { (S.routes[route] ||= {}).closed = true; save(); renderPlan(); toast(`${route} を閉合しました`); }
+      else toast(`${q.id} は登録済みです（${q.p.route || "路線なし"}）`);
+      return;
+    }
+    S.points.push({id:q.id, route, kind:"画地", order:pts.length ? Number(pts[pts.length-1].order) + 1 : 1, x:q.x, y:q.y, h:q.q.h});
+    S.routes[route] ||= {closed:false};
+    save(); renderPlan(); return;
+  }
+  if (q.act) { S.current = q.id; focus = null; save(); showTab("input"); }
+}
+const planSvg = $("planSvg");
+planSvg.addEventListener("pointerdown", e => { planSvg.setPointerCapture(e.pointerId); pointers.set(e.pointerId, {x:e.clientX, y:e.clientY}); dragMoved = false;
+  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchD = Math.hypot(a.x-b.x, a.y-b.y); } });
+planSvg.addEventListener("pointermove", e => {
+  if (!pointers.has(e.pointerId)) return;
+  const prev = pointers.get(e.pointerId); pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x-b.x, a.y-b.y);
+    if (pinchD) PV.k *= d / pinchD; pinchD = d; dragMoved = true; renderPlan(); return; }
+  const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+  if (Math.abs(dx) + Math.abs(dy) > 0) { if (Math.hypot(dx, dy) > 1) dragMoved = true;
+    PV.cx -= dx / PV.k; PV.cy += dy / PV.k; renderPlan(); }
+});
+planSvg.addEventListener("pointerup", e => { const tap = !dragMoved && pointers.size === 1; pointers.delete(e.pointerId); pinchD = 0;
+  if (tap) planTap(planHit(e)); });
+planSvg.addEventListener("pointercancel", e => { pointers.delete(e.pointerId); pinchD = 0; });
+planSvg.addEventListener("wheel", e => { e.preventDefault(); PV.k *= e.deltaY < 0 ? 1.2 : 1/1.2; renderPlan(); }, {passive:false});
+$("zIn").addEventListener("click", () => { PV.k *= 1.4; renderPlan(); });
+$("zOut").addEventListener("click", () => { PV.k /= 1.4; renderPlan(); });
+$("zFit").addEventListener("click", () => { planFit(); renderPlan(); });
+$("selUndo").addEventListener("click", () => {
+  const route = $("selRoute").value.trim();
+  const pts = S.points.filter(p => p.route === route).sort((a, b) => a.order - b.order);
+  const last = pts[pts.length-1]; if (!last) { toast("この路線に点がありません"); return; }
+  const c = S.cross[last.id];
+  if (c && ["L","R"].some(k => c[k].some(r => norm(r.d) !== "")) && !confirm(`${last.id} には横断の入力があります。外しますか`)) return;
+  S.points = S.points.filter(p => p !== last); if (S.routes[route]) S.routes[route].closed = false; save(); renderPlan();
+});
+
+/* ---------- チェックタブ ---------- */
+function renderCheck(){
+  let ok = 0;
+  let h = `<tr><th>点番</th><th>路線</th><th>左点数</th><th>左延長</th><th>右点数</th><th>右延長</th><th>写真</th><th>判定</th><th>不足・確認</th></tr>`;
+  S.points.forEach(p => {
+    const A = analyze(p), done = !A.errs.length; if (done) ok++;
+    const ph = S.photos[p.id] || {}, nph = S.settings.photoCats.filter(c => c.name && ph[c.name]).length;
+    h += `<tr class="click" data-id="${esc(p.id)}"><td><b>${esc(p.id)}</b></td><td>${esc(p.route||"")}</td>
+      <td>${A.sides.L.count}</td><td>${f2(A.sides.L.reach)}</td><td>${A.sides.R.count}</td><td>${f2(A.sides.R.reach)}</td>
+      <td>${nph}/${S.settings.photoCats.filter(c=>c.name).length}</td>
+      <td><span class="badge ${done?"ok":"ng"}">${done?"完了":"未完了"}</span></td>
+      <td style="white-space:normal;min-width:16rem">${esc([...A.errs, ...A.warns.map(w=>w+"（確認）")].join(" ／ "))}</td></tr>`;
+  });
+  $("ckTable").innerHTML = h;
+  $("sum").innerHTML = `<span>境界点 <b>${S.points.length}</b></span><span>完了 <b>${ok}</b></span><span>未完了 <b>${S.points.length-ok}</b></span>`;
+  $("ckTable").querySelectorAll("tr.click").forEach(tr => tr.addEventListener("click", () => {
+    S.current = tr.dataset.id; focus = null; save(); showTab("input");
+  }));
+}
+
+/* ---------- 設定・保存 ---------- */
+function renderIO(){
+  $("sNeed").value = S.settings.needLen; $("sThick").value = S.settings.thick; $("sVex").value = S.settings.vexag; $("sScale").value = S.settings.scale;
+  $("sTpl").innerHTML = S.settings.templates.map((t, i) => `<div class="field"><span style="flex:1">${esc(t.name)}（${t.rows.length}行：${esc(t.rows.map(r => r.code || "").filter(Boolean).join("→"))}）</span><button class="btn danger" data-tdel="${i}" style="padding:.15rem .5rem">削除</button></div>`).join("") || `<p class="hint">入力タブでNOを押し「この行から構造物として登録」で追加できます</p>`;
+  $("sTpl").querySelectorAll("[data-tdel]").forEach(b => b.addEventListener("click", () => {
+    if (!confirm(`「${S.settings.templates[b.dataset.tdel].name}」を削除します`)) return;
+    S.settings.templates.splice(b.dataset.tdel, 1); save(); renderIO(); }));
+  $("sPhotos").innerHTML = S.settings.photoCats.map((c,i) =>
+    `<div class="field"><input type="checkbox" data-pr="${i}" ${c.req?"checked":""} aria-label="必須"><input class="w" data-pn="${i}" value="${esc(c.name)}"></div>`).join("");
+  $("sPhotos").querySelectorAll("[data-pr]").forEach(el => el.addEventListener("change", () => { S.settings.photoCats[el.dataset.pr].req = el.checked; save(); }));
+  $("sPhotos").querySelectorAll("[data-pn]").forEach(el => el.addEventListener("change", () => { S.settings.photoCats[el.dataset.pn].name = el.value.trim(); save(); }));
+}
+[["sNeed","needLen"],["sThick","thick"],["sVex","vexag"],["sScale","scale"]].forEach(([id,k]) =>
+  $(id).addEventListener("change", e => { const v = num(e.target.value); if (v != null && !Number.isNaN(v) && v > 0) { S.settings[k] = v; save(); } else e.target.value = S.settings[k]; }));
+
+let downloads = null;
+if (window.claude && typeof window.claude.use === "function") {
+  window.claude.use("downloads").then(d => { downloads = d; }).catch(() => {});
+}
+async function saveFile(filename, data){
+  if (downloads) {
+    try { await downloads.save({filename, data}); toast("書き出しました"); }
+    catch (e) { if (e && e.code !== "declined") toast("書き出せませんでした（" + (e.code || "error") + "）"); }
+    return;
+  }
+  const blob = data instanceof Blob ? data : new Blob([data], {type:"application/octet-stream"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  toast("書き出しました");
+}
+const stamp = () => { const d = new Date(), z = n => String(n).padStart(2,"0"); return `${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`; };
+$("expJson").addEventListener("click", () => saveFile(`ポール横断_${stamp()}.json`, JSON.stringify(S, null, 1)));
+$("expCsv").addEventListener("click", () => {
+  const rows = [["点番","路線名","側","NO","距離","累加距離","高さ","累加高さ","記号","地物","境線"]];
+  S.points.forEach(p => {
+    const c = crossOf(p.id);
+    for (const side of ["L","R"]) { let d = 0, h = 0;
+      c[side].forEach((r,i) => { const dn = num(r.d), hn = num(r.h);
+        if (norm(r.d) === "" && norm(r.h) === "") return;
+        const ok = dn != null && !Number.isNaN(dn) && hn != null && !Number.isNaN(hn);
+        if (ok) { d += dn; h += hn; }
+        rows.push([p.id, p.route||"", side==="L"?"左":"右", i+2, norm(r.d), ok?f2(d):"", norm(r.h), ok?f2(h):"", r.sym||"", r.code||"", r.kl?"1":""]);
+      }); }
+  });
+  const csv = "\ufeff" + rows.map(r => r.map(v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : v).join(",")).join("\r\n");
+  saveFile(`横断データ_${stamp()}.csv`, csv);
+});
+$("expSvg").addEventListener("click", () => {
+  const p = curPoint(); if (!p) return;
+  const r = drawSVG(p, analyze(p), directions(), null);
+  saveFile(`横断図_${p.id}.svg`, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${r.W} ${r.H}" font-family="BIZ UDPGothic, Meiryo, sans-serif">${r.svg}</svg>`);
+});
+$("impJson").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const P = JSON.parse(await f.text()); if (!P.points || !P.settings) throw 0;
+    if (!confirm("今の入力内容を読み込んだプロジェクトで置き換えます。")) return;
+    S = P; migrate(); PV.fitted = false; save(); toast("読み込みました"); showTab("input");
+  } catch(_) { toast("このファイルはプロジェクトとして読めません"); }
+  e.target.value = "";
+});
+$("newProj").addEventListener("click", () => { if (confirm("入力内容をすべて消して新しく始めます。先にJSONで書き出すことをおすすめします。")) { S = blankProject(); PV.fitted = false; save(); showTab("points"); } });
+$("loadSample").addEventListener("click", () => { if (confirm("今の入力内容をサンプルで置き換えます。")) { S = sampleProject(); migrate(); PV.fitted = false; save(); showTab("input"); } });
+
+/* ---------- 共通 ---------- */
+function toast(m){ const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => t.hidden = true, 2200); }
+function showTab(name){
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
+  document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== "tab-"+name);
+  if (name === "input") renderInput(); else if (name === "points") renderPoints();
+  else if (name === "check") renderCheck(); else if (name === "plan") renderPlan(); else renderIO();
+}
+document.querySelectorAll("nav.tabs button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+const dl = document.createElement("datalist"); dl.id = "codes";
+dl.innerHTML = CODES.map(c => `<option value="${c}">`).join(""); document.body.appendChild(dl);
+let wasNarrow = window.innerWidth < 640, rT = null;
+window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => {
+  if (!$("tab-plan").hidden) { renderPlan(); return; }
+  if ($("tab-input").hidden) return;
+  const n = window.innerWidth < 640; if (n !== wasNarrow) { wasNarrow = n; renderInput(); } else refresh(); }, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!$("tab-input").hidden) refresh(); });
+showTab("input");
+</script>
+</body>
+</html>
