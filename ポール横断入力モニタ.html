@@ -105,6 +105,11 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 dialog h3{margin:0 0 .6rem;font-size:1rem}
 dialog .list{display:grid;gap:.4rem;margin:.4rem 0 .8rem}
 dialog .list button{text-align:left}
+.teamchip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:.15rem .7rem;font-size:.8rem;cursor:pointer;white-space:nowrap}
+.teamchip.none{color:var(--err);border-color:var(--err)}
+.gpsbar{display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:center;margin:-.3rem 0 .6rem;font-size:.85rem;color:var(--sub)}
+.gpsbar .btn{padding:.3rem .7rem}
+.gpsbar a{color:var(--L)}
 .plan{background:var(--surface);border:1px solid var(--line);touch-action:none;position:relative}
 .plan svg{display:block;width:100%;height:70vh;cursor:grab}
 .plantools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.5rem}
@@ -149,6 +154,7 @@ table.grid tr.click:hover td{background:var(--bg)}
 <header class="top">
   <div class="bar">
     <h1>ポール横断 入力モニタ</h1>
+    <button type="button" class="teamchip" id="teamChip"></button>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="input" aria-selected="true">入力</button>
       <button role="tab" data-tab="points" aria-selected="false">境界点</button>
@@ -167,8 +173,10 @@ table.grid tr.click:hover td{background:var(--bg)}
     <button class="nav" id="next" aria-label="次の境界点">▶</button>
     <span class="route" id="route"></span>
     <span class="badge" id="badge"></span>
+    <label class="route" style="margin-left:auto"><input type="checkbox" id="myOnly"> 自分の班の点だけ</label>
   </div>
   <div class="stand" id="stand"></div>
+  <div class="gpsbar" id="gpsbar"></div>
   <div class="work">
     <div class="monitorwrap">
       <div class="monitor">
@@ -191,7 +199,7 @@ table.grid tr.click:hover td{background:var(--bg)}
       <div class="photos" style="margin-top:.75rem"><h3>写真</h3><div id="photoChk"></div></div>
       <div class="msgs" style="margin-top:.75rem"><h3>この点の確認</h3><div id="ptmsgs"></div></div>
       <p class="hint">距離・高さは前の点から。上り＋／下り−（±で符号切替）。距離0＝垂直、マイナス＝折り返し。
-        積み・コンクリートは「前の点→この点」の区間に、仕切り線と境線は「この点」に描きます。NOを押すと構造物の挿入・登録、行の挿入・削除ができます。</p>
+        ブロック積・間知ブロック・石積・コンクリート・岸は「前の点→この点」の区間に、仕切り線と境線は「この点」に描きます。NOを押すと構造物の挿入・登録、行の挿入・削除ができます。</p>
     </div>
   </div>
 </section>
@@ -203,7 +211,17 @@ table.grid tr.click:hover td{background:var(--bg)}
     <p class="hint" style="margin-top:0">路線ごとに起点から順序1,2,3…を振ると、立ち方とL/Rの方位が決まります（水路は上流→下流を推奨）。</p>
     <div class="btns">
       <button class="btn" id="addPt">点を追加</button>
+      <button class="btn" id="seqOpen">測点を連続作成</button>
       <label class="btn">SIMA・CSVを読み込む<input type="file" id="ptFile" accept=".sim,.csv,.txt" hidden></label>
+    </div>
+    <div class="field" id="seqBox" hidden style="flex-wrap:wrap;background:var(--bg);padding:.5rem;border-radius:6px">
+      <label>頭文字 <input id="seqPre" class="w" style="width:5rem" value="NO."></label>
+      <label>開始番号 <input id="seqStart" inputmode="decimal" value="0"></label>
+      <label>点数 <input id="seqCount" inputmode="decimal" value="10"></label>
+      <label>間隔(m) <input id="seqPitch" inputmode="decimal" value="20"></label>
+      <label>路線名 <input id="seqRoute" class="w" style="width:7rem" value="路線1"></label>
+      <label>担当班 <input id="seqTeam" class="w" style="width:5rem"></label>
+      <button class="btn primary" id="seqMake">作成</button>
     </div>
     <div class="scroll"><table class="grid" id="ptTable"></table></div>
   </div>
@@ -256,12 +274,23 @@ table.grid tr.click:hover td{background:var(--bg)}
       <button class="btn primary" id="expJson">プロジェクトを書き出す（JSON）</button>
       <button class="btn" id="expCsv">横断データを書き出す（CSV）</button>
       <button class="btn" id="expSvg">表示中の横断図を書き出す（SVG）</button>
-      <label class="btn">プロジェクトを読み込む<input type="file" id="impJson" accept=".json" hidden></label>
+      <label class="btn">プロジェクトを読み込む（置き換え）<input type="file" id="impJson" accept=".json" hidden></label>
+      <label class="btn primary">他の班のデータを統合する<input type="file" id="mergeJson" accept=".json" multiple hidden></label>
     </div>
+    <p class="hint">複数班の流れ：①事務所で境界点・担当班を入れたプロジェクトを書き出して各班に配る →
+      ②各班は「読み込む（置き換え）」で取り込み、自分の班名を設定して測量 → ③各班が書き出したJSONを事務所で「統合する」で1つにまとめる。
+      同じ点を複数の班が入力していた場合は、更新が新しい方を採用し、一覧で知らせます。</p>
     <p class="hint">DXFはJSONをPCのPython（公共用地確定ツール.py json ファイル名.json）で出力します。</p>
   </div>
   <div class="panel">
+    <h2>この端末の班</h2>
+    <div class="field"><label for="dTeam">班名</label><input id="dTeam" class="w" placeholder="例：A班"></div>
+    <div class="field"><label for="dPerson">測定者</label><input id="dPerson" class="w" placeholder="例：梶原"></div>
+    <p class="hint">班名・測定者はこの端末だけに保存され、入力した点に記録されます（プロジェクトを読み込んでも消えません）。</p>
+  </div>
+  <div class="panel">
     <h2>設定</h2>
+    <div class="field"><label for="sZone">平面直角座標系（GPS変換用）</label><select id="sZone"></select></div>
     <div class="field"><label for="sNeed">各側の必要横断延長(m)</label><input id="sNeed" inputmode="decimal"></div>
     <div class="field"><label for="sThick">積み・コンクリートの記号の厚さ(m)</label><input id="sThick" inputmode="decimal"></div>
     <div class="field"><label for="sVex">縦倍率</label><input id="sVex" inputmode="decimal"></div>
@@ -296,7 +325,7 @@ table.grid tr.click:hover td{background:var(--bg)}
 "use strict";
 const KEY = "pole-oudan-v1";
 const NROW = 19;                    // NO.2〜20
-const SYMS = ["", "ブロック積", "間知ブロック", "石積", "コンクリート", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
+const SYMS = ["", "ブロック積", "間知ブロック", "石積", "コンクリート", "岸", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
 const CODES = ["道路端","路肩","側溝","水路肩","水路壁","水路底","法肩","法尻","畦畔","擁壁","構造物","田","畑","宅地","山林","地盤"];
 const DIR16 = ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
 
@@ -334,7 +363,7 @@ function sampleProject(){
     P.cross[id] = c;
   };
   put("K1", [[0,0.5,"コンクリート","水路壁"],[1.2,0,"",""],[3,2.2,"石積",""],[-2,3,"","張り出し"]],
-            [[0,2,"ブロック積",""],[1.2,1,"",""],[3,2.2,"",""],[5,3,"",""]]);
+            [[0,2,"ブロック積",""],[1.2,1,"",""],[3,2.2,"岸",""],[5,3,"",""]]);
   put("K2", [[1.3,0,"","As端",true],[0.1,0,"","側溝天端"],[0,-0.3,"","側溝底"],[0.3,0,"","側溝底"],[0,0.3,"","側溝天端"],[0.1,0,"","側溝天端",true],[3.5,-0.6,"","田"]],
             [[2,0.05,"","道路端"],[1.2,1.1,"石積","法肩"],[2.5,0.3,"仕切り線","畑"]]);
   put("S1", [[0,-0.9,"ブロック積","水路壁"],[1.1,0,"","水路底"],[0,0.9,"ブロック積","水路壁"],[4,0.1,"","田"]],
@@ -355,13 +384,35 @@ try { S = JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e) { S = null
 if (!S || !S.points) S = sampleProject();
 migrate();
 function migrate(){
-  S.water ||= {}; S.routes ||= {}; S.lib ||= {points:[], parcels:[]};
+  S.water ||= {}; S.routes ||= {}; S.lib ||= {points:[], parcels:[]}; S.meta ||= {};
+  S.settings.zone ||= 2;
   S.settings.scale ||= 100;
   if (!Array.isArray(S.settings.templates)) S.settings.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
   Object.values(S.cross).forEach(c => ["L","R"].forEach(k => {
     c[k] = (c[k] || []).map(r => Object.assign(blankRow(), r));
     while (c[k].length < NROW) c[k].push(blankRow());
   }));
+}
+const DEVKEY = "pole-oudan-device";
+let DEV; try { DEV = JSON.parse(localStorage.getItem(DEVKEY) || "null"); } catch(e) { DEV = null; }
+DEV ||= {team:"", person:""};
+function saveDev(){ try { localStorage.setItem(DEVKEY, JSON.stringify(DEV)); } catch(e) {} }
+/* 入力した点に「どの班が・いつ」を記録（統合時に新しい方を採用するため） */
+function touch(id){ if (!id) return; (S.meta ||= {})[id] = {team:DEV.team || "", by:DEV.person || "", t:new Date().toISOString()}; }
+const ZONES = {1:[33,129.5],2:[33,131],3:[36,132+1/6],4:[33,133.5],5:[36,134+1/3],6:[36,136],7:[36,137+1/6],8:[36,138.5],
+  9:[36,139+5/6],10:[40,140+5/6],11:[44,140.25],12:[44,142.25],13:[44,144.25],14:[26,142],15:[26,127.5],16:[26,124],17:[26,131],18:[20,136],19:[26,154]};
+/* 緯度経度 → 平面直角座標（GRS80、ガウス・クリューゲル。X＝北、Y＝東、m） */
+function ll2xy(lat, lon, zone){
+  const Z = ZONES[zone] || ZONES[2], a = 6378137, F = 298.257222101, n = 1/(2*F-1), m0 = 0.9999, rad = d => d*Math.PI/180;
+  const A_ = m0*a/(1+n)*(1 + n*n/4 + n**4/64);
+  const al = [0, n/2 - 2*n*n/3 + 5*n**3/16 + 41*n**4/180, 13*n*n/48 - 3*n**3/5 + 557*n**4/1440, 61*n**3/240 - 103*n**4/140, 49561*n**4/161280];
+  const c = 2*Math.sqrt(n)/(1+n);
+  const raw = (phi, dl) => { const sn = Math.sin(phi), t = Math.sinh(Math.atanh(sn) - c*Math.atanh(c*sn)), tb = Math.sqrt(1+t*t);
+    const xi = Math.atan2(t, Math.cos(dl)), eta = Math.atanh(Math.sin(dl)/tb); let x = xi, y = eta;
+    for (let j = 1; j <= 4; j++) { x += al[j]*Math.sin(2*j*xi)*Math.cosh(2*j*eta); y += al[j]*Math.cos(2*j*xi)*Math.sinh(2*j*eta); }
+    return [A_*x, A_*y]; };
+  const [x0] = raw(rad(Z[0]), 0), [x, y] = raw(rad(lat), rad(lon - Z[1]));
+  return [x - x0, y];
 }
 let saveTimer = null;
 function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => {
@@ -427,7 +478,7 @@ function directions(){
 }
 const dir16 = az => DIR16[Math.round(az/22.5) % 16];
 function standText(d){
-  if (!d || d.az == null) return "前後の点がありません。境界点タブで路線名・順序・座標を確認してください";
+  if (!d || d.az == null) return "測点が増える方向（次点側）を向いて立ち、左手＝L／右手＝R。方位は前後の点の位置（座標かGPS）がそろうと表示されます";
   const face = d.next ? `次点 ${d.next} の方を向き` : `前点 ${d.prev} を背にし`;
   return `${face}、左手＝L／右手＝R。横断は前点・次点の角の二等分線上`;
 }
@@ -471,7 +522,7 @@ function polyline(A){
 
 /* 記号ジオメトリ（モデル座標 m、上が＋） */
 function symbols(V, t){
-  const G = {lines:[], polys:[], water:[], labels:[]};
+  const G = {lines:[], polys:[], water:[], labels:[], arcs:[]};
   const L = (a,b,cls) => G.lines.push({x1:a.x,y1:a.h,x2:b.x,y2:b.h,cls});
   const klLen = (Number(S.settings.scale) || 100) / 1000;        // 図面上1mm
   V.forEach(v => { if (v.kl && !v.b) G.lines.push({x1:v.x, y1:v.h, x2:v.x, y2:v.h + klLen, cls:"kl"}); });
@@ -486,31 +537,34 @@ function symbols(V, t){
     if (!A || !B) return;
     const dx = B.x-A.x, dy = B.h-A.h, len = Math.hypot(dx, dy);
     if (len < 1e-6) return;
-    const ux = dx/len, uy = dy/len, nx = uy*t, ny = -ux*t;   // 地山側
-    const A2 = {x:A.x+nx, h:A.h+ny}, B2 = {x:B.x+nx, h:B.h+ny};
-    G.polys.push({pts:[A,B,B2,A2], cls:"band"});
-    L(B,B2,"sym"); L(B2,A2,"sym"); L(A2,A,"sym");
-    const at = (k, f) => ({x:A.x+ux*k+nx*f, h:A.h+uy*k+ny*f});
+    const ux = dx/len, uy = dy/len;
+    const at = (k, f) => ({x:A.x+ux*k+uy*f, h:A.h+uy*k-ux*f});        // f＞0 が地山側
+    const th = Math.atan2(uy, ux) * 180/Math.PI;                         // 線の向き（度）
+    const mm = (Number(S.settings.scale) || 100) / 1000;                 // 図面上1mm（m）
+    const semi = (k, r) => { const c = at(k, 0); G.arcs.push({cx:c.x, cy:c.h, r, a0:th-180, a1:th}); };  // 地山側の半円
     if (v.sym === "ブロック積") {
-      for (let k = 0.35; k < len-0.02; k += 0.35) L(at(k,0), at(k,1), "sym");
-      L(at(0,0.5), at(len,0.5), "symthin");
-    } else if (v.sym === "間知ブロック") {          // 目地0.35m＋各ブロックに斜線
-      let k0 = 0;
-      for (let k = 0.35; k0 < len-0.02; k += 0.35) {
-        const k1 = Math.min(k, len);
-        if (k1 < len-0.02) L(at(k1,0), at(k1,1), "sym");
-        L(at(k0,0), at(k1,1), "symthin");
-        k0 = k1;
-      }
-    } else if (v.sym === "石積") {
-      const m = Math.max(2, Math.round(len/0.3));
-      let pv = at(0, 0.15);
-      for (let j = 1; j <= m; j++) { const q = at(len*j/m, j%2 ? 0.85 : 0.15); L(pv, q, "sym"); pv = q; }
-    } else if (v.sym === "コンクリート") {
-      for (let k = 0.15; k < len; k += 0.3) {
-        const c = at(k, 0.5), s = 0.06;
-        const p1 = {x:c.x, h:c.h+s}, p2 = {x:c.x-s, h:c.h-s*0.7}, p3 = {x:c.x+s, h:c.h-s*0.7};
-        L(p1,p2,"sym"); L(p2,p3,"sym"); L(p3,p1,"sym");
+      const nx = uy*t, ny = -ux*t;
+      const A2 = {x:A.x+nx, h:A.h+ny}, B2 = {x:B.x+nx, h:B.h+ny};
+      G.polys.push({pts:[A,B,B2,A2], cls:"band"});
+      L(B,B2,"sym"); L(B2,A2,"sym"); L(A2,A,"sym");
+      for (let k = 0.35; k < len-0.02; k += 0.35) L(at(k,0), at(k,t), "sym");
+      L(at(0,t/2), at(len,t/2), "symthin");
+    } else if (v.sym === "石積") {                         // 小さな半円を連続
+      const r = 0.8*mm, n = Math.max(1, Math.floor(len / (2*r))), r2 = len / (2*n);
+      for (let j = 0; j < n; j++) semi(r2*(2*j+1), r2);
+    } else if (v.sym === "コンクリート") {                 // 大きめの半円を間隔をあけて
+      const r = 2*mm, pitch = 7*mm, n = Math.max(1, Math.floor(len / pitch)), off = (len - (n-1)*pitch) / 2;
+      for (let j = 0; j < n; j++) semi(off + j*pitch, Math.min(r, len/2));
+    } else if (v.sym === "間知ブロック") {                 // 背面線なし、三角形だけを連続
+      const n = Math.max(1, Math.round(len / t)), p = len / n;
+      for (let j = 0; j < n; j++) { const top = at((j+0.5)*p, t);
+        L(at(j*p, 0), top, "sym"); L(top, at((j+1)*p, 0), "sym"); }
+    } else if (v.sym === "岸") {                           // 小さな弧（「(」形）を3つ1組で間隔をあけて
+      const r = 0.8*mm, gp = 6*mm, n = Math.max(1, Math.floor(len / gp)), off = (len - (n-1)*gp) / 2;
+      for (let j = 0; j < n; j++) for (let q = -1; q <= 1; q++) {
+        const c = at(off + j*gp + q*2.2*r, r + 0.4*mm);
+        G.arcs.push({cx:c.x, cy:c.h, r, a0:th, a1:th+180});                 // 線の側にふくらむ弧
+        G.arcs.push({cx:c.x, cy:c.h, r:r*0.55, a0:th, a1:th+180});
       }
     }
   });
@@ -582,6 +636,12 @@ function drawSVG(p, A, dirs, focus){
     const y2 = l.cls === "kl" ? Math.min(Y(l.y2), Y(l.y1) - 6) : Y(l.y2);     // 画面では最低6pxで表示
     out.push(`<line x1="${X(l.x1)}" y1="${Y(l.y1)}" x2="${X(l.x2)}" y2="${y2}" stroke="${l.cls==="kl"?col("--ink"):col("--stone")}" stroke-width="${w}"${dash}/>`);
   });
+  G.arcs.forEach(a => {
+    const pts = [];
+    for (let k = 0; k <= 12; k++) { const ang = (a.a0 + (a.a1 - a.a0)*k/12) * Math.PI/180;
+      pts.push(X(a.cx + a.r*Math.cos(ang)) + "," + Y(a.cy + a.r*Math.sin(ang))); }
+    out.push(`<polyline points="${pts.join(" ")}" fill="none" stroke="${col("--stone")}" stroke-width="1.2"/>`);
+  });
   G.labels.forEach(lb => out.push(`<text x="${X(lb.x)}" y="${Y(lb.y)-2}" font-size="12" text-anchor="middle" fill="${col("--stone")}">${esc(lb.t)}</text>`));
   // 基準線・寸法
   const dlY = H - padB + 6;
@@ -614,7 +674,7 @@ function drawSVG(p, A, dirs, focus){
   const lt = d.az != null ? `L ${dir16(d.azL)}` : "L", rt = d.az != null ? `R ${dir16(d.azR)}` : "R";
   out.push(`<text x="10" y="26" font-size="17" font-weight="700" fill="${col("--L")}">${lt}</text>`);
   out.push(`<text x="${W-10}" y="26" font-size="17" font-weight="700" text-anchor="end" fill="${col("--R")}">${rt}</text>`);
-  out.push(`<text x="${W/2}" y="24" font-size="14" text-anchor="middle" fill="${col("--ink")}">${esc(p.id)}　${esc(p.route||"")}</text>`);
+  out.push(`<text x="${W/2}" y="24" font-size="14" text-anchor="middle" fill="${col("--ink")}">${esc(p.id)}　${esc(p.route||"")}${num(p.sta) != null ? "　追加距離 " + f2(num(p.sta)) + "m" : ""}</text>`);
   return {svg:out.join(""), W, H, s, step};
 }
 
@@ -627,16 +687,23 @@ function curPoint(){
   if (!p) { p = S.points[0]; S.current = p.id; }
   return p;
 }
+function visiblePoints(){
+  if (!$("myOnly").checked || !DEV.team) return S.points;
+  const v = S.points.filter(p => (p.team || "") === DEV.team);
+  return v.length ? v : S.points;
+}
 function renderInput(){
   const sel = $("ptsel");
-  sel.innerHTML = S.points.map(p => `<option value="${esc(p.id)}">${esc(p.id)}</option>`).join("");
+  const vis = visiblePoints();
+  if (vis.length && !vis.some(p => p.id === S.current)) S.current = vis[0].id;
+  sel.innerHTML = vis.map(p => `<option value="${esc(p.id)}">${esc(p.id)}${p.team ? "（" + esc(p.team) + "）" : ""}</option>`).join("");
   const p = curPoint();
   const mon = $("mon");
   if (!p) {
     mon.setAttribute("viewBox","0 0 800 200");
     mon.innerHTML = `<text x="400" y="100" text-anchor="middle" font-size="16" fill="currentColor">境界点タブで点を登録すると、ここに横断図が出ます</text>`;
     $("tL").innerHTML = $("tR").innerHTML = ""; $("stand").textContent = ""; $("route").textContent = "";
-    $("badge").textContent = ""; $("photoChk").innerHTML = ""; $("ptmsgs").innerHTML = ""; return;
+    $("badge").textContent = ""; $("photoChk").innerHTML = ""; $("ptmsgs").innerHTML = ""; $("gpsbar").innerHTML = ""; return;
   }
   sel.value = p.id;
   $("route").textContent = [p.route, p.kind].filter(Boolean).join("・");
@@ -646,12 +713,13 @@ function renderInput(){
   $("bL").textContent = d && d.az != null ? `${dir16(d.azL)}（${d.azL.toFixed(1)}°）` : "";
   $("bR").textContent = d && d.az != null ? `${dir16(d.azR)}（${d.azR.toFixed(1)}°）` : "";
   buildRows("L", p); buildRows("R", p);
+  renderGps(p);
   $("wl").value = (S.water||{})[p.id] || "";
   const ph = S.photos[p.id] || {};
   $("photoChk").innerHTML = S.settings.photoCats.filter(c=>c.name).map((c,i) =>
     `<label><input type="checkbox" data-cat="${esc(c.name)}" ${ph[c.name]?"checked":""}>${esc(c.name)}${c.req?"":"（任意）"}</label>`).join("");
   $("photoChk").querySelectorAll("input").forEach(cb => cb.addEventListener("change", () => {
-    (S.photos[p.id] ||= {})[cb.dataset.cat] = cb.checked; save(); refresh();
+    (S.photos[p.id] ||= {})[cb.dataset.cat] = cb.checked; touch(p.id); save(); refresh();
   }));
   refresh();
 }
@@ -677,18 +745,18 @@ function buildRows(side, p){
   T.innerHTML = h;
   T.querySelectorAll("[data-f]").forEach(el => {
     const ev = el.tagName === "SELECT" ? "change" : "input";
-    el.addEventListener(ev, () => { c[side][el.dataset.i][el.dataset.f] = el.value; save(); refresh(); });
+    el.addEventListener(ev, () => { c[side][el.dataset.i][el.dataset.f] = el.value; touch(p.id); save(); refresh(); });
     el.addEventListener("focus", () => { focus = {side, no:Number(el.dataset.i)+2}; refresh(); });
   });
   T.querySelectorAll("[data-kl]").forEach(b => b.addEventListener("click", () => {
-    const r = c[side][b.dataset.kl]; r.kl = !r.kl; b.setAttribute("aria-pressed", r.kl ? "true" : "false");
+    const r = c[side][b.dataset.kl]; r.kl = !r.kl; b.setAttribute("aria-pressed", r.kl ? "true" : "false"); touch(p.id);
     focus = {side, no:Number(b.dataset.kl)+2}; save(); refresh();
   }));
   T.querySelectorAll("[data-menu]").forEach(b => b.addEventListener("click", () => openRowMenu(side, Number(b.dataset.menu))));
   T.querySelectorAll("[data-flip]").forEach(b => b.addEventListener("click", () => {
     const r = c[side][b.dataset.i], f = b.dataset.flip, v = norm(r[f]);
     r[f] = v === "" ? "-" : (v.startsWith("-") ? v.slice(1) : "-" + v.replace(/^\+/,""));
-    T.querySelector(`input[data-f="${f}"][data-i="${b.dataset.i}"]`).value = r[f];
+    T.querySelector(`input[data-f="${f}"][data-i="${b.dataset.i}"]`).value = r[f]; touch(p.id);
     focus = {side, no:Number(b.dataset.i)+2}; save(); refresh();
   }));
 }
@@ -727,26 +795,53 @@ function refresh(){
     ? `<ul>${A.errs.map(e=>`<li class="e">${esc(e)}</li>`).join("")}${A.warns.map(w=>`<li class="w">${esc(w)}（確認）</li>`).join("")}</ul>`
     : `<p>不足はありません</p>`;
 }
-$("wl").addEventListener("input", e => { const p = curPoint(); if (!p) return; S.water[p.id] = e.target.value; save(); refresh(); });
+$("wl").addEventListener("input", e => { const p = curPoint(); if (!p) return; S.water[p.id] = e.target.value; touch(p.id); save(); refresh(); });
 $("wlFlip").addEventListener("click", () => { const p = curPoint(); if (!p) return; const v = norm(S.water[p.id]||"");
-  S.water[p.id] = v === "" ? "-" : (v.startsWith("-") ? v.slice(1) : "-" + v.replace(/^\+/,"")); $("wl").value = S.water[p.id]; save(); refresh(); });
+  S.water[p.id] = v === "" ? "-" : (v.startsWith("-") ? v.slice(1) : "-" + v.replace(/^\+/,"")); $("wl").value = S.water[p.id]; touch(p.id); save(); refresh(); });
 $("wlFocus").addEventListener("click", () => { const p = curPoint(); if (!p || !focus) { toast("先に表の行を選んでください"); return; }
   const v = polyline(analyze(p)).find(q => q.side === focus.side && q.no === focus.no);
-  if (!v) { toast("その行は距離・高さが未入力です"); return; } S.water[p.id] = f2(v.h); $("wl").value = S.water[p.id]; save(); refresh(); });
+  if (!v) { toast("その行は距離・高さが未入力です"); return; } S.water[p.id] = f2(v.h); $("wl").value = S.water[p.id]; touch(p.id); save(); refresh(); });
+function renderGps(p){
+  const g = p.gps, box = $("gpsbar");
+  const src = p.xySrc === "GPS" ? "座標はGPSから（概略）" : (num(p.x) != null ? "座標は登録値" : "座標なし");
+  box.innerHTML = `<button type="button" class="btn" id="gpsBtn">📍 現在地を記録</button>` +
+    (g ? `<span>GPS ${g.lat.toFixed(6)}, ${g.lon.toFixed(6)}（精度±${Math.round(g.acc)}m・${new Date(g.t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}）</span>
+       <a href="https://www.google.com/maps?q=${g.lat},${g.lon}" target="_blank" rel="noopener">地図で開く</a>` : `<span>位置は未記録</span>`) +
+    `<span>${src}</span>`;
+  $("gpsBtn").addEventListener("click", () => captureGps(p));
+}
+function captureGps(p){
+  if (!navigator.geolocation) { toast("この端末・ブラウザでは位置情報が使えません"); return; }
+  toast("現在地を取得しています…");
+  navigator.geolocation.getCurrentPosition(pos => {
+    const c = pos.coords;
+    p.gps = {lat:c.latitude, lon:c.longitude, acc:c.accuracy, t:new Date().toISOString()};
+    if (num(p.x) == null || num(p.y) == null || p.xySrc === "GPS") {
+      const [X, Y] = ll2xy(c.latitude, c.longitude, S.settings.zone);
+      p.x = Math.round(X*1000)/1000; p.y = Math.round(Y*1000)/1000; p.xySrc = "GPS";
+    }
+    touch(p.id); save(); renderInput(); toast(`現在地を記録しました（精度±${Math.round(c.accuracy)}m）`);
+  }, err => {
+    toast(err.code === 1 ? "位置情報の利用が許可されていません。ブラウザの設定で許可してください" : "現在地を取得できませんでした。空の見える場所で再度お試しください");
+  }, {enableHighAccuracy:true, timeout:20000, maximumAge:0});
+}
+$("myOnly").addEventListener("change", () => { focus = null; renderInput(); });
 $("ptsel").addEventListener("change", e => { S.current = e.target.value; focus = null; save(); renderInput(); });
-function step(k){ const i = S.points.findIndex(p => p.id === S.current); const n = S.points[i+k];
+function step(k){ const L = visiblePoints(); const i = L.findIndex(p => p.id === S.current); const n = L[i+k];
   if (n) { S.current = n.id; focus = null; save(); renderInput(); window.scrollTo({top:0}); } }
 $("prev").addEventListener("click", () => step(-1));
 $("next").addEventListener("click", () => step(1));
 
 /* ---------- 境界点タブ ---------- */
-const PCOLS = [["id","点番"],["route","路線名"],["kind","種別"],["order","順序"],["x","X"],["y","Y"],["h","標高"]];
+const PCOLS = [["id","点番"],["route","路線名"],["kind","種別"],["order","順序"],["sta","追加距離"],["team","担当班"],["x","X"],["y","Y"],["h","標高"]];
+const NUMK = ["order","sta","x","y","h"];
 function renderPoints(){
   const dirs = directions();
-  let h = `<tr>${PCOLS.map(c=>`<th>${c[1]}</th>`).join("")}<th>前点</th><th>次点</th><th>L方位</th><th>R方位</th><th></th></tr>`;
+  let h = `<tr>${PCOLS.map(c=>`<th>${c[1]}</th>`).join("")}<th>座標</th><th>前点</th><th>次点</th><th>L方位</th><th>R方位</th><th></th></tr>`;
   S.points.forEach((p, i) => {
     const d = dirs[p.id] || {};
-    h += `<tr>${PCOLS.map(c => `<td><input data-i="${i}" data-k="${c[0]}" value="${esc(p[c[0]] ?? "")}" ${["order","x","y","h"].includes(c[0])?'inputmode="decimal"':""}></td>`).join("")}
+    h += `<tr>${PCOLS.map(c => `<td><input data-i="${i}" data-k="${c[0]}" value="${esc(p[c[0]] ?? "")}" ${NUMK.includes(c[0])?'inputmode="decimal"':""}></td>`).join("")}
+      <td class="c">${p.xySrc === "GPS" ? "GPS" : (num(p.x) != null ? "登録" : "なし")}</td>
       <td class="c">${esc(d.prev||"－")}</td><td class="c">${esc(d.next||"－")}</td>
       <td class="c">${d.az!=null?dir16(d.azL)+" "+d.azL.toFixed(1)+"°":"要確認"}</td>
       <td class="c">${d.az!=null?dir16(d.azR)+" "+d.azR.toFixed(1)+"°":"要確認"}</td>
@@ -761,9 +856,10 @@ function renderPoints(){
       if (S.cross[p.id]) { S.cross[nv] = S.cross[p.id]; delete S.cross[p.id]; }
       if (S.photos[p.id]) { S.photos[nv] = S.photos[p.id]; delete S.photos[p.id]; }
       if (S.water[p.id] != null) { S.water[nv] = S.water[p.id]; delete S.water[p.id]; }
+      if (S.meta[p.id]) { S.meta[nv] = S.meta[p.id]; delete S.meta[p.id]; }
       if (S.current === p.id) S.current = nv;
       p.id = nv;
-    } else p[k] = ["order","x","y","h"].includes(k) ? (num(el.value) ?? null) : el.value.trim();
+    } else { p[k] = NUMK.includes(k) ? (num(el.value) ?? null) : el.value.trim(); if (k === "x" || k === "y") p.xySrc = ""; }
     save(); renderPoints();
   }));
   renderRoutes();
@@ -773,10 +869,26 @@ function renderPoints(){
     S.points.splice(b.dataset.del, 1); delete S.cross[p.id]; delete S.photos[p.id]; save(); renderPoints();
   }));
 }
+$("seqOpen").addEventListener("click", () => { $("seqBox").hidden = !$("seqBox").hidden; $("seqTeam").value ||= DEV.team || ""; });
+$("seqMake").addEventListener("click", () => {
+  const pre = $("seqPre").value, st = num($("seqStart").value) ?? 0, cnt = Math.min(200, num($("seqCount").value) || 0);
+  const pitch = num($("seqPitch").value) ?? 20, route = $("seqRoute").value.trim(), team = $("seqTeam").value.trim();
+  if (!cnt) { toast("点数を入れてください"); return; }
+  const base = S.points.filter(p => p.route === route).reduce((m, p) => Math.max(m, Number(p.order) || 0), 0);
+  let made = 0, dup = 0;
+  for (let i = 0; i < cnt; i++) {
+    const id = pre + (st + i);
+    if (S.points.some(p => p.id === id)) { dup++; continue; }
+    S.points.push({id, route, kind:"測点", order:base + made + 1, sta:Math.round((st + i)*pitch*1000)/1000, team, x:null, y:null, h:null});
+    made++;
+  }
+  S.routes[route] ||= {closed:false};
+  save(); renderPoints(); toast(`${made}点を作成しました` + (dup ? `（${dup}点は同名があるため作成せず）` : ""));
+});
 $("addPt").addEventListener("click", () => {
   let n = S.points.length + 1; while (S.points.some(p => p.id === "P"+n)) n++;
   const last = S.points[S.points.length-1];
-  S.points.push({id:"P"+n, route:last?last.route:"", kind:last?last.kind:"", order:last&&last.order!=null?Number(last.order)+1:1, x:null, y:null, h:null});
+  S.points.push({id:"P"+n, route:last?last.route:"", kind:last?last.kind:"", order:last&&last.order!=null?Number(last.order)+1:1, team:last?last.team||"":"", x:null, y:null, h:null});
   save(); renderPoints();
 });
 $("ptFile").addEventListener("change", async e => {
@@ -879,15 +991,15 @@ function insertRows(tpl){
   const add = tpl.rows.map(r => Object.assign(blankRow(), JSON.parse(JSON.stringify(r))));
   rows.splice(menuCtx.i, 0, ...add);
   if (tpl.edgeKl && menuCtx.i > 0) rows[menuCtx.i - 1].kl = true;
-  c[menuCtx.side] = fitRows(rows);
+  c[menuCtx.side] = fitRows(rows); touch(menuCtx.id);
   focus = {side:menuCtx.side, no:menuCtx.i + 2}; save(); renderInput();
   toast(`${tpl.name} を挿入しました`);
 }
 $("rmIns").addEventListener("click", () => { const c = crossOf(menuCtx.id);
-  c[menuCtx.side].splice(menuCtx.i, 0, blankRow()); c[menuCtx.side] = fitRows(c[menuCtx.side]);
+  c[menuCtx.side].splice(menuCtx.i, 0, blankRow()); c[menuCtx.side] = fitRows(c[menuCtx.side]); touch(menuCtx.id);
   $("rowMenu").close(); save(); renderInput(); });
 $("rmDel").addEventListener("click", () => { const c = crossOf(menuCtx.id);
-  c[menuCtx.side].splice(menuCtx.i, 1); c[menuCtx.side].push(blankRow());
+  c[menuCtx.side].splice(menuCtx.i, 1); c[menuCtx.side].push(blankRow()); touch(menuCtx.id);
   $("rowMenu").close(); save(); renderInput(); });
 $("rmReg").addEventListener("click", () => {
   const c = crossOf(menuCtx.id), rows = c[menuCtx.side];
@@ -963,7 +1075,7 @@ function renderPlan(){
     if (q.act) {
       nAct++; const ok = !analyze(q.p).errs.length; if (ok) nOk++;
       out.push(`<circle cx="${X}" cy="${Y}" r="7" fill="${col(ok?"--ok":"--err")}" stroke="${col("--surface")}" stroke-width="2"/>`);
-      out.push(`<text x="${X+9}" y="${Y-8}" font-size="13" font-weight="700" fill="${col("--ink")}">${esc(q.id)}</text>`);
+      out.push(`<text x="${X+9}" y="${Y-8}" font-size="13" font-weight="700" fill="${col("--ink")}">${esc(q.id)}${q.p.xySrc === "GPS" ? "（GPS）" : ""}</text>`);
     } else {
       out.push(`<circle cx="${X}" cy="${Y}" r="4.5" fill="${col("--line")}" stroke="${col("--sub")}" stroke-width="1"/>`);
       if (PV.k > 1.2) out.push(`<text x="${X+6}" y="${Y-5}" font-size="10.5" fill="${col("--sub")}">${esc(q.id)}</text>`);
@@ -1028,11 +1140,14 @@ $("selUndo").addEventListener("click", () => {
 /* ---------- チェックタブ ---------- */
 function renderCheck(){
   let ok = 0;
-  let h = `<tr><th>点番</th><th>路線</th><th>左点数</th><th>左延長</th><th>右点数</th><th>右延長</th><th>写真</th><th>判定</th><th>不足・確認</th></tr>`;
+  let h = `<tr><th>点番</th><th>路線</th><th>担当班</th><th>入力した班</th><th>更新</th><th>左点数</th><th>左延長</th><th>右点数</th><th>右延長</th><th>写真</th><th>判定</th><th>不足・確認</th></tr>`;
   S.points.forEach(p => {
     const A = analyze(p), done = !A.errs.length; if (done) ok++;
     const ph = S.photos[p.id] || {}, nph = S.settings.photoCats.filter(c => c.name && ph[c.name]).length;
+    const m = S.meta[p.id];
     h += `<tr class="click" data-id="${esc(p.id)}"><td><b>${esc(p.id)}</b></td><td>${esc(p.route||"")}</td>
+      <td>${esc(p.team||"")}</td><td>${m ? esc([m.team, m.by].filter(Boolean).join("・")) : ""}</td>
+      <td>${m ? new Date(m.t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : ""}</td>
       <td>${A.sides.L.count}</td><td>${f2(A.sides.L.reach)}</td><td>${A.sides.R.count}</td><td>${f2(A.sides.R.reach)}</td>
       <td>${nph}/${S.settings.photoCats.filter(c=>c.name).length}</td>
       <td><span class="badge ${done?"ok":"ng"}">${done?"完了":"未完了"}</span></td>
@@ -1046,7 +1161,14 @@ function renderCheck(){
 }
 
 /* ---------- 設定・保存 ---------- */
+function renderTeam(){ const c = $("teamChip"); c.textContent = DEV.team ? `班：${DEV.team}${DEV.person ? "・" + DEV.person : ""}` : "班が未設定";
+  c.classList.toggle("none", !DEV.team); }
+$("teamChip").addEventListener("click", () => showTab("io"));
+[["dTeam","team"],["dPerson","person"]].forEach(([id, k]) => $(id).addEventListener("change", e => { DEV[k] = e.target.value.trim(); saveDev(); renderTeam(); }));
+$("sZone").innerHTML = Object.keys(ZONES).map(z => `<option value="${z}">${z}系${z === "2" ? "（大分県・福岡県・佐賀県・熊本県・宮崎県）" : ""}</option>`).join("");
+$("sZone").addEventListener("change", e => { S.settings.zone = Number(e.target.value); save(); });
 function renderIO(){
+  $("dTeam").value = DEV.team || ""; $("dPerson").value = DEV.person || ""; $("sZone").value = String(S.settings.zone || 2);
   $("sNeed").value = S.settings.needLen; $("sThick").value = S.settings.thick; $("sVex").value = S.settings.vexag; $("sScale").value = S.settings.scale;
   $("sTpl").innerHTML = S.settings.templates.map((t, i) => `<div class="field"><span style="flex:1">${esc(t.name)}（${t.rows.length}行：${esc(t.rows.map(r => r.code || "").filter(Boolean).join("→"))}）</span><button class="btn danger" data-tdel="${i}" style="padding:.15rem .5rem">削除</button></div>`).join("") || `<p class="hint">入力タブでNOを押し「この行から構造物として登録」で追加できます</p>`;
   $("sTpl").querySelectorAll("[data-tdel]").forEach(b => b.addEventListener("click", () => {
@@ -1076,7 +1198,51 @@ async function saveFile(filename, data){
   toast("書き出しました");
 }
 const stamp = () => { const d = new Date(), z = n => String(n).padStart(2,"0"); return `${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`; };
-$("expJson").addEventListener("click", () => saveFile(`ポール横断_${stamp()}.json`, JSON.stringify(S, null, 1)));
+$("expJson").addEventListener("click", () => { S.exported = {team:DEV.team || "", by:DEV.person || "", t:new Date().toISOString()};
+  saveFile(`ポール横断_${DEV.team || "班未設定"}_${stamp()}.json`, JSON.stringify(S, null, 1)); });
+const hasData = (P, id) => { const c = P.cross && P.cross[id]; const ph = P.photos && P.photos[id];
+  return !!((c && ["L","R"].some(k => (c[k]||[]).some(r => norm(r.d) !== "" || norm(r.h) !== ""))) || (ph && Object.values(ph).some(Boolean)) || (P.water && norm(P.water[id]||"") !== "")); };
+function mergeProject(P){
+  const res = {added:0, updated:0, kept:0, conflicts:[]};
+  P.meta ||= {}; P.cross ||= {}; P.photos ||= {}; P.water ||= {};
+  (P.lib?.points || []).forEach(q => { if (!S.lib.points.some(o => o.id === q.id)) S.lib.points.push(q); });
+  (P.lib?.parcels || []).forEach(q => { if (!S.lib.parcels.some(o => o.name === q.name)) S.lib.parcels.push(q); });
+  Object.entries(P.routes || {}).forEach(([r, v]) => { S.routes[r] ||= {}; S.routes[r].closed = !!(S.routes[r].closed || (v && v.closed)); });
+  (P.settings?.templates || []).forEach(t => { if (!S.settings.templates.some(o => o.name === t.name)) S.settings.templates.push(t); });
+  const copyData = id => { S.cross[id] = JSON.parse(JSON.stringify(P.cross[id] || {L:emptyRows(), R:emptyRows()}));
+    S.photos[id] = JSON.parse(JSON.stringify(P.photos[id] || {})); if (P.water[id] != null) S.water[id] = P.water[id]; else delete S.water[id];
+    if (P.meta[id]) S.meta[id] = P.meta[id]; };
+  (P.points || []).forEach(q => {
+    let p = S.points.find(o => o.id === q.id);
+    if (!p) { S.points.push(JSON.parse(JSON.stringify(q))); copyData(q.id); res.added++; return; }
+    ["route","kind","order","sta","team","h"].forEach(k => { if ((p[k] == null || p[k] === "") && q[k] != null && q[k] !== "") p[k] = q[k]; });
+    if ((num(p.x) == null || p.xySrc === "GPS") && num(q.x) != null && q.xySrc !== "GPS") { p.x = q.x; p.y = q.y; p.xySrc = ""; }
+    else if (num(p.x) == null && num(q.x) != null) { p.x = q.x; p.y = q.y; p.xySrc = q.xySrc; }
+    if (q.gps && (!p.gps || q.gps.t > p.gps.t)) p.gps = q.gps;
+    if (!hasData(P, q.id)) return;
+    const lm = S.meta[q.id], im = P.meta[q.id];
+    if (!hasData(S, q.id)) { copyData(q.id); res.updated++; return; }
+    if (JSON.stringify(S.cross[q.id]) === JSON.stringify(P.cross[q.id]) && JSON.stringify(S.photos[q.id]||{}) === JSON.stringify(P.photos[q.id]||{})) return;
+    const who = m => m ? `${m.team || "班未設定"}${m.by ? "・" + m.by : ""} ${new Date(m.t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}` : "記録なし";
+    if (im && (!lm || im.t > lm.t)) { res.conflicts.push(`${q.id}：${who(im)} の入力を採用（${who(lm)} を置き換え）`); copyData(q.id); res.updated++; }
+    else { res.conflicts.push(`${q.id}：${who(lm)} の入力を維持（${who(im)} は古いため不採用）`); res.kept++; }
+  });
+  return res;
+}
+$("mergeJson").addEventListener("change", async e => {
+  const files = [...e.target.files]; if (!files.length) return;
+  let tot = {added:0, updated:0, kept:0, conflicts:[]}, bad = [];
+  for (const f of files) {
+    try { const P = JSON.parse(await f.text()); if (!P.points) throw 0;
+      const r = mergeProject(P); tot.added += r.added; tot.updated += r.updated; tot.kept += r.kept;
+      tot.conflicts.push(...r.conflicts.map(c => `［${f.name}］${c}`)); }
+    catch(_) { bad.push(f.name); }
+  }
+  e.target.value = ""; PV.fitted = false; save(); showTab("check");
+  alert(`統合しました：${files.length - bad.length}ファイル\n新しい点 ${tot.added}・取り込んだ入力 ${tot.updated}・維持 ${tot.kept}` +
+    (tot.conflicts.length ? `\n\n同じ点を複数の班が入力していたもの：\n${tot.conflicts.join("\n")}` : "") +
+    (bad.length ? `\n\n読めなかったファイル：${bad.join("、")}` : ""));
+});
 $("expCsv").addEventListener("click", () => {
   const rows = [["点番","路線名","側","NO","距離","累加距離","高さ","累加高さ","記号","地物","境線"]];
   S.points.forEach(p => {
@@ -1125,6 +1291,7 @@ window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() =
   if ($("tab-input").hidden) return;
   const n = window.innerWidth < 640; if (n !== wasNarrow) { wasNarrow = n; renderInput(); } else refresh(); }, 150); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!$("tab-input").hidden) refresh(); });
+renderTeam();
 showTab("input");
 </script>
 </body>
