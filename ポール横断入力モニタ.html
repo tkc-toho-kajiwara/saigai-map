@@ -296,7 +296,7 @@ table.grid tr.click:hover td{background:var(--bg)}
 "use strict";
 const KEY = "pole-oudan-v1";
 const NROW = 19;                    // NO.2〜20
-const SYMS = ["", "ブロック積", "石積", "コンクリート", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
+const SYMS = ["", "ブロック積", "間知ブロック", "石積", "コンクリート", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
 const CODES = ["道路端","路肩","側溝","水路肩","水路壁","水路底","法肩","法尻","畦畔","擁壁","構造物","田","畑","宅地","山林","地盤"];
 const DIR16 = ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
 
@@ -494,6 +494,14 @@ function symbols(V, t){
     if (v.sym === "ブロック積") {
       for (let k = 0.35; k < len-0.02; k += 0.35) L(at(k,0), at(k,1), "sym");
       L(at(0,0.5), at(len,0.5), "symthin");
+    } else if (v.sym === "間知ブロック") {          // 目地0.35m＋各ブロックに斜線
+      let k0 = 0;
+      for (let k = 0.35; k0 < len-0.02; k += 0.35) {
+        const k1 = Math.min(k, len);
+        if (k1 < len-0.02) L(at(k1,0), at(k1,1), "sym");
+        L(at(k0,0), at(k1,1), "symthin");
+        k0 = k1;
+      }
     } else if (v.sym === "石積") {
       const m = Math.max(2, Math.round(len/0.3));
       let pv = at(0, 0.15);
