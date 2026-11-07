@@ -148,6 +148,25 @@ table.grid tr.click:hover td{background:var(--bg)}
 .toast{position:fixed;left:50%;bottom:calc(1rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
   background:var(--ink);color:var(--surface);padding:.5rem 1rem;border-radius:6px;z-index:20;font-size:.9rem}
 @media (prefers-reduced-motion:no-preference){.toast{transition:opacity .3s}}
+
+/* 枠（?p=）・練習・QR・点番置換 */
+.slotrow{padding:.2rem .75rem;font-size:.85rem;font-weight:700;background:var(--bg);border-top:1px solid var(--line);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.practice{background:#FFE14D;color:#3A2E00;text-align:center;font-weight:700;font-size:.85rem;padding:.25rem .5rem;border-top:1px solid #C9A800}
+body.has-slot .monitorwrap{top:calc(env(safe-area-inset-top,0px) + var(--hdrh,3.2rem) + .3rem)}
+.qrbanner{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .8rem;padding:.5rem .75rem;margin-bottom:.6rem;border:1px solid var(--line);
+  border-left:6px solid var(--ok);background:var(--surface)}
+.qrbanner.warn{border-left-color:var(--warn);background:var(--warnbg)}
+.qrbanner.err{border-left-color:var(--err);background:var(--errbg)}
+.qrbanner span{flex:1;min-width:12rem;white-space:pre-line}
+.qrbanner button{border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:.2rem .6rem;cursor:pointer;font-size:.85rem}
+dialog .list .btn{text-align:left}
+dialog.wide{max-width:min(94vw,34rem)}
+.repsum{font-size:.9rem;margin:.2rem 0 .6rem}
+.repsum .e{color:var(--err);font-weight:700} .repsum .w{color:var(--warn)}
+.repsum code{background:var(--bg);padding:0 .25rem;border-radius:3px}
+textarea.rep{width:100%;padding:.4rem;border:1px solid var(--line);border-radius:5px;background:var(--bg);font:inherit;font-size:.9rem}
+td.slotname{font-weight:700}
 </style>
 </head>
 <body>
@@ -163,8 +182,15 @@ table.grid tr.click:hover td{background:var(--bg)}
       <button role="tab" data-tab="io" aria-selected="false">設定・保存</button>
     </nav>
   </div>
+  <div class="slotrow" id="slotChip" hidden></div>
+  <div class="practice" id="practiceBand" role="status" hidden>練習用です（本番のデータではありません）</div>
 </header>
 <main>
+<div class="qrbanner" id="qrBanner" role="status" hidden>
+  <span id="qrMsg"></span>
+  <button type="button" id="qrClear" hidden>読み取り状況を消す</button>
+  <button type="button" id="qrClose">閉じる</button>
+</div>
 <!-- 入力 -->
 <section id="tab-input">
   <div class="ptbar">
@@ -212,6 +238,7 @@ table.grid tr.click:hover td{background:var(--bg)}
     <div class="btns">
       <button class="btn" id="addPt">点を追加</button>
       <button class="btn" id="seqOpen">測点を連続作成</button>
+      <button class="btn" id="gpsAdd" hidden>📍 現在地で任意地点を追加（練習）</button>
       <label class="btn">SIMA・CSVを読み込む<input type="file" id="ptFile" accept=".sim,.csv,.txt" hidden></label>
     </div>
     <div class="field" id="seqBox" hidden style="flex-wrap:wrap;background:var(--bg);padding:.5rem;border-radius:6px">
@@ -248,6 +275,7 @@ table.grid tr.click:hover td{background:var(--bg)}
     <label><input type="checkbox" id="selMode">点を選んで路線に追加</label>
     <label>路線名 <input type="text" id="selRoute" value="画地1"></label>
     <button class="btn" id="selUndo">最後の点を外す</button>
+    <button class="btn" id="gpsAdd2" hidden>📍 現在地で任意地点を追加（練習）</button>
     <span id="planInfo" class="route"></span>
   </div>
   <div class="plan"><svg id="planSvg" viewBox="0 0 800 600" aria-label="横断配置図"></svg></div>
@@ -282,6 +310,20 @@ table.grid tr.click:hover td{background:var(--bg)}
       同じ点を複数の班が入力していた場合は、更新が新しい方を採用し、一覧で知らせます。</p>
     <p class="hint">DXFはJSONをPCのPython（公共用地確定ツール.py json ファイル名.json）で出力します。</p>
   </div>
+  <div class="panel" id="slotPanel">
+    <h2>この端末の枠</h2>
+    <p class="hint" style="margin-top:0">URLの <code>?p=枠名</code> ごとに保存先が分かれます（工区・練習が混ざりません）。枠を切り替えると、その枠のデータが開きます。</p>
+    <div class="scroll"><table class="grid" id="slotTable"></table></div>
+    <div class="field" style="flex-wrap:wrap"><label for="slotNew">新しい枠名</label><input id="slotNew" class="w" placeholder="例：1-1工区 ／ 練習">
+      <button class="btn" id="slotOpen">この枠を開く</button></div>
+  </div>
+  <div class="panel" id="repPanel">
+    <h2>点番を置き換える</h2>
+    <p class="hint" style="margin-top:0">CSV（旧点番,新点番）で、いまの枠の点番を測量点名に入れ替えます。横断・写真・水面・メモ・選択中の点も、まとめて新しい点番に付け替えます。1行目は見出しでも構いません。実行前に確認画面が出ます。</p>
+    <div class="btns"><label class="btn">CSVファイルを選ぶ<input type="file" id="repFile" accept=".csv,.txt" hidden></label></div>
+    <textarea class="rep" id="repText" rows="5" placeholder="旧点番,新点番&#10;BP001,K-1&#10;BP002,K-2" aria-label="点番置換表（貼り付け）"></textarea>
+    <div class="btns"><button class="btn primary" id="repCheck">内容を確認する</button></div>
+  </div>
   <div class="panel">
     <h2>この端末の班</h2>
     <div class="field"><label for="dTeam">班名</label><input id="dTeam" class="w" placeholder="例：A班"></div>
@@ -310,6 +352,24 @@ table.grid tr.click:hover td{background:var(--bg)}
 </section>
 </main>
 <div class="toast" id="toast" hidden></div>
+<dialog id="qrDlg">
+  <h3>測点リストを取り込みます</h3>
+  <p id="qrDlgInfo" class="hint" style="margin:0 0 .6rem"></p>
+  <div class="list">
+    <button type="button" class="btn primary" id="qrKeep" autofocus>入力済みの横断データを残して、点だけ追加・更新する</button>
+    <button type="button" class="btn danger" id="qrReset">枠を空にして入れ直す（入力済みの横断・写真・メモも消えます）</button>
+    <button type="button" class="btn" id="qrCancel">キャンセル</button>
+  </div>
+</dialog>
+<dialog id="repDlg" class="wide">
+  <h3>点番の置き換え（確認）</h3>
+  <div class="repsum" id="repSummary"></div>
+  <label class="hint" style="display:flex;gap:.4rem;align-items:center"><input type="checkbox" id="repBackup" checked> 実行前の状態をJSONで保存する</label>
+  <div class="btns">
+    <button type="button" class="btn primary" id="repGo">置き換える</button>
+    <button type="button" class="btn" id="repNo">キャンセル</button>
+  </div>
+</dialog>
 <dialog id="rowMenu">
   <h3 id="rmTitle"></h3>
   <div><b style="font-size:.85rem">構造物を挿入（この行から）</b><div class="list" id="rmTpl"></div></div>
@@ -323,8 +383,14 @@ table.grid tr.click:hover td{background:var(--bg)}
 
 <script>
 "use strict";
-const KEY = "pole-oudan-v1";
-const NROW = 19;                    // NO.2〜20
+const BASEKEY = "pole-oudan-v1";
+/* 枠（スロット）：?p=<枠名>。枠ごとに保存キーを分ける。?p= が無いときは従来のキーのまま */
+const SLOT = (() => { try { const v = new URLSearchParams(location.search).get("p");
+  return v == null ? "" : v.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 60); } catch(e) { return ""; } })();
+const KEY = SLOT ? BASEKEY + "::" + SLOT : BASEKEY;
+const QRKEY = "pole-qr-parts::" + SLOT;             // QR（複数枚）の読み取り済み分。枠ごとに保存
+const IS_PRACTICE = SLOT.startsWith("練習");
+const NROW = 19;                   // NO.2〜20
 const SYMS = ["", "ブロック積", "間知ブロック", "石積", "コンクリート", "岸", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
 const CODES = ["道路端","路肩","側溝","水路肩","水路壁","水路底","法肩","法尻","畦畔","擁壁","構造物","田","畑","宅地","山林","地盤"];
 const DIR16 = ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
@@ -381,7 +447,7 @@ function sampleProject(){
 }
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e) { S = null; }
-if (!S || !S.points) S = sampleProject();
+if (!S || !S.points) S = SLOT ? blankProject() : sampleProject();     // 枠が初めて開かれたときは空で始める
 migrate();
 function migrate(){
   S.water ||= {}; S.routes ||= {}; S.lib ||= {points:[], parcels:[]}; S.meta ||= {};
@@ -415,8 +481,9 @@ function ll2xy(lat, lon, zone){
   return [x - x0, y];
 }
 let saveTimer = null;
-function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => {
-  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { /* 保存不可の環境 */ } }, 300); }
+function saveNow(){ clearTimeout(saveTimer);
+  try { S.updatedAt = new Date().toISOString(); localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { /* 保存不可の環境 */ } }
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 300); }
 
 /* ---------- 数値 ---------- */
 function norm(v){
@@ -916,14 +983,20 @@ $("ptFile").addEventListener("change", async e => {
     toast(`点 ${np} 点・画地 ${nq} 件を取り込みました`); return;
   }
   let added = 0;
-  lines.forEach(c => {
-    if (c.length >= 6 && num(c[4]) != null && !Number.isNaN(num(c[4]))) {
-      const p = {id:c[0], route:c[1]||"", kind:c[2]||"", order:num(c[3]), x:num(c[4]), y:num(c[5]), h:c[6]?num(c[6]):null};
-      if (p.id && !S.points.some(q => q.id === p.id)) { S.points.push(p); added++; }
-    }
+  parsePointRows(lines).forEach(p => {
+    if (p.id && !S.points.some(q => q.id === p.id)) { S.points.push(p); added++; }
   });
   e.target.value = ""; save(); renderPoints(); toast(`${added}点を追加しました`);
 });
+/* 境界点CSV（点番,路線名,種別,順序,X,Y,標高）の行 → 点。SIMA・CSV読み込みとQR読み込みで共通 */
+function parsePointRows(lines){
+  const out = [];
+  lines.forEach(c => {
+    if (c.length >= 6 && num(c[4]) != null && !Number.isNaN(num(c[4])))
+      out.push({id:c[0], route:c[1]||"", kind:c[2]||"", order:num(c[3]), x:num(c[4]), y:num(c[5]), h:c[6]?num(c[6]):null});
+  });
+  return out;
+}
 function signedArea(pts){ let a = 0; pts.forEach((p, i) => { const q = pts[(i+1) % pts.length]; a += p.y*q.x - q.y*p.x; }); return a; }
 $("parcelAdd").addEventListener("click", () => {
   const pc = S.lib.parcels[$("parcelSel").value]; if (!pc) { toast("画地がありません。SIMAを読み込んでください"); return; }
@@ -1168,6 +1241,7 @@ $("teamChip").addEventListener("click", () => showTab("io"));
 $("sZone").innerHTML = Object.keys(ZONES).map(z => `<option value="${z}">${z}系${z === "2" ? "（大分県・福岡県・佐賀県・熊本県・宮崎県）" : ""}</option>`).join("");
 $("sZone").addEventListener("change", e => { S.settings.zone = Number(e.target.value); save(); });
 function renderIO(){
+  renderSlots();
   $("dTeam").value = DEV.team || ""; $("dPerson").value = DEV.person || ""; $("sZone").value = String(S.settings.zone || 2);
   $("sNeed").value = S.settings.needLen; $("sThick").value = S.settings.thick; $("sVex").value = S.settings.vexag; $("sScale").value = S.settings.scale;
   $("sTpl").innerHTML = S.settings.templates.map((t, i) => `<div class="field"><span style="flex:1">${esc(t.name)}（${t.rows.length}行：${esc(t.rows.map(r => r.code || "").filter(Boolean).join("→"))}）</span><button class="btn danger" data-tdel="${i}" style="padding:.15rem .5rem">削除</button></div>`).join("") || `<p class="hint">入力タブでNOを押し「この行から構造物として登録」で追加できます</p>`;
@@ -1198,8 +1272,10 @@ async function saveFile(filename, data){
   toast("書き出しました");
 }
 const stamp = () => { const d = new Date(), z = n => String(n).padStart(2,"0"); return `${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`; };
+const safeName = s => String(s).replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_");
+const withSlot = () => Object.assign({}, S, {slot:SLOT});                 // 書き出すJSONに枠名を入れる（統合時の取り違え防止）
 $("expJson").addEventListener("click", () => { S.exported = {team:DEV.team || "", by:DEV.person || "", t:new Date().toISOString()};
-  saveFile(`ポール横断_${DEV.team || "班未設定"}_${stamp()}.json`, JSON.stringify(S, null, 1)); });
+  saveFile(`ポール横断_${SLOT ? safeName(SLOT) + "_" : ""}${safeName(DEV.team || "班未設定")}_${stamp()}.json`, JSON.stringify(withSlot(), null, 1)); });
 const hasData = (P, id) => { const c = P.cross && P.cross[id]; const ph = P.photos && P.photos[id];
   return !!((c && ["L","R"].some(k => (c[k]||[]).some(r => norm(r.d) !== "" || norm(r.h) !== ""))) || (ph && Object.values(ph).some(Boolean)) || (P.water && norm(P.water[id]||"") !== "")); };
 function mergeProject(P){
@@ -1232,11 +1308,24 @@ function mergeProject(P){
 $("mergeJson").addEventListener("change", async e => {
   const files = [...e.target.files]; if (!files.length) return;
   let tot = {added:0, updated:0, kept:0, conflicts:[]}, bad = [];
+  const parsed = [];
   for (const f of files) {
-    try { const P = JSON.parse(await f.text()); if (!P.points) throw 0;
-      const r = mergeProject(P); tot.added += r.added; tot.updated += r.updated; tot.kept += r.kept;
-      tot.conflicts.push(...r.conflicts.map(c => `［${f.name}］${c}`)); }
+    try { const P = JSON.parse(await f.text()); if (!P.points) throw 0; parsed.push({f, P}); }
     catch(_) { bad.push(f.name); }
+  }
+  // 枠名が違うJSONは統合しない（別の工区・練習のデータで上書きする事故を防ぐ）
+  const wrong = parsed.filter(({P}) => String(P.slot || "") !== SLOT);
+  if (wrong.length) {
+    e.target.value = "";
+    alert(`枠が違うJSONが含まれているため、統合を中止しました（何も変更していません）。\n\n現在開いている枠：${SLOT || "（枠なし）"}\n` +
+      wrong.map(({f, P}) => `・${f.name}（枠：${P.slot || "（枠なし）"}）`).join("\n") +
+      `\n\n同じ枠名で書き出したJSONだけを統合できます。枠を切り替えるには「設定・保存」の「この端末の枠」を使ってください。` +
+      (bad.length ? `\n\n読めなかったファイル：${bad.join("、")}` : ""));
+    return;
+  }
+  for (const {f, P} of parsed) {
+    const r = mergeProject(P); tot.added += r.added; tot.updated += r.updated; tot.kept += r.kept;
+    tot.conflicts.push(...r.conflicts.map(c => `［${f.name}］${c}`));
   }
   e.target.value = ""; PV.fitted = false; save(); showTab("check");
   alert(`統合しました：${files.length - bad.length}ファイル\n新しい点 ${tot.added}・取り込んだ入力 ${tot.updated}・維持 ${tot.kept}` +
@@ -1266,8 +1355,10 @@ $("expSvg").addEventListener("click", () => {
 $("impJson").addEventListener("change", async e => {
   const f = e.target.files[0]; if (!f) return;
   try { const P = JSON.parse(await f.text()); if (!P.points || !P.settings) throw 0;
-    if (!confirm("今の入力内容を読み込んだプロジェクトで置き換えます。")) return;
-    S = P; migrate(); PV.fitted = false; save(); toast("読み込みました"); showTab("input");
+    const fs = String(P.slot || "");
+    const slotWarn = fs !== SLOT ? `\n\n注意：このファイルの枠は「${fs || "枠なし"}」、いま開いている枠は「${SLOT || "枠なし"}」です。` : "";
+    if (!confirm("今の入力内容を読み込んだプロジェクトで置き換えます。" + slotWarn)) return;
+    S = P; delete S.slot; migrate(); PV.fitted = false; save(); toast("読み込みました"); showTab("input");
   } catch(_) { toast("このファイルはプロジェクトとして読めません"); }
   e.target.value = "";
 });
@@ -1291,8 +1382,254 @@ window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() =
   if ($("tab-input").hidden) return;
   const n = window.innerWidth < 640; if (n !== wasNarrow) { wasNarrow = n; renderInput(); } else refresh(); }, 150); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!$("tab-input").hidden) refresh(); });
+/* ================= 枠（スロット）・QR呼び出し・練習枠・点番置換 ================= */
+const curTab = () => { const s = [...document.querySelectorAll("main > section")].find(x => !x.hidden); return s ? s.id.slice(4) : "input"; };
+
+/* ---------- 枠の表示と一覧 ---------- */
+function renderSlotUi(){
+  const chip = $("slotChip");
+  chip.hidden = !SLOT; chip.textContent = SLOT ? "枠：" + SLOT : ""; chip.title = SLOT ? "現在の枠：" + SLOT : "";
+  $("practiceBand").hidden = !IS_PRACTICE;
+  document.body.classList.toggle("has-slot", !!SLOT);
+  ["gpsAdd","gpsAdd2"].forEach(id => { $(id).hidden = !IS_PRACTICE; });
+  document.title = SLOT ? `ポール横断 入力モニタ（${SLOT}）` : "ポール横断 入力モニタ（公共用地確定）";
+  fitHeader();
+}
+/* ヘッダーの高さに合わせて、入力タブの横断図モニタの貼り付け位置（sticky）をずらす */
+function fitHeader(){ const h = document.querySelector("header.top"); if (h) document.documentElement.style.setProperty("--hdrh", h.offsetHeight + "px"); }
+window.addEventListener("resize", fitHeader);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitHeader);
+const slotUrl = slot => location.pathname + (slot ? "?p=" + encodeURIComponent(slot) : "");
+function listSlots(){
+  const pre = BASEKEY + "::", rows = [], seen = new Set();
+  const info = (slot, P) => {
+    let t = P && P.updatedAt ? P.updatedAt : "";
+    if (!t && P && P.meta) Object.values(P.meta).forEach(m => { if (m && m.t && m.t > t) t = m.t; });
+    return {slot, pts:P && Array.isArray(P.points) ? P.points.length : 0, t};
+  };
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i); let slot;
+      if (k === BASEKEY) slot = ""; else if (k && k.startsWith(pre)) slot = k.slice(pre.length); else continue;
+      let P = null; try { P = JSON.parse(localStorage.getItem(k) || "null"); } catch(e) {}
+      rows.push(info(slot, slot === SLOT ? S : P)); seen.add(slot);
+    }
+  } catch(e) { /* 一覧を作れない環境 */ }
+  if (!seen.has(SLOT)) rows.push(info(SLOT, S));
+  rows.sort((a, b) => a.slot === SLOT ? -1 : b.slot === SLOT ? 1 : (a.slot < b.slot ? -1 : 1));
+  return rows;
+}
+function renderSlots(){
+  const rows = listSlots();
+  let h = `<tr><th>枠名</th><th>点数</th><th>最終更新</th><th></th><th></th></tr>`;
+  rows.forEach(r => {
+    const cur = r.slot === SLOT;
+    h += `<tr><td class="slotname">${r.slot ? esc(r.slot) : "（枠なし・従来の保存）"}${cur ? ' <span class="badge ok">使用中</span>' : ""}</td>
+      <td>${r.pts}</td><td class="c">${r.t ? new Date(r.t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "－"}</td>
+      <td>${cur ? "" : `<button type="button" class="btn" data-sopen="${esc(r.slot)}" style="padding:.15rem .5rem">開く</button>`}</td>
+      <td>${r.slot ? `<button type="button" class="btn danger" data-sdel="${esc(r.slot)}" style="padding:.15rem .5rem">削除</button>` : ""}</td></tr>`;
+  });
+  const T = $("slotTable"); T.innerHTML = h;
+  T.querySelectorAll("[data-sopen]").forEach(b => b.addEventListener("click", () => { saveNow(); location.href = slotUrl(b.dataset.sopen); }));
+  T.querySelectorAll("[data-sdel]").forEach(b => b.addEventListener("click", () => {
+    const slot = b.dataset.sdel, cur = slot === SLOT, row = rows.find(r => r.slot === slot);
+    if (!confirm(`枠「${slot}」のデータ（境界点 ${row ? row.pts : 0}点）をこの端末から削除します。元に戻せません。\n先に「プロジェクトを書き出す」でJSONを保存しておくことをおすすめします。\n\n削除しますか`)) return;
+    if (cur) clearTimeout(saveTimer);
+    try { localStorage.removeItem(BASEKEY + "::" + slot); localStorage.removeItem("pole-qr-parts::" + slot); } catch(e) {}
+    if (cur) { location.replace(slotUrl(slot)); return; }          // 開いている枠を消したときは、空の枠として開き直す
+    renderSlots(); toast(`枠「${slot}」を削除しました`);
+  }));
+}
+$("slotOpen").addEventListener("click", () => {
+  const n = $("slotNew").value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 60);
+  if (!n) { toast("枠名を入れてください"); return; }
+  saveNow(); location.href = slotUrl(n);
+});
+
+/* ---------- QR（#d=...）で測点リストを呼び出す ---------- */
+/* 形式：#d=<データ>&i=<このQRの番号>&n=<QRの総数>。<データ>＝境界点CSV → UTF-8 → zlib圧縮 → base64url（= なし）。通信はしない */
+const QR_MAX = 99;
+function qrLoad(){ try { const o = JSON.parse(localStorage.getItem(QRKEY) || "null"); return o && o.parts && o.n ? o : null; } catch(e) { return null; } }
+function qrStore(o){ try { localStorage.setItem(QRKEY, JSON.stringify(o)); } catch(e) {} }
+function qrDrop(){ try { localStorage.removeItem(QRKEY); } catch(e) {} }
+function qrNote(kind, msg, canClear){
+  const b = $("qrBanner"); b.className = "qrbanner" + (kind ? " " + kind : ""); b.hidden = false;
+  $("qrMsg").textContent = msg; $("qrClear").hidden = !canClear;
+}
+$("qrClose").addEventListener("click", () => { $("qrBanner").hidden = true; });
+$("qrClear").addEventListener("click", () => { qrDrop(); $("qrBanner").hidden = true; toast("読み取り状況を消しました"); });
+function b64uToBytes(s){
+  const t = s.replace(/-/g, "+").replace(/_/g, "/"), bin = atob(t + "=".repeat((4 - t.length % 4) % 4));
+  const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
+}
+async function inflateB64u(s){
+  const rs = new Blob([b64uToBytes(s)]).stream().pipeThrough(new DecompressionStream("deflate"));      // "deflate"＝zlib形式
+  return new TextDecoder("utf-8", {fatal:true}).decode(await new Response(rs).arrayBuffer());
+}
+/* 複数枚のQR：圧縮後の文字列を i の順に結合してから、まとめて復号する（CSVの行を分ける形式ではない） */
+const decodeQrParts = parts => inflateB64u(parts.join(""));
+function upsertPoints(rows){
+  const res = {added:0, updated:0, same:0, risky:0};
+  rows.forEach(r => {
+    const p = S.points.find(q => q.id === r.id);
+    if (!p) { S.points.push(r); res.added++; return; }
+    const geo0 = [p.route, p.order, p.x, p.y].join("|"), all0 = geo0 + "|" + [p.kind, p.h].join("|");
+    if (r.route) p.route = r.route;
+    if (r.kind) p.kind = r.kind;
+    if (Number.isFinite(r.order)) p.order = r.order;
+    if (Number.isFinite(r.x) && Number.isFinite(r.y)) { p.x = r.x; p.y = r.y; p.xySrc = ""; }
+    if (Number.isFinite(r.h)) p.h = r.h;
+    const geo1 = [p.route, p.order, p.x, p.y].join("|"), all1 = geo1 + "|" + [p.kind, p.h].join("|");
+    if (all1 === all0) res.same++;
+    else { res.updated++; if (geo1 !== geo0 && hasData(S, p.id)) res.risky++; }       // 入力済みの横断・写真・メモには触れない
+  });
+  return res;
+}
+function askQrMode(nNew){
+  return new Promise(resolve => {
+    const dlg = $("qrDlg"); let done = false;
+    const fin = v => { if (done) return; done = true; resolve(v); if (dlg.open) dlg.close(); };
+    $("qrDlgInfo").textContent = `この枠（${SLOT || "枠なし"}）にはすでに境界点が ${S.points.length}点あります。QRの測点 ${nNew}点をどう取り込みますか。`;
+    $("qrKeep").onclick = () => fin("keep"); $("qrReset").onclick = () => fin("reset"); $("qrCancel").onclick = () => fin("cancel");
+    dlg.onclose = () => fin("cancel");
+    dlg.showModal();
+  });
+}
+async function qrReceive(data, i, n){
+  if (!/^[A-Za-z0-9_-]+$/.test(data) || !Number.isInteger(i) || !Number.isInteger(n) || n < 1 || n > QR_MAX || i < 1 || i > n) {
+    qrNote("err", "QRの内容を読み取れませんでした。もう一度読み取ってください"); return; }
+  let parts;
+  if (n === 1) parts = [data];
+  else {
+    let st = qrLoad(); if (!st || st.n !== n) st = {n, parts:{}};
+    st.parts[i] = data; qrStore(st);                                   // 同じ番号をもう一度読み取っても上書きされるだけ
+    const got = Object.keys(st.parts).length;
+    if (got < n) { qrNote("warn", `${n}枚中${got}枚を読み取りました。残りのQRも読み取ってください（順番は問いません）`, true); toast(`${n}枚中${got}枚を読み取りました`); return; }
+    parts = Array.from({length:n}, (_, k) => st.parts[k + 1]);
+  }
+  if (typeof DecompressionStream === "undefined") {
+    qrNote("err", "このブラウザでは測点リスト（QR）を開けません。新しいブラウザ（Chrome・Edge・Safari の最新版）で開いてください", n > 1); return; }
+  let text;
+  try { text = await decodeQrParts(parts); }
+  catch(e) { qrDrop(); qrNote("err", "QRのデータを展開できませんでした。すべてのQRを最初から読み取り直してください"); return; }
+  const found = parsePointRows(text.replace(/^﻿/, "").split(/\r?\n/).map(l => l.split(",").map(t => t.trim()))).filter(p => p.id);
+  if (!found.length) { qrDrop(); qrNote("err", "QRに測点が入っていませんでした"); return; }
+  const byId = new Map(); found.forEach(r => byId.set(r.id, r));
+  const rows = [...byId.values()];
+  let mode = "keep";
+  if (S.points.length) mode = await askQrMode(rows.length);
+  if (mode === "cancel") { qrDrop(); qrNote("", "取り込みをキャンセルしました（何も変更していません）"); return; }
+  if (mode === "reset") { const keep = S.settings; S = blankProject(); S.settings = keep; migrate(); }
+  const r = upsertPoints(rows);
+  qrDrop(); focus = null; PV.fitted = false;
+  if (!S.points.some(p => p.id === S.current)) S.current = S.points[0] ? S.points[0].id : null;
+  saveNow(); showTab("input");
+  qrNote("ok", `測点を取り込みました：追加 ${r.added}点・更新 ${r.updated}点・変更なし ${r.same}点` + (n > 1 ? `（QR ${n}枚を結合）` : "") +
+    (r.risky ? `\n※入力済みの点 ${r.risky}点で、路線・順序・座標が変わりました。L/Rの向きを確認してください` : ""));
+  toast("測点を取り込みました");
+}
+let qrQueue = Promise.resolve();
+function handleHash(){
+  const h = location.hash; if (!h || h.length < 4) return;
+  const q = new URLSearchParams(h.slice(1)); if (!q.has("d")) return;
+  const data = q.get("d") || "", i = Number(q.get("i") || 1), n = Number(q.get("n") || 1);
+  history.replaceState(null, "", location.pathname + location.search);    // 座標をアドレスバー・履歴に残さない／再読み込みで二重に取り込まない
+  qrQueue = qrQueue.then(() => qrReceive(data, i, n)).catch(() => qrNote("err", "測点リストを取り込めませんでした。QRをもう一度読み取ってください"));
+}
+
+/* ---------- 練習枠：現在地で任意地点を追加 ---------- */
+function addGpsPoint(){
+  if (!navigator.geolocation) { toast("この端末・ブラウザでは位置情報が使えません"); return; }
+  toast("現在地を取得しています…");
+  navigator.geolocation.getCurrentPosition(pos => {
+    const c = pos.coords, [X, Y] = ll2xy(c.latitude, c.longitude, S.settings.zone);
+    let k = 0; S.points.forEach(p => { const m = /^P-(\d+)$/.exec(p.id); if (m) k = Math.max(k, Number(m[1])); });
+    const id = "P-" + String(k + 1).padStart(3, "0"), route = "任意地点";
+    const ord = S.points.filter(p => p.route === route).reduce((m, p) => Math.max(m, Number(p.order) || 0), 0) + 1;
+    S.points.push({id, route, kind:"任意", order:ord, team:DEV.team || "", x:Math.round(X*1000)/1000, y:Math.round(Y*1000)/1000, h:null,
+      xySrc:"GPS", gps:{lat:c.latitude, lon:c.longitude, acc:c.accuracy, t:new Date().toISOString()}});
+    S.routes[route] ||= {closed:false};
+    S.current = id; focus = null; PV.fitted = false; saveNow(); showTab(curTab());
+    toast(`${id} を現在地で追加しました（精度±${Math.round(c.accuracy)}m）`);
+  }, err => {
+    toast(err.code === 1 ? "位置情報の利用が許可されていません。ブラウザの設定で許可してください" : "現在地を取得できませんでした。空の見える場所で再度お試しください");
+  }, {enableHighAccuracy:true, timeout:20000, maximumAge:0});
+}
+$("gpsAdd").addEventListener("click", addGpsPoint);
+$("gpsAdd2").addEventListener("click", addGpsPoint);
+
+/* ---------- 点番を置き換える ---------- */
+let repCtx = null;
+function parseRepCsv(text){
+  const rows = text.replace(/^﻿/, "").split(/\r?\n/)
+    .map(l => l.split(/[,\t]/).map(t => t.trim().replace(/^"(.*)"$/, "$1").trim())).filter(c => c.some(t => t !== ""));
+  if (rows.length && /^(旧点番|旧点名|旧|点番|old|old_?id|from)$/i.test(rows[0][0])) rows.shift();       // 見出し行
+  return rows;
+}
+function repPlan(rows){
+  const map = new Map(), r = {dupOld:[], emptyNew:[], missing:[], replace:[], dups:[]};
+  rows.forEach(c => {
+    const o = c[0] || "", nw = c[1] || "";
+    if (!o) return;
+    if (!nw) { r.emptyNew.push(o); return; }
+    if (map.has(o) && map.get(o) !== nw) { r.dupOld.push(o); return; }
+    map.set(o, nw);
+  });
+  const have = new Set(S.points.map(p => p.id));
+  map.forEach((nw, o) => { if (!have.has(o)) r.missing.push(o); else if (nw !== o) r.replace.push([o, nw]); });
+  const rn = id => map.has(id) ? map.get(id) : id;
+  const dupIds = ids => { const m = new Map(); ids.forEach(i => m.set(i, (m.get(i) || 0) + 1)); return [...m].filter(([, k]) => k > 1).map(([i]) => i); };
+  const bad = new Set();
+  [S.points.map(p => p.id), ...["cross","photos","water","meta"].map(k => Object.keys(S[k] || {})), S.lib.points.map(q => q.id)].forEach(g => {
+    const before = new Set(dupIds(g)); dupIds(g.map(rn)).forEach(i => { if (!before.has(i)) bad.add(i); }); });
+  r.dups = [...bad]; r.rn = rn;
+  r.ok = r.replace.length > 0 && !r.dups.length && !r.dupOld.length && !r.emptyNew.length;
+  return r;
+}
+function repShow(text){
+  const rows = parseRepCsv(text);
+  if (!rows.length) { toast("置換表が空です（旧点番,新点番）"); return; }
+  const P = repCtx = repPlan(rows);
+  const list = a => a.slice(0, 12).map(esc).join("、") + (a.length > 12 ? ` ほか${a.length - 12}件` : "");
+  let h = `<div>置き換える件数：<b>${P.replace.length}</b>点（いまの枠の境界点 ${S.points.length}点のうち）</div>`;
+  if (P.replace.length) h += `<div class="hint" style="margin:.2rem 0">例：` + P.replace.slice(0, 3).map(([o, n]) => `<code>${esc(o)}</code> → <code>${esc(n)}</code>`).join("　") + `</div>`;
+  h += P.dups.length ? `<div class="e">重複：置き換えると点番が重複します → ${list(P.dups)}。このままでは実行できません</div>` : `<div>重複：なし</div>`;
+  h += P.missing.length ? `<div class="w">存在しない旧点番：${P.missing.length}件 → ${list(P.missing)}（無視します）</div>` : `<div>存在しない旧点番：なし</div>`;
+  if (P.dupOld.length) h += `<div class="e">置換表の中で、同じ旧点番に別の新点番が書かれています → ${list(P.dupOld)}</div>`;
+  if (P.emptyNew.length) h += `<div class="e">新点番が空の行があります → ${list(P.emptyNew)}</div>`;
+  if (!P.replace.length && !P.dups.length && !P.dupOld.length && !P.emptyNew.length) h += `<div class="w">置き換える点がありません</div>`;
+  $("repSummary").innerHTML = h;
+  $("repGo").disabled = !P.ok;
+  $("repDlg").showModal();
+}
+$("repCheck").addEventListener("click", () => repShow($("repText").value));
+$("repFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const buf = await f.arrayBuffer(); let text;
+  try { text = new TextDecoder("utf-8", {fatal:true}).decode(buf); } catch(_) { text = new TextDecoder("shift_jis").decode(buf); }
+  $("repText").value = text; e.target.value = ""; repShow(text);
+});
+$("repNo").addEventListener("click", () => { $("repDlg").close(); });
+$("repGo").addEventListener("click", () => {
+  const P = repCtx; if (!P || !P.ok) return;
+  if ($("repBackup").checked) saveFile(`ポール横断_${SLOT ? safeName(SLOT) + "_" : ""}置換前_${stamp()}.json`, JSON.stringify(withSlot(), null, 1));
+  const rn = P.rn;
+  S.points.forEach(p => { p.id = rn(p.id); });
+  ["cross","photos","water","meta"].forEach(k => { const o = S[k] || {}, n = {}; Object.keys(o).forEach(id => { n[rn(id)] = o[id]; }); S[k] = n; });
+  if (S.current) S.current = rn(S.current);
+  S.lib.points.forEach(q => { q.id = rn(q.id); });
+  S.lib.parcels.forEach(pc => { pc.ids = pc.ids.map(rn); });
+  focus = null; PV.fitted = false; repCtx = null; saveNow(); $("repDlg").close();
+  toast(`${P.replace.length}点の点番を置き換えました`); showTab("points");
+});
+
+renderSlotUi();
 renderTeam();
 showTab("input");
+try { if (SLOT && localStorage.getItem(KEY) == null) saveNow(); } catch(e) {}      // 初めて開いた枠も「この端末の枠」の一覧に出す
+{ const st = qrLoad(); if (st) qrNote("warn", `${st.n}枚中${Object.keys(st.parts).length}枚を読み取り済みです。残りのQRも読み取ってください（順番は問いません）`, true); }
+window.addEventListener("hashchange", handleHash);
+handleHash();
 </script>
 </body>
 </html>
