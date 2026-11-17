@@ -225,7 +225,7 @@ td.slotname{font-weight:700}
       <div class="photos" style="margin-top:.75rem"><h3>写真</h3><div id="photoChk"></div></div>
       <div class="msgs" style="margin-top:.75rem"><h3>この点の確認</h3><div id="ptmsgs"></div></div>
       <p class="hint">距離・高さは前の点から。上り＋／下り−（±で符号切替）。距離0＝垂直、マイナス＝折り返し。
-        ブロック積・間知ブロック・石積・コンクリート・岸は「前の点→この点」の区間に、仕切り線と境線は「この点」に描きます。NOを押すと構造物の挿入・登録、行の挿入・削除ができます。</p>
+        ブロック積・間知ブロック・石積・コンクリート・岩は「前の点→この点」の区間に、仕切り線と境線は「この点」に描きます。NOを押すと構造物の挿入・登録、行の挿入・削除ができます。</p>
     </div>
   </div>
 </section>
@@ -391,7 +391,7 @@ const KEY = SLOT ? BASEKEY + "::" + SLOT : BASEKEY;
 const QRKEY = "pole-qr-parts::" + SLOT;             // QR（複数枚）の読み取り済み分。枠ごとに保存
 const IS_PRACTICE = SLOT.startsWith("練習");
 const NROW = 19;                   // NO.2〜20
-const SYMS = ["", "ブロック積", "間知ブロック", "石積", "コンクリート", "岸", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
+const SYMS = ["", "ブロック積", "間知ブロック", "石積", "コンクリート", "岩", "水面", "仕切り線"];   // 水面＝この点の高さを水面高にする
 const CODES = ["道路端","路肩","側溝","水路肩","水路壁","水路底","法肩","法尻","畦畔","擁壁","構造物","田","畑","宅地","山林","地盤"];
 const DIR16 = ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
 
@@ -429,7 +429,7 @@ function sampleProject(){
     P.cross[id] = c;
   };
   put("K1", [[0,0.5,"コンクリート","水路壁"],[1.2,0,"",""],[3,2.2,"石積",""],[-2,3,"","張り出し"]],
-            [[0,2,"ブロック積",""],[1.2,1,"",""],[3,2.2,"岸",""],[5,3,"",""]]);
+            [[0,2,"ブロック積",""],[1.2,1,"",""],[3,2.2,"岩",""],[5,3,"",""]]);
   put("K2", [[1.3,0,"","As端",true],[0.1,0,"","側溝天端"],[0,-0.3,"","側溝底"],[0.3,0,"","側溝底"],[0,0.3,"","側溝天端"],[0.1,0,"","側溝天端",true],[3.5,-0.6,"","田"]],
             [[2,0.05,"","道路端"],[1.2,1.1,"石積","法肩"],[2.5,0.3,"仕切り線","畑"]]);
   put("S1", [[0,-0.9,"ブロック積","水路壁"],[1.1,0,"","水路底"],[0,0.9,"ブロック積","水路壁"],[4,0.1,"","田"]],
@@ -449,7 +449,13 @@ let S;
 try { S = JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e) { S = null; }
 if (!S || !S.points) S = SLOT ? blankProject() : sampleProject();     // 枠が初めて開かれたときは空で始める
 migrate();
+function renameSym(P){                                    // 旧名「岸」→「岩」（古いデータの読み込み用）
+  const fix = r => { if (r && r.sym === "岸") r.sym = "岩"; };
+  Object.values((P && P.cross) || {}).forEach(c => ["L","R"].forEach(k => (c[k] || []).forEach(fix)));
+  ((P && P.settings && P.settings.templates) || []).forEach(t => (t.rows || []).forEach(r => Array.isArray(r) ? (r[2] === "岸" && (r[2] = "岩")) : fix(r)));
+}
 function migrate(){
+  renameSym(S);
   S.water ||= {}; S.routes ||= {}; S.lib ||= {points:[], parcels:[]}; S.meta ||= {};
   S.settings.zone ||= 2;
   S.settings.scale ||= 100;
@@ -626,7 +632,7 @@ function symbols(V, t){
       const n = Math.max(1, Math.round(len / t)), p = len / n;
       for (let j = 0; j < n; j++) { const top = at((j+0.5)*p, t);
         L(at(j*p, 0), top, "sym"); L(top, at((j+1)*p, 0), "sym"); }
-    } else if (v.sym === "岸") {                           // 小さな弧（「(」形）を3つ1組で間隔をあけて
+    } else if (v.sym === "岩" || v.sym === "岸") {                           // 小さな弧（「(」形）を3つ1組で間隔をあけて
       const r = 0.8*mm, gp = 6*mm, n = Math.max(1, Math.floor(len / gp)), off = (len - (n-1)*gp) / 2;
       for (let j = 0; j < n; j++) for (let q = -1; q <= 1; q++) {
         const c = at(off + j*gp + q*2.2*r, r + 0.4*mm);
@@ -1279,6 +1285,7 @@ $("expJson").addEventListener("click", () => { S.exported = {team:DEV.team || ""
 const hasData = (P, id) => { const c = P.cross && P.cross[id]; const ph = P.photos && P.photos[id];
   return !!((c && ["L","R"].some(k => (c[k]||[]).some(r => norm(r.d) !== "" || norm(r.h) !== ""))) || (ph && Object.values(ph).some(Boolean)) || (P.water && norm(P.water[id]||"") !== "")); };
 function mergeProject(P){
+  renameSym(P);
   const res = {added:0, updated:0, kept:0, conflicts:[]};
   P.meta ||= {}; P.cross ||= {}; P.photos ||= {}; P.water ||= {};
   (P.lib?.points || []).forEach(q => { if (!S.lib.points.some(o => o.id === q.id)) S.lib.points.push(q); });
