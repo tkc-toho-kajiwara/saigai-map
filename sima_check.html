@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>SIMA撮影チェック</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#f4f5f7;color:#222}
+#app{display:flex;flex-direction:column;height:100%}
+header{background:#1f3a5f;color:#fff;padding:6px 10px}
+header .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#proj{font-weight:700;font-size:15px;flex:1;min-width:120px}
+#remain{font-size:14px;background:#fff;color:#1f3a5f;border-radius:12px;padding:2px 10px;font-weight:700}
+#remain.done{background:#2e9d4f;color:#fff}
+#prog{height:6px;background:#3d5a80;border-radius:3px;margin-top:5px;overflow:hidden}
+#prog i{display:block;height:100%;width:0;background:#7bd389}
+nav{display:flex;background:#fff;border-bottom:1px solid #ddd}
+nav button{flex:1;border:0;background:none;padding:9px 2px;font-size:14px;border-bottom:3px solid transparent}
+nav button.on{border-bottom-color:#1f3a5f;font-weight:700}
+main{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;display:none}
+.view.on{display:block}
+#svgwrap{width:100%;height:100%;touch-action:none;background:#fff}
+#svg{width:100%;height:100%}
+#map{width:100%;height:100%}
+#mapmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#fff;z-index:500;font-size:14px;line-height:1.7}
+#list{overflow:auto;height:100%;padding:8px}
+.pt{display:flex;align-items:center;gap:8px;background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.pt .dot{width:16px;height:16px;border-radius:50%;flex:none;border:2px solid #333}
+.pt .nm{font-weight:700;min-width:60px}
+.pt .st{font-size:12px;color:#555;flex:1}
+.pt .rs{font-size:12px}
+.warn{color:#c0392b;font-weight:700}
+#guide{position:absolute;left:8px;right:8px;top:8px;background:rgba(31,58,95,.92);color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;z-index:600;display:none}
+#fabs{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:8px;z-index:600}
+#fabs button{width:44px;height:44px;border-radius:50%;border:0;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);font-size:18px}
+#gpsbtn.on{background:#2e9d4f;color:#fff}
+#panel{background:#fff;border-top:1px solid #ccc;padding:8px 10px;display:none;max-height:55%;overflow:auto}
+#panel.on{display:block}
+#panel h3{margin:0 0 4px;font-size:17px;display:flex;align-items:center;gap:8px}
+#panel h3 .x{margin-left:auto;border:0;background:#eee;border-radius:50%;width:30px;height:30px;font-size:16px}
+.coord{font-size:12px;color:#555;margin-bottom:6px}
+.shots{display:flex;gap:8px}
+.shot{flex:1;text-align:center}
+.shot button{width:100%;padding:12px 4px;font-size:15px;border-radius:8px;border:2px solid #1f3a5f;background:#eaf0f7;font-weight:700}
+.shot button.has{background:#2e9d4f;border-color:#2e9d4f;color:#fff}
+.shot img{width:100%;max-height:90px;object-fit:cover;border-radius:6px;margin-top:4px;display:none}
+.shot .meta{font-size:11px;color:#555}
+.frm{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.frm select,.frm input{font-size:14px;padding:6px;border:1px solid #bbb;border-radius:6px}
+.frm input{flex:1;min-width:120px}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:2000}
+#modal .box{background:#fff;border-radius:10px;padding:14px;width:min(92vw,420px);max-height:80vh;overflow:auto}
+#modal h4{margin:0 0 8px}
+#modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+#modal button{padding:9px 14px;border-radius:8px;border:1px solid #888;background:#fff;font-size:14px}
+#modal button.pri{background:#1f3a5f;color:#fff;border-color:#1f3a5f}
+#modal textarea{width:100%;height:120px;font-size:12px}
+.small{font-size:12px;color:#555;line-height:1.6}
+#toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:18px;font-size:13px;display:none;z-index:3000;max-width:90vw}
+.menu button{display:block;width:100%;text-align:left;padding:10px;margin-bottom:6px;border-radius:8px;border:1px solid #ccc;background:#fafafa;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="row"><span id="proj">SIMA撮影チェック</span><span id="remain">-</span></div>
+  <div id="prog"><i></i></div>
+</header>
+<nav>
+  <button data-v="vsvg" class="on">配置図</button>
+  <button data-v="vmap">地図</button>
+  <button data-v="vlist">一覧</button>
+  <button id="menubtn">出力・設定</button>
+</nav>
+<main>
+  <div id="guide"></div>
+  <div id="vsvg" class="view on"><div id="svgwrap"><svg id="svg"></svg></div></div>
+  <div id="vmap" class="view"><div id="map"></div><div id="mapmsg"></div></div>
+  <div id="vlist" class="view"><div id="list"></div></div>
+  <div id="fabs">
+    <button id="gpsbtn" title="現在地">📍</button>
+    <button id="fitbtn" title="全体表示">⤢</button>
+  </div>
+</main>
+<div id="panel"></div>
+</div>
+<div id="modal"><div class="box" id="mbox"></div></div>
+<div id="toast"></div>
+<input type="file" id="cam" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="simfile" accept=".sim,.SIM,text/plain" style="display:none">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+"use strict";
+/* ===== 状態 ===== */
+const NEAR_LIMIT = 15;            // 合わせ計算から外れたと判断する距離(m)
+const ST = {proj:"", pts:[], rec:{}, fit:null, gps:null, watch:null, sel:null};
+// rec[name] = {status, note, far:{t,lat,lon,acc}, near:{t,lat,lon,acc}}
+const STATUSES = ["未調査","確認済","亡失","破損・異常","対象外"];
+const DONE_ST = ["亡失","対象外"];   // 撮影できなくても「済」とみなす状況
+
+/* ===== 保存（IndexedDB に写真、localStorage に記録） ===== */
+let db=null;
+function idb(){return new Promise((res,rej)=>{if(db)return res(db);const r=indexedDB.open("simacheck",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("photos");r.onsuccess=()=>{db=r.result;res(db)};r.onerror=()=>rej(r.error)})}
+async function putPhoto(k,blob){const d=await idb();return new Promise((res,rej)=>{const t=d.transaction("photos","readwrite");t.objectStore("photos").put(blob,k);t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+async function getPhoto(k){const d=await idb();return new Promise((res)=>{const r=d.transaction("photos").objectStore("photos").get(k);r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null)})}
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){toast("端末への保存に失敗しました")}}
+function save(){lsSet("sc_proj:"+ST.proj,{pts:ST.pts,rec:ST.rec});lsSet("sc_last",ST.proj)}
+function load(p){const o=lsGet("sc_proj:"+p,null);ST.proj=p;ST.pts=o?o.pts:[];ST.rec=o?o.rec:{}}
+function pkey(n,kind){return ST.proj+"|"+n+"|"+kind}
+
+/* ===== QR(URL)・SIMA の読込 ===== */
+// URL例: sima_check.html#p=栗林線&part=1/1&d=TA-1,500.000,528.436,262.353;TA-2,...
+function readHash(){
+  const h=location.hash.replace(/^#/,""); if(!h) return false;
+  const q={}; h.split("&").forEach(s=>{const i=s.indexOf("=");if(i>0)q[s.slice(0,i)]=decodeURIComponent(s.slice(i+1))});
+  if(!q.p||!q.d) return false;
+  load(q.p);
+  const add=parseD(q.d); let n=0;
+  add.forEach(a=>{const o=ST.pts.find(p=>p.n===a.n); if(o){o.x=a.x;o.y=a.y;o.h=a.h}else{ST.pts.push(a);n++}});
+  save(); history.replaceState(null,"",location.pathname+location.search);
+  const part=q.part?`（${q.part}枚目）`:"";
+  setTimeout(()=>toast(`QR${part}から ${add.length}点を読み込みました（新規${n}点）`),300);
+  return true;
+}
+function parseD(d){return d.split(";").filter(Boolean).map(s=>{const a=s.split(",");return {n:a[0],x:+a[1],y:+a[2],h:a[3]===undefined||a[3]===""?null:+a[3]}}).filter(p=>p.n&&isFinite(p.x)&&isFinite(p.y))}
+function parseSima(txt,filter){
+  const out=[];let re=null;try{re=filter?new RegExp(filter,"i"):null}catch(e){}
+  txt.split(/\r?\n/).forEach(l=>{if(!/^A01,/.test(l))return;const a=l.split(",");if(a.length<5)return;
+    const n=a[2].trim(),x=+a[3],y=+a[4],h=a[5]&&a[5].trim()!==""?+a[5]:null;
+    if(!n||!isFinite(x)||!isFinite(y))return; if(re&&!re.test(n))return; out.push({n,x,y,h})});
+  return out;
+}
+
+/* ===== 座標合わせ（任意座標 ⇔ スマホGPS） =====
+   SIMA: X=北, Y=東。近景を撮った位置(GPS)と点名で対応づけ、回転＋平行移動(縮尺1)を最小二乗で求める */
+const R_E=6378137;
+function ll2en(lat,lon,o){return {e:(lon-o.lon)*Math.PI/180*R_E*Math.cos(o.lat*Math.PI/180), n:(lat-o.lat)*Math.PI/180*R_E}}
+function en2ll(e,n,o){return {lat:o.lat+n/R_E*180/Math.PI, lon:o.lon+e/(R_E*Math.cos(o.lat*Math.PI/180))*180/Math.PI}}
+function computeFit(){
+  const pairs=[];
+  ST.pts.forEach(p=>{const r=ST.rec[p.n];if(r&&r.near&&r.near.lat!=null&&!r.near.exclude)pairs.push({p,g:r.near})});
+  ST.fit=null; ST.pts.forEach(p=>{const r=ST.rec[p.n];if(r&&r.near)r.near.res=null});
+  if(pairs.length<2) return;
+  const o={lat:pairs.reduce((s,a)=>s+a.g.lat,0)/pairs.length, lon:pairs.reduce((s,a)=>s+a.g.lon,0)/pairs.length};
+  const A=pairs.map(a=>({e:a.p.y,n:a.p.x})), B=pairs.map(a=>ll2en(a.g.lat,a.g.lon,o));
+  const ca={e:avg(A,"e"),n:avg(A,"n")}, cb={e:avg(B,"e"),n:avg(B,"n")};
+  let sxx=0,sxy=0,span=0;
+  A.forEach((a,i)=>{const ax=a.e-ca.e,ay=a.n-ca.n,bx=B[i].e-cb.e,by=B[i].n-cb.n;sxx+=ax*bx+ay*by;sxy+=ax*by-ay*bx;span=Math.max(span,Math.hypot(ax,ay))});
+  if(span<3) return; // 点が近すぎて向きが決まらない
+  const th=Math.atan2(sxy,sxx);
+  ST.fit={o,ca,cb,th,n:pairs.length,span:span*2};
+  let ss=0;
+  pairs.forEach((a,i)=>{const g=s2en(a.p.x,a.p.y);const d=Math.hypot(g.e-B[i].e,g.n-B[i].n);ST.rec[a.p.n].near.res=d;ss+=d*d});
+  ST.fit.rms=Math.sqrt(ss/pairs.length);
+}
+function avg(a,k){return a.reduce((s,v)=>s+v[k],0)/a.length}
+function s2en(x,y){const f=ST.fit,c=Math.cos(f.th),s=Math.sin(f.th),dx=y-f.ca.e,dy=x-f.ca.n;return {e:f.cb.e+c*dx-s*dy, n:f.cb.n+s*dx+c*dy}}
+function s2ll(x,y){const g=s2en(x,y);return en2ll(g.e,g.n,ST.fit.o)}
+function ll2s(lat,lon){const f=ST.fit,g=ll2en(lat,lon,f.o),c=Math.cos(f.th),s=Math.sin(f.th),dx=g.e-f.cb.e,dy=g.n-f.cb.n;return {y:f.ca.e+c*dx+s*dy, x:f.ca.n-s*dx+c*dy}}
+
+/* ===== 状況の判定 ===== */
+function rec(n){if(!ST.rec[n])ST.rec[n]={status:"未調査",note:""};return ST.rec[n]}
+function shotCount(n){const r=ST.rec[n];return r?(r.far?1:0)+(r.near?1:0):0}
+function isDone(n){const r=ST.rec[n];return shotCount(n)>=2||(r&&DONE_ST.includes(r.status))}
+function isOff(n){const r=ST.rec[n];return r&&r.near&&r.near.res!=null&&r.near.res>NEAR_LIMIT}
+function color(n){if(isOff(n))return "#e67e22";const r=ST.rec[n];if(r&&DONE_ST.includes(r.status))return "#7f8c8d";const c=shotCount(n);return c>=2?"#2e9d4f":c===1?"#f1c40f":"#e74c3c"}
+
+/* ===== 画面 ===== */
+const $=id=>document.getElementById(id);
+function toast(t,ms){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",ms||3000)}
+function refresh(){
+  computeFit();
+  $("proj").textContent=ST.proj?ST.proj:"SIMA撮影チェック";
+  const tot=ST.pts.length, done=ST.pts.filter(p=>isDone(p.n)).length;
+  const rem=$("remain"); rem.textContent=tot?(tot-done?`残り ${tot-done} / ${tot}点`:`全${tot}点 撮影済`):"点がありません";
+  rem.classList.toggle("done",tot>0&&done===tot);
+  $("prog").firstElementChild.style.width=tot?(done/tot*100)+"%":"0";
+  drawSvg(); drawList(); drawMap(); drawGuide(); if(ST.sel)drawPanel();
+}
+
+/* --- 配置図(SVG) --- */
+let vb=null;
+function bounds(){const xs=ST.pts.map(p=>p.y),ys=ST.pts.map(p=>p.x);return {minE:Math.min(...xs),maxE:Math.max(...xs),minN:Math.min(...ys),maxN:Math.max(...ys)}}
+function fitView(){if(!ST.pts.length){vb={x:0,y:0,w:100,h:100};return}const b=bounds();const w=Math.max(b.maxE-b.minE,20),h=Math.max(b.maxN-b.minN,20);
+  const r=$("svgwrap").getBoundingClientRect(),asp=(r.width||360)/(r.height||500);let W=w*1.4,H=h*1.4;if(W/H<asp)W=H*asp;else H=W/asp;
+  vb={x:(b.minE+b.maxE)/2-W/2,y:-(b.minN+b.maxN)/2-H/2,w:W,h:H}}
+function drawSvg(){
+  const svg=$("svg"); if(!vb)fitView();
+  svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  const u=vb.w/ (svg.clientWidth||360); // 1画面pxあたりのm
+  let s="";
+  // 格子
+  const step=niceStep(vb.w/5);
+  for(let e=Math.ceil(vb.x/step)*step;e<vb.x+vb.w;e+=step)s+=`<line x1="${e}" y1="${vb.y}" x2="${e}" y2="${vb.y+vb.h}" stroke="#e5e8ec" stroke-width="${u}"/>`;
+  for(let n=Math.ceil(vb.y/step)*step;n<vb.y+vb.h;n+=step)s+=`<line x1="${vb.x}" y1="${n}" x2="${vb.x+vb.w}" y2="${n}" stroke="#e5e8ec" stroke-width="${u}"/>`;
+  // 点
+  ST.pts.forEach(p=>{const cx=p.y,cy=-p.x,sel=ST.sel===p.n;
+    s+=`<g data-n="${esc(p.n)}" style="cursor:pointer"><circle cx="${cx}" cy="${cy}" r="${u*(sel?13:10)}" fill="${color(p.n)}" stroke="${sel?'#1f3a5f':'#333'}" stroke-width="${u*(sel?3:1.5)}"/>
+    <text x="${cx+u*13}" y="${cy-u*8}" font-size="${u*14}" font-weight="700" fill="#222" stroke="#fff" stroke-width="${u*3}" paint-order="stroke">${esc(p.n)}</text></g>`});
+  // 現在地
+  if(ST.fit&&ST.gps){const q=ll2s(ST.gps.lat,ST.gps.lon);s+=`<circle cx="${q.y}" cy="${-q.x}" r="${Math.max(ST.gps.acc,u*6)}" fill="rgba(52,152,219,.15)" stroke="none"/><circle cx="${q.y}" cy="${-q.x}" r="${u*7}" fill="#3498db" stroke="#fff" stroke-width="${u*2}"/>`}
+  // 縮尺・方位
+  const sx=vb.x+u*14,sy=vb.y+vb.h-u*18;
+  s+=`<line x1="${sx}" y1="${sy}" x2="${sx+step}" y2="${sy}" stroke="#222" stroke-width="${u*3}"/><text x="${sx}" y="${sy-u*6}" font-size="${u*12}">${step}m</text>`;
+  const ax=vb.x+u*24,ay=vb.y+vb.h-u*90;
+  s+=`<path d="M${ax},${ay} l${-u*7},${u*20} l${u*7},${-u*5} l${u*7},${u*5}z" fill="#222"/><text x="${ax}" y="${ay+u*34}" font-size="${u*12}" text-anchor="middle">X(北)</text>`;
+  svg.innerHTML=s;
+}
+function niceStep(v){const p=Math.pow(10,Math.floor(Math.log10(v)));const m=v/p;return (m<1.5?1:m<3.5?2:m<7.5?5:10)*p}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+(function svgEvents(){
+  const w=document.getElementById("svgwrap");const ptrs=new Map();let start=null,moved=false;
+  w.addEventListener("pointerdown",e=>{w.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;start={vb:{...vb},p:[...ptrs.values()].map(o=>({...o}))}});
+  w.addEventListener("pointermove",e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});const P=[...ptrs.values()],r=w.getBoundingClientRect(),k=start.vb.w/r.width;
+    if(P.length===1&&start.p.length===1){const dx=P[0].x-start.p[0].x,dy=P[0].y-start.p[0].y;if(Math.hypot(dx,dy)>6)moved=true;vb={...start.vb,x:start.vb.x-dx*k,y:start.vb.y-dy*k};drawSvg()}
+    else if(P.length>=2&&start.p.length>=2){moved=true;const d0=Math.hypot(start.p[0].x-start.p[1].x,start.p[0].y-start.p[1].y),d1=Math.hypot(P[0].x-P[1].x,P[0].y-P[1].y);zoomAt(start.vb,d0/d1,(start.p[0].x+start.p[1].x)/2-r.left,(start.p[0].y+start.p[1].y)/2-r.top,r)}});
+  const up=e=>{ptrs.delete(e.pointerId);start={vb:{...vb},p:[...ptrs.values()].map(o=>({...o}))};
+    if(!moved&&e.type==="pointerup"){const t=document.elementFromPoint(e.clientX,e.clientY);const g=t&&t.closest("g[data-n]");if(g)select(g.dataset.n)}};
+  w.addEventListener("pointerup",up);w.addEventListener("pointercancel",up);
+  w.addEventListener("wheel",e=>{e.preventDefault();const r=w.getBoundingClientRect();zoomAt({...vb},e.deltaY>0?1.2:1/1.2,e.clientX-r.left,e.clientY-r.top,r)},{passive:false});
+})();
+function zoomAt(b,f,px,py,r){const mx=b.x+px/r.width*b.w,my=b.y+py/r.height*b.h;vb={x:mx-(mx-b.x)*f,y:my-(my-b.y)*f,w:b.w*f,h:b.h*f};drawSvg()}
+
+/* --- 一覧 --- */
+function drawList(){
+  const L=$("list");
+  if(!ST.pts.length){L.innerHTML=`<p class="small">点がありません。QRコードを読み取るか、「出力・設定」からSIMAを読み込んでください。</p>`;return}
+  const order=[...ST.pts].sort((a,b)=>(isDone(a.n)-isDone(b.n)));
+  L.innerHTML=order.map(p=>{const r=ST.rec[p.n]||{},c=shotCount(p.n);
+    const res=r.near&&r.near.res!=null?`<span class="rs ${r.near.res>NEAR_LIMIT?'warn':''}">ずれ ${r.near.res.toFixed(1)}m</span>`:"";
+    return `<div class="pt" data-n="${esc(p.n)}"><span class="dot" style="background:${color(p.n)}"></span><span class="nm">${esc(p.n)}</span>
+    <span class="st">${r.far?"遠景✓":"遠景−"} ${r.near?"近景✓":"近景−"} ／ ${esc(r.status||"未調査")}${r.note?"・"+esc(r.note):""}</span>${res}</div>`}).join("");
+  L.querySelectorAll(".pt").forEach(d=>d.onclick=()=>{select(d.dataset.n)});
+}
+
+/* --- 地図(Leaflet) --- */
+let map=null,mLayer=null,meMk=null;
+function drawMap(){
+  const msg=$("mapmsg");
+  if(typeof L==="undefined"){msg.style.display="flex";msg.innerHTML="地図の部品を読み込めませんでした（電波がない可能性）。<br>配置図タブで作業できます。";return}
+  if(!ST.fit){msg.style.display="flex";const k=ST.pts.filter(p=>{const r=ST.rec[p.n];return r&&r.near&&r.near.lat!=null}).length;
+    msg.innerHTML=`この点は任意座標のため、まだ地図に載せられません。<br><b>点の上に立って近景を撮る</b>と、そのときの位置で地図に合わせます。<br>近景（位置あり）：${k}点 ／ 必要：2点以上（なるべく離れた点）`;return}
+  msg.style.display="none";
+  if(!map){map=L.map("map",{zoomControl:true});
+    const std=L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",{maxZoom:20,maxNativeZoom:18,attribution:"地理院タイル"});
+    const pho=L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",{maxZoom:20,maxNativeZoom:18,attribution:"地理院タイル"});
+    pho.addTo(map);L.control.layers({"航空写真":pho,"標準地図":std}).addTo(map);mLayer=L.layerGroup().addTo(map);map._fitted=false}
+  mLayer.clearLayers();const ll=[];
+  ST.pts.forEach(p=>{const q=s2ll(p.x,p.y);ll.push([q.lat,q.lon]);
+    L.circleMarker([q.lat,q.lon],{radius:9,color:"#222",weight:1.5,fillColor:color(p.n),fillOpacity:1}).addTo(mLayer).bindTooltip(p.n,{permanent:true,direction:"right",offset:[8,0]}).on("click",()=>select(p.n));
+    const r=ST.rec[p.n];if(r&&r.near&&r.near.lat!=null)L.polyline([[q.lat,q.lon],[r.near.lat,r.near.lon]],{color:r.near.res>NEAR_LIMIT?"#e67e22":"#555",weight:1,dashArray:"3 3"}).addTo(mLayer)});
+  if(ST.gps){if(!meMk)meMk=L.circleMarker([0,0],{radius:7,color:"#fff",weight:2,fillColor:"#3498db",fillOpacity:1});meMk.setLatLng([ST.gps.lat,ST.gps.lon]).addTo(map)}
+  if(!map._fitted&&$("vmap").classList.contains("on")){map.invalidateSize();map.fitBounds(ll,{padding:[40,40],maxZoom:19});map._fitted=true}
+}
+
+/* --- 案内（最寄りの未撮影点） --- */
+const DIR16=["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
+function drawGuide(){
+  const g=$("guide");
+  if(!ST.gps){g.style.display="none";return}
+  if(!ST.fit){g.style.display="block";g.innerHTML=`📍 GPS 精度±${Math.round(ST.gps.acc)}m ／ 地図合わせ前：近景を2点以上撮ると距離・方位を案内します`;return}
+  const me=ll2s(ST.gps.lat,ST.gps.lon);let best=null;
+  ST.pts.filter(p=>!isDone(p.n)).forEach(p=>{const d=Math.hypot(p.x-me.x,p.y-me.y);if(!best||d<best.d)best={p,d}});
+  g.style.display="block";
+  if(!best){g.innerHTML="✅ すべての点を撮影済みです";return}
+  // 任意座標上の方位 → 実際の方位へ（回転分を補正）
+  const azS=Math.atan2(best.p.y-me.y,best.p.x-me.x); const az=(azS*180/Math.PI - ST.fit.th*180/Math.PI + 360)%360;
+  g.innerHTML=`➡ 最寄りの未撮影：<b>${esc(best.p.n)}</b> まで約 <b>${best.d<1?"<1":Math.round(best.d)}m</b>（${DIR16[Math.round(az/22.5)%16]}）　GPS±${Math.round(ST.gps.acc)}m`;
+}
+
+/* --- 点の詳細パネル --- */
+function select(n){ST.sel=n;drawPanel();drawSvg();}
+async function drawPanel(){
+  const P=$("panel"),n=ST.sel,p=ST.pts.find(q=>q.n===n);if(!p){P.classList.remove("on");return}
+  const r=rec(n);
+  const meta=k=>{const s=r[k];if(!s)return "未撮影";let t=new Date(s.t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+    if(k==="near")t+=s.lat!=null?`／位置±${Math.round(s.acc)}m${s.res!=null?`／ずれ<span class="${s.res>NEAR_LIMIT?'warn':''}">${s.res.toFixed(1)}m</span>`:""}`:"／位置なし";return t};
+  P.innerHTML=`<h3><span class="dot" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${color(n)};border:2px solid #333"></span>${esc(n)}<button class="x" id="pclose">✕</button></h3>
+  <div class="coord">X=${p.x.toFixed(3)}　Y=${p.y.toFixed(3)}${p.h!=null?"　H="+p.h.toFixed(3):""}</div>
+  <div class="shots">
+    <div class="shot"><button id="bfar" class="${r.far?'has':''}">📷 遠景</button><div class="meta">${meta("far")}</div><img id="ifar"></div>
+    <div class="shot"><button id="bnear" class="${r.near?'has':''}">📷 近景<br><small>点の上で撮る</small></button><div class="meta">${meta("near")}</div><img id="inear"></div>
+  </div>
+  <div class="frm"><select id="pst">${STATUSES.map(s=>`<option ${s===r.status?"selected":""}>${s}</option>`).join("")}</select>
+  <input id="pnote" placeholder="備考" value="${esc(r.note||"")}"></div>
+  ${isOff(n)?`<p class="small warn">近景の位置が、ほかの点から計算した位置と${NEAR_LIMIT}m以上ずれています。点名違い・離れた場所からの撮影でないか確認してください。<button id="pexcl">この近景を位置合わせに使わない</button></p>`:""}
+  ${r.near&&r.near.exclude?`<p class="small">この近景は位置合わせに使っていません。<button id="pincl">使う</button></p>`:""}`;
+  P.classList.add("on");
+  $("pclose").onclick=()=>{ST.sel=null;P.classList.remove("on");drawSvg()};
+  $("bfar").onclick=()=>shoot("far");$("bnear").onclick=()=>shoot("near");
+  $("pst").onchange=e=>{r.status=e.target.value;save();refresh()};
+  $("pnote").onchange=e=>{r.note=e.target.value;save()};
+  if($("pexcl"))$("pexcl").onclick=()=>{r.near.exclude=true;save();refresh()};
+  if($("pincl"))$("pincl").onclick=()=>{r.near.exclude=false;save();refresh()};
+  for(const k of ["far","near"]){if(r[k]){const b=await getPhoto(pkey(n,k));const im=$("i"+k);if(b&&im){im.src=URL.createObjectURL(b);im.style.display="block"}}}
+}
+
+/* --- 撮影 --- */
+let shootKind=null,shootName=null;
+function shoot(kind){
+  shootKind=kind;shootName=ST.sel;
+  if(kind==="near"&&!ST.watch)startGps();   // 近景は位置を記録するため現在地を起動
+  $("cam").value="";$("cam").click();
+}
+$("cam").onchange=async e=>{
+  const f=e.target.files[0];if(!f||!shootName)return;
+  const r=rec(shootName);const g=ST.gps&&(Date.now()-ST.gps.t<30000)?ST.gps:null;
+  const info={t:Date.now(),lat:null,lon:null,acc:null};
+  if(shootKind==="near"){if(g){info.lat=g.lat;info.lon=g.lon;info.acc=g.acc}else toast("現在地が取れていないため、近景の位置は記録されませんでした（写真は保存済み）",5000)}
+  try{await putPhoto(pkey(shootName,shootKind),f)}catch(err){toast("写真の保存に失敗しました");return}
+  r[shootKind]=info; if(r.status==="未調査"&&shotCount(shootName)>=1)r.status="確認済";
+  save();refresh();
+  if(shotCount(shootName)>=2)toast(`${shootName}：遠景・近景そろいました`);
+};
+
+/* --- GPS --- */
+function startGps(){
+  if(!navigator.geolocation){toast("この端末では現在地が使えません");return}
+  ST.watch=navigator.geolocation.watchPosition(p=>{ST.gps={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,t:Date.now()};drawGuide();drawSvg();if(map&&meMk)drawMap()},
+    err=>{if(ST.gps&&Date.now()-ST.gps.t<60000)return;toast(err.code===1?"位置情報の利用が許可されていません。ブラウザの設定で許可してください":"現在地を取得中です。空の見える場所で少し待ってください",4000)},{enableHighAccuracy:true,maximumAge:2000,timeout:30000});
+  $("gpsbtn").classList.add("on");keepAwake();
+}
+function stopGps(){if(ST.watch!=null)navigator.geolocation.clearWatch(ST.watch);ST.watch=null;ST.gps=null;$("gpsbtn").classList.remove("on");drawGuide();drawSvg()}
+let wake=null;async function keepAwake(){try{if("wakeLock" in navigator&&!wake){wake=await navigator.wakeLock.request("screen");wake.addEventListener("release",()=>wake=null)}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&ST.watch!=null)keepAwake()});
+$("gpsbtn").onclick=()=>ST.watch!=null?stopGps():startGps();
+$("fitbtn").onclick=()=>{if($("vmap").classList.contains("on")&&map&&ST.fit){map._fitted=false;drawMap()}else{fitView();drawSvg()}};
+
+/* --- タブ --- */
+document.querySelectorAll("nav button[data-v]").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button[data-v]").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id===b.dataset.v));
+  if(b.dataset.v==="vmap"){drawMap();if(map)setTimeout(()=>{map.invalidateSize();if(!map._fitted)drawMap()},50)}
+  if(b.dataset.v==="vsvg"){fitView();drawSvg()}
+});
+
+/* --- モーダル --- */
+function modal(html){$("mbox").innerHTML=html;$("modal").style.display="flex"}
+function closeModal(){$("modal").style.display="none"}
+$("modal").onclick=e=>{if(e.target.id==="modal")closeModal()};
+$("menubtn").onclick=()=>{
+  const projs=Object.keys(localStorage).filter(k=>k.startsWith("sc_proj:")).map(k=>k.slice(8));
+  modal(`<h4>出力・設定</h4><div class="menu">
+  <button id="mexp">📦 写真＋調査表を出力（ZIP）</button>
+  <button id="msim">📂 SIMAファイルを読み込む</button>
+  <button id="mpaste">📋 点データを貼り付けて読み込む</button>
+  ${projs.length>1?`<button id="mswitch">🔁 現場を切り替える（${projs.length}件）</button>`:""}
+  <button id="mfit">ℹ 地図合わせの状態</button>
+  </div><p class="small">写真と記録はこのスマホの中に保存されます。作業日ごとにZIPを出力して、案件フォルダに保存してください。</p>
+  <div class="btns"><button onclick="closeModal()">閉じる</button></div>`);
+  $("mexp").onclick=()=>checkExport();
+  $("msim").onclick=()=>{closeModal();$("simfile").value="";$("simfile").click()};
+  $("mpaste").onclick=pasteDialog;
+  if($("mswitch"))$("mswitch").onclick=()=>{modal(`<h4>現場を切り替える</h4><div class="menu">${projs.map(p=>`<button data-p="${esc(p)}">${esc(p)}${p===ST.proj?"（表示中）":""}</button>`).join("")}</div><div class="btns"><button onclick="closeModal()">閉じる</button></div>`);
+    document.querySelectorAll("#mbox [data-p]").forEach(b=>b.onclick=()=>{load(b.dataset.p);save();vb=null;ST.sel=null;$("panel").classList.remove("on");closeModal();refresh()})};
+  $("mfit").onclick=()=>{const f=ST.fit;modal(`<h4>地図合わせの状態</h4><p class="small">${f?`近景 ${f.n}点の位置から計算中。点の広がり約${Math.round(f.span)}m、ずれの平均（RMS）${f.rms.toFixed(1)}m、回転 ${(f.th*180/Math.PI).toFixed(1)}°。<br>スマホGPSは5〜10mずれるため、点を探す目安として使ってください。撮る点が増えるほど正確になります。`:"まだ計算できません。点の上に立って近景を撮ると、その位置を使って地図に合わせます（2点以上・なるべく離れた点）。"}</p><div class="btns"><button onclick="closeModal()">閉じる</button></div>`)};
+};
+function pasteDialog(){
+  modal(`<h4>点データを貼り付け</h4><p class="small">SIMAの中身（A01行）か、「点名,X,Y,H」の行を貼り付けます。</p>
+  <input id="pp" placeholder="現場名" value="${esc(ST.proj)}" style="width:100%;padding:6px;margin-bottom:6px">
+  <input id="pf" placeholder="点名の絞り込み（例：^TA　空欄なら全点）" style="width:100%;padding:6px;margin-bottom:6px">
+  <textarea id="pt"></textarea><div class="btns"><button onclick="closeModal()">やめる</button><button class="pri" id="pok">読み込む</button></div>`);
+  $("pok").onclick=()=>{const t=$("pt").value,f=$("pf").value.trim();let a=parseSima(t,f);
+    if(!a.length){let re=null;try{re=f?new RegExp(f,"i"):null}catch(e){}a=parseD(t.split(/\r?\n/).join(";").replace(/\t/g,",")).filter(p=>!re||re.test(p.n))}
+    if(!a.length){toast("点を読み取れませんでした");return}importPts($("pp").value.trim()||"現場",a)};
+}
+$("simfile").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;const buf=await f.arrayBuffer();let t;
+  try{t=new TextDecoder("shift_jis",{fatal:true}).decode(buf)}catch(err){t=new TextDecoder("utf-8").decode(buf)}
+  modal(`<h4>SIMAの読込</h4><p class="small">${esc(f.name)}：A01 ${parseSima(t,"").length}点</p>
+  <input id="sp" placeholder="現場名" value="${esc(f.name.replace(/\.sim$/i,""))}" style="width:100%;padding:6px;margin-bottom:6px">
+  <input id="sf" placeholder="点名の絞り込み（例：^TA　空欄なら全点）" style="width:100%;padding:6px">
+  <div class="btns"><button onclick="closeModal()">やめる</button><button class="pri" id="sok">読み込む</button></div>`);
+  $("sok").onclick=()=>{const a=parseSima(t,$("sf").value.trim());if(!a.length){toast("該当する点がありません");return}importPts($("sp").value.trim()||"現場",a)};
+};
+function importPts(proj,a){load(proj);a.forEach(q=>{const o=ST.pts.find(p=>p.n===q.n);if(o){o.x=q.x;o.y=q.y;o.h=q.h}else ST.pts.push(q)});save();vb=null;closeModal();refresh();toast(`${proj}：${a.length}点を読み込みました`)}
+
+/* --- 出力（撮影漏れチェック → ZIP） --- */
+function checkExport(){
+  const miss=ST.pts.filter(p=>!isDone(p.n)),off=ST.pts.filter(p=>isOff(p.n));
+  if(!miss.length&&!off.length){exportZip();return}
+  modal(`<h4>⚠ 出力前の確認</h4>
+  ${miss.length?`<p><b>撮影がそろっていない点：${miss.length}点</b></p><p class="small">${miss.map(p=>`${esc(p.n)}（${ST.rec[p.n]&&ST.rec[p.n].far?"遠景✓":"遠景−"} ${ST.rec[p.n]&&ST.rec[p.n].near?"近景✓":"近景−"}）`).join("<br>")}</p>`:""}
+  ${off.length?`<p><b>位置が${NEAR_LIMIT}m以上ずれている点：</b>${off.map(p=>esc(p.n)).join("、")}</p>`:""}
+  <p class="small">亡失・対象外の点は、状況を変えれば「済」になります。</p>
+  <div class="btns"><button class="pri" onclick="closeModal()">戻って撮る</button><button id="xgo">このまま出力</button></div>`);
+  $("xgo").onclick=()=>{closeModal();exportZip()};
+}
+async function exportZip(){
+  toast("ZIPを作成中…",10000);
+  const files=[];const _d=new Date(),ymd=`${_d.getFullYear()}${String(_d.getMonth()+1).padStart(2,"0")}${String(_d.getDate()).padStart(2,"0")}`;
+  const head=["点名","X(任意)","Y(任意)","H","状況","遠景","近景","近景_緯度","近景_経度","GPS精度m","ずれm","位置合わせ","撮影日時(近景)","推定_緯度","推定_経度","備考"];
+  const rows=[head];
+  for(const p of ST.pts){const r=ST.rec[p.n]||{};
+    for(const k of ["far","near"]){if(r[k]){const b=await getPhoto(pkey(p.n,k));if(b)files.push({name:`写真/${safe(p.n)}_${k==="far"?"遠景":"近景"}.jpg`,data:new Uint8Array(await b.arrayBuffer())})}}
+    const nr=r.near||{};const est=ST.fit?s2ll(p.x,p.y):null;
+    rows.push([p.n,p.x.toFixed(3),p.y.toFixed(3),p.h==null?"":p.h.toFixed(3),r.status||"未調査",r.far?"○":"",r.near?"○":"",
+      nr.lat!=null?nr.lat.toFixed(7):"",nr.lon!=null?nr.lon.toFixed(7):"",nr.acc!=null?Math.round(nr.acc):"",nr.res!=null?nr.res.toFixed(1):"",
+      nr.lat==null?"":nr.exclude?"使わない":"使う",nr.t?new Date(nr.t).toLocaleString("ja-JP"):"",est?est.lat.toFixed(7):"",est?est.lon.toFixed(7):"",r.note||""]);
+  }
+  const csv="﻿"+rows.map(r=>r.map(c=>/[",\n]/.test(String(c))?`"${String(c).replace(/"/g,'""')}"`:c).join(",")).join("\r\n");
+  files.unshift({name:`調査表_${safe(ST.proj)}_${ymd}.csv`,data:new TextEncoder().encode(csv)});
+  if(ST.fit){const f=ST.fit;files.push({name:"地図合わせ_参考.txt",data:new TextEncoder().encode(
+    `現場：${ST.proj}\r\n任意座標をスマホGPS（近景${f.n}点）に合わせた参考値です。精度はスマホGPS程度（数m〜10m）で、測量成果には使えません。\r\nずれRMS：${f.rms.toFixed(2)}m　回転：${(f.th*180/Math.PI).toFixed(3)}°　点の広がり：${Math.round(f.span)}m\r\n推定緯度経度は調査表の「推定_緯度」「推定_経度」列にあります。\r\n`)})}
+  const blob=makeZip(files);
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`SIMA撮影_${safe(ST.proj)}_${ymd}.zip`;document.body.appendChild(a);a.click();a.remove();
+  closeModal();toast(`ZIPを出力しました（写真${files.filter(f=>f.name.startsWith("写真/")).length}枚）`,4000);
+}
+function safe(s){return String(s).replace(/[\\/:*?"<>|]/g,"_")}
+/* 無圧縮ZIP（外部ライブラリなし・ファイル名UTF-8） */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(d){let c=0xFFFFFFFF;for(let i=0;i<d.length;i++)c=CRC[(c^d[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function makeZip(files){
+  const enc=new TextEncoder(),parts=[],cen=[];let off=0;const now=new Date();
+  const dt=((now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1))&0xFFFF, dd=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate())&0xFFFF;
+  for(const f of files){const nm=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+    const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,dt,true);h.setUint16(12,dd,true);h.setUint32(14,crc,true);h.setUint32(18,sz,true);h.setUint32(22,sz,true);h.setUint16(26,nm.length,true);h.setUint16(28,0,true);
+    parts.push(new Uint8Array(h.buffer),nm,f.data);
+    const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,dt,true);c.setUint16(14,dd,true);c.setUint32(16,crc,true);c.setUint32(20,sz,true);c.setUint32(24,sz,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+    cen.push(new Uint8Array(c.buffer),nm);off+=30+nm.length+sz}
+  const cs=cen.reduce((s,a)=>s+a.length,0);const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cen,new Uint8Array(e.buffer)],{type:"application/zip"});
+}
+
+/* ===== 起動 ===== */
+if(!readHash()){const last=lsGet("sc_last",null);if(last)load(last)}
+window.addEventListener("hashchange",()=>{if(readHash()){vb=null;refresh()}});
+window.addEventListener("resize",()=>{vb=null;drawSvg()});
+setTimeout(()=>{fitView();refresh()},0);
+</script>
+</body>
+</html>
